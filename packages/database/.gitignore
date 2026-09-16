@@ -1,5 +1,7 @@
-node_modules/
-dist/
+node_modules
+# Keep environment variables out of version control
 .env
-/.alchemy
-/.prisma-composer
+
+# Build output + generated client (recreated by `pnpm build` / `prisma generate`)
+/dist
+/src/generated

@@ -1,19 +1,9 @@
-import { createServer } from "node:http";
-
-import { listUsers } from "./prisma/users";
-
-const port = Number(process.env.PORT ?? 3000);
-
-createServer(async (_request, response) => {
-  try {
-    const users = await listUsers();
-    response.writeHead(200, { "content-type": "application/json" });
-    response.end(JSON.stringify({ users }));
-  } catch (error) {
-    console.error("Failed to query users:", error);
-    response.writeHead(500, { "content-type": "application/json" });
-    response.end(JSON.stringify({ error: "Could not query users yet." }));
-  }
-}).listen(port, "0.0.0.0", () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
+/**
+ * Public entry of the `database` package for NestJS (`import ... from 'database'`).
+ *
+ * Re-exports the generated Prisma v7 client. Domain models (User, Post, …)
+ * appear here automatically once defined in `prisma/schema.prisma` +
+ * `prisma generate` — no hand-written query code lives in this package.
+ */
+export { Prisma, PrismaClient } from "./generated/prisma/client.js";
+export type * from "./generated/prisma/models.js";
