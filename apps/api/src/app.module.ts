@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
-import { PrismaService } from './prisma.service.js';
-import { UsersController } from './users.controller.js';
-import { UsersService } from './users.service.js';
+// Feature modules (e.g. UsersModule with its Prisma repository) are added
+// here once their models exist in `packages/database/prisma/schema.prisma`.
+import { PrismaModule } from './shared/prisma/prisma.module.js';
 
 @Module({
-  imports: [],
-  controllers: [AppController, UsersController],
-  providers: [AppService, PrismaService, UsersService],
+  imports: [PrismaModule],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}
