@@ -1,0 +1,25 @@
+# Local dev database for Postly.
+# Host port 5433 on purpose: 5432 is commonly taken by other projects.
+# Start:  docker compose up -d
+# Stop:   docker compose down      (data survives in the `postly-pgdata` volume)
+# Reset:  docker compose down -v  (deletes all local data)
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postly
+      POSTGRES_PASSWORD: postly
+      POSTGRES_DB: postly
+    ports:
+      - "5433:5432"
+    volumes:
+      - postly-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postly -d postly"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postly-pgdata:
