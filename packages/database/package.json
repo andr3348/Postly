@@ -18,7 +18,11 @@
   "scripts": {
     "build": "prisma generate && tsc -p tsconfig.build.json",
     "check-types": "tsc --noEmit",
-    "generate": "prisma generate"
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "push": "prisma db push",
+    "studio": "prisma studio",
+    "reset": "prisma migrate reset"
   },
   "keywords": [],
   "author": "",
