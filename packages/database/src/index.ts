@@ -1,5 +1,6 @@
 /**
- * Public entry of the `database` package for NestJS (`import ... from 'database'`).
+ * Public entry of the `@postly/database` package for NestJS
+ * (`import ... from '@postly/database'`).
  *
  * Re-exports the generated Prisma v7 client. Domain models (User, Post, …)
  * appear here automatically once defined in `prisma/schema.prisma` +
