@@ -1,13 +1,101 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
-generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
-}
-
 datasource db {
   provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  MARKETING
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum PublicationStatus {
+  DRAFT
+  SCHEDULED
+  PROCESSING
+  PUBLISHED
+  PARTIAL
+  FAILED
+}
+
+enum Platform {
+  FACEBOOK
+  INSTAGRAM
+  LINKEDIN
+  TIKTOK
+}
+
+enum PlatformStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  name          String
+  role          Role          @default(MARKETING)
+  publications  Publication[]
+  createdAt     DateTime      @default(now())
+}
+
+model Publication {
+  id              String             @id @default(cuid())
+  userId          String
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  originalPrompt  String             
+  systemPrompt    String?            
+  modelText       String             @default("gpt-4o") 
+  modelMedia      String?           
+  tokensUsed      Int?              
+  copy            String            
+  mediaUrl        String           
+  mediaType       MediaType          @default(IMAGE)
+  status          PublicationStatus  @default(DRAFT)
+  scheduledAt     DateTime?
+  targets         PublicationTarget[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([userId, status])
+}
+
+model PublicationTarget {
+  id              String          @id @default(cuid())
+  publicationId   String
+  publication     Publication     @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  platform        Platform
+  status          PlatformStatus  @default(PENDING)
+  externalPostId  String? 
+  externalPostUrl String? 
+  errorMessage    String?
+  metrics         TargetMetric[]
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([publicationId, platform])
+}
+
+model TargetMetric {
+  id                  String            @id @default(cuid())
+  publicationTargetId String
+  publicationTarget   PublicationTarget @relation(fields: [publicationTargetId], references: [id], onDelete: Cascade)
+  impressions         Int               @default(0)
+  likes               Int               @default(0)
+  comments            Int               @default(0)
+  shares              Int               @default(0)
+  clicks              Int               @default(0)
+
+  capturedAt          DateTime          @default(now())
+
+  @@index([publicationTargetId, capturedAt])
 }
