@@ -22,7 +22,8 @@
     "migrate": "prisma migrate dev",
     "push": "prisma db push",
     "studio": "prisma studio",
-    "reset": "prisma migrate reset"
+    "reset": "prisma migrate reset",
+    "seed": "tsx prisma/seed.ts"
   },
   "keywords": [],
   "author": "",
@@ -40,5 +41,8 @@
     "@prisma/client": "7.10.0",
     "dotenv": "^17.4.2",
     "pg": "^8.23.0"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }
