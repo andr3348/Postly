@@ -5,12 +5,15 @@ async function main() {
   await prisma.targetMetric.deleteMany();
   await prisma.publicationTarget.deleteMany();
   await prisma.publication.deleteMany();
+  await prisma.connectedAccount.deleteMany();
   await prisma.user.deleteMany();
 
   const user = await prisma.user.create({
     data: {
       email: 'marketing@almaquinta.com',
       name: 'Equipo Marketing',
+      // Solo seed local. En real: hash bcrypt/argon2 generado en registro.
+      passwordHash: 'seed-local-no-usar-en-produccion',
     },
   });
 
