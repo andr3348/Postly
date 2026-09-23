@@ -3,12 +3,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
 import { PrismaService } from './../src/shared/prisma/prisma.service.js';
+import { setupApp } from './../src/setup-app.js';
 
-interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-}
-
+/**
+ * Flujo por cookies HttpOnly: el agent conserva el jar entre requests,
+ * igual que un navegador. Los tokens jamás aparecen en el JSON.
+ */
 describe('Auth (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -23,6 +23,9 @@ describe('Auth (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    // Mismo prefijo y middlewares que `main.ts`: el e2e pega a lo real.
+    app.setGlobalPrefix('api');
+    setupApp(app);
     await app.init();
     prisma = app.get(PrismaService);
   });
@@ -32,48 +35,55 @@ describe('Auth (e2e)', () => {
     await app.close();
   });
 
-  it('register → login → refresh → me', async () => {
-    const server = app.getHttpServer();
+  function setCookiesOf(response: { headers: Record<string, string | string[]> }): string[] {
+    const raw = response.headers['set-cookie'];
+    return Array.isArray(raw) ? raw : [];
+  }
 
-    const register = await request(server)
-      .post('/auth/register')
+  function expectAuthCookies(response: { headers: Record<string, string | string[]> }): void {
+    const cookies = setCookiesOf(response);
+    const access = cookies.find((c) => c.startsWith('accessToken='));
+    const refresh = cookies.find((c) => c.startsWith('refreshToken='));
+    expect(access).toContain('HttpOnly');
+    expect(refresh).toContain('HttpOnly');
+  }
+
+  it('register → login → refresh → me (solo cookies, sin tokens en JSON)', async () => {
+    const agent = request.agent(app.getHttpServer());
+
+    const register = await agent
+      .post('/api/auth/register')
       .send({ email, name: 'E2E', password: 'secreto-123' })
       .expect(201);
-    expect(register.body.user.email).toBe(email);
+    expect(register.body).toEqual({ user: expect.objectContaining({ email }) });
     expect(register.body.user).not.toHaveProperty('passwordHash');
-    expect(register.body.tokens.accessToken).toEqual(expect.any(String));
+    expect(register.body).not.toHaveProperty('tokens');
+    expect(register.body).not.toHaveProperty('accessToken');
+    expectAuthCookies(register);
 
-    const login = await request(server)
-      .post('/auth/login')
-      .send({ email, password: 'secreto-123' })
-      .expect(200);
-    const tokens = login.body.tokens as TokenPair;
+    await agent.post('/api/auth/login').send({ email, password: 'secreto-123' }).expect(200);
 
-    const refreshed = await request(server)
-      .post('/auth/refresh')
-      .send({ refreshToken: tokens.refreshToken })
-      .expect(200);
-    const rotated = refreshed.body.tokens as TokenPair;
-    expect(rotated.accessToken).toEqual(expect.any(String));
+    const refreshed = await agent.post('/api/auth/refresh').expect(200);
+    expect(refreshed.body).toEqual({ user: expect.objectContaining({ email }) });
+    expect(refreshed.body).not.toHaveProperty('tokens');
+    expectAuthCookies(refreshed);
 
-    const me = await request(server)
-      .get('/auth/me')
-      .set('Authorization', `Bearer ${rotated.accessToken}`)
-      .expect(200);
+    const me = await agent.get('/api/auth/me').expect(200);
     expect(me.body).toMatchObject({ email });
   });
 
   it('rejects wrong password with 401 and invalid bodies with 400', async () => {
-    const server = app.getHttpServer();
-    await request(server)
-      .post('/auth/register')
+    const agent = request.agent(app.getHttpServer());
+    await agent
+      .post('/api/auth/register')
       .send({ email, name: 'E2E', password: 'secreto-123' })
       .expect(201);
 
-    await request(server).post('/auth/login').send({ email, password: 'otra' }).expect(401);
-    await request(server).get('/auth/me').expect(401);
-    await request(server)
-      .post('/auth/register')
+    await agent.post('/api/auth/login').send({ email, password: 'otra' }).expect(401);
+    await request(app.getHttpServer()).get('/api/auth/me').expect(401);
+    await request(app.getHttpServer()).post('/api/auth/refresh').expect(401);
+    await agent
+      .post('/api/auth/register')
       .send({ email: 'no-es-email', name: '', password: 'x' })
       .expect(400);
   });
