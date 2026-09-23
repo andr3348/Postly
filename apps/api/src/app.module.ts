@@ -1,14 +1,23 @@
 import { Module, StandardSchemaValidationPipe } from '@nestjs/common';
+import { APP_FILTER, APP_PIPE } from '@nestjs/core';
+import { ConfigModule } from '@nestjs/config';
+import { DomainExceptionFilter } from './shared/filters.js';
+import { resolveApiEnvFilePath } from './shared/env-file-path.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
-import { APP_FILTER, APP_PIPE } from '@nestjs/core';
-import { DomainExceptionFilter } from './shared/filters.js';
 import { PrismaModule } from './shared/prisma/prisma.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 
 @Module({
-  imports: [PrismaModule, DashboardModule, AuthModule],
+  imports: [
+    PrismaModule,
+    DashboardModule,
+    AuthModule,
+    // Configuración propia de Nest (`ConfigService`): carga `apps/api/.env`
+    // sin `dotenv` directo. Global para no importar en cada módulo.
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: resolveApiEnvFilePath(), cache: true }),
+  ],
   controllers: [AppController],
   providers: [
     AppService,

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from '../../shared/prisma/prisma.module.js';
 import { LoginUseCase } from './application/login.use-case.js';
@@ -36,7 +37,7 @@ import { AuthController } from './presentation/auth.controller.js';
     { provide: USERS_REPOSITORY, useClass: PrismaUsersRepository },
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
     { provide: TOKEN_ISSUER, useClass: JwtTokenIssuer },
-    { provide: AUTH_JWT_OPTIONS, useFactory: resolveAuthJwtOptions },
+    { provide: AUTH_JWT_OPTIONS, inject: [ConfigService], useFactory: resolveAuthJwtOptions },
   ],
   exports: [JwtAuthGuard],
 })
