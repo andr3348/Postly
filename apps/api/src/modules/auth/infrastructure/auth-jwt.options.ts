@@ -1,41 +1,36 @@
-import type { JwtSignOptions } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { z } from 'zod';
 
 /**
- * Opciones JWT del módulo auth, leídas del entorno del api.
+ * Opciones JWT del módulo auth.
  * `DATABASE_URL` sigue siendo propiedad exclusiva de `packages/database`;
- * estos secretos son las primeras variables propias del api.
+ * estos secretos son variables propias del api (ver docs/backend.md).
+ *
+ * Expiraciones en **segundos** (número): `jsonwebtoken` los acepta de forma
+ * nativa, así el tipado es exacto de punta a punta sin casts en el borde
+ * (`'15m'` obligaría a estrechar `string` al tipo `StringValue` a mano).
  */
-export interface AuthJwtOptions {
-  readonly accessSecret: string;
-  readonly refreshSecret: string;
-  readonly accessExpiresIn: JwtSignOptions['expiresIn'];
-  readonly refreshExpiresIn: JwtSignOptions['expiresIn'];
-}
+const authJwtOptionsSchema = z.object({
+  accessSecret: z.string().min(1),
+  refreshSecret: z.string().min(1),
+  accessExpiresInSeconds: z.coerce.number().int().positive().default(900),
+  refreshExpiresInSeconds: z.coerce.number().int().positive().default(604_800),
+});
+
+export type AuthJwtOptions = z.infer<typeof authJwtOptionsSchema>;
 
 export const AUTH_JWT_OPTIONS: unique symbol = Symbol('AuthJwtOptions');
 
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (value === undefined || value === '') {
-    throw new Error(
-      `[auth] Missing required env var ${name}. ` +
-        'Define it in the api environment (see README §7).',
-    );
-  }
-  return value;
-}
-
-/** Factoría usada en `AuthModule`; falla rápido y con mensaje claro. */
-export function resolveAuthJwtOptions(): AuthJwtOptions {
-  return {
-    accessSecret: requiredEnv('JWT_ACCESS_SECRET'),
-    refreshSecret: requiredEnv('JWT_REFRESH_SECRET'),
-    // `process.env` entrega `string`: cast explícito en el borde al tipo
-    // que jsonwebtoken acepta (`'15m'`, `'7d'`, segundos...). Si el valor
-    // fuese inválido, `sign` lo rechaza al primer uso, no en silencio.
-    accessExpiresIn: (process.env['JWT_ACCESS_EXPIRES_IN'] ??
-      '15m') as JwtSignOptions['expiresIn'],
-    refreshExpiresIn: (process.env['JWT_REFRESH_EXPIRES_IN'] ??
-      '7d') as JwtSignOptions['expiresIn'],
-  };
+/**
+ * Factoría usada en `AuthModule`. `getOrThrow` falla rápido sin secretos;
+ * el schema valida forma y defaults. Sin `dotenv` directo: la carga del
+ * `.env` la hace `ConfigModule` (ver `AppModule`).
+ */
+export function resolveAuthJwtOptions(config: ConfigService): AuthJwtOptions {
+  return authJwtOptionsSchema.parse({
+    accessSecret: config.getOrThrow<string>('JWT_ACCESS_SECRET'),
+    refreshSecret: config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+    accessExpiresInSeconds: config.get<string>('JWT_ACCESS_EXPIRES_IN_SECONDS'),
+    refreshExpiresInSeconds: config.get<string>('JWT_REFRESH_EXPIRES_IN_SECONDS'),
+  });
 }

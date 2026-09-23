@@ -37,7 +37,7 @@ export class RegisterUseCase {
 
   async execute(input: RegisterInput): Promise<RegisterOutput> {
     const existing = await this.users.findByEmail(input.email);
-    if (!existing) throw new EmailAlreadyTakenError(input.email);
+    if (existing !== null) throw new EmailAlreadyTakenError(input.email);
 
     const passwordHash = await this.hasher.hash(input.password);
     const user = await this.users.create({

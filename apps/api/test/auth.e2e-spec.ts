@@ -12,9 +12,12 @@ interface TokenPair {
 describe('Auth (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
-  const email = `e2e-${Date.now()}@postly.test`;
+  // Email fresco por test: independencia total aunque una corrida anterior
+  // haya muerto antes del cleanup (el afterEach cubre el caso normal).
+  let email: string;
 
   beforeEach(async () => {
+    email = `e2e-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}@postly.test`;
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

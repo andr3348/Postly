@@ -43,14 +43,14 @@ export class JwtTokenIssuer implements TokenIssuer {
         { sub: user.id, email: user.email, role: user.role },
         {
           secret: this.options.accessSecret,
-          expiresIn: this.options.accessExpiresIn,
+          expiresIn: this.options.accessExpiresInSeconds,
         },
       ),
       this.jwt.signAsync(
         { sub: user.id, type: REFRESH_TOKEN_TYPE },
         {
           secret: this.options.refreshSecret,
-          expiresIn: this.options.refreshExpiresIn,
+          expiresIn: this.options.refreshExpiresInSeconds,
         },
       ),
     ]);

@@ -5,8 +5,8 @@ import { JwtTokenIssuer } from '../../../../../src/modules/auth/infrastructure/j
 const OPTIONS: AuthJwtOptions = {
   accessSecret: 'test-access-secret-32-chars-min!!',
   refreshSecret: 'test-refresh-secret-32-chars-min!',
-  accessExpiresIn: '15m',
-  refreshExpiresIn: '7d',
+  accessExpiresInSeconds: 900,
+  refreshExpiresInSeconds: 604_800,
 };
 
 describe('JwtTokenIssuer', () => {
