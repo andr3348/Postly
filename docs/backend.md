@@ -53,11 +53,13 @@ ceremonia. Revisitar cuando una entidad necesite métodos
 ## 2. Contratos del api
 
 1. **Secretos JWT son propiedad del api** (`JWT_ACCESS_SECRET`,
-   `JWT_REFRESH_SECRET`, expiraciones opcionales `JWT_ACCESS_EXPIRES_IN=15m`,
-   `JWT_REFRESH_EXPIRES_IN=7d`). Viven en `apps/api/.env`, que el propio api
-   autocarga (`src/shared/env.ts`, anclado al package root — independiente del
-   CWD en dev, `dist/` y tests). `DATABASE_URL` sigue siendo exclusiva de
-   `packages/database`. Variables reales siempre ganan (dotenv no sobrescribe).
+   `JWT_REFRESH_SECRET`, opcionales `JWT_ACCESS_EXPIRES_IN_SECONDS=900` y
+   `JWT_REFRESH_EXPIRES_IN_SECONDS=604800`). Viven en `apps/api/.env`, que
+   carga el `ConfigModule` propio de Nest (`isGlobal`, ruta anclada al package
+   root en `src/shared/env-file-path.ts` — independiente del CWD en dev,
+   `dist/` y tests; sin `dotenv` como dependencia directa). `DATABASE_URL`
+   sigue siendo exclusiva de `packages/database`. Variables reales siempre
+   ganan. Validación de forma con Zod en la factoría de opciones.
 2. **Validación Zod-first (NestJS v12):** schemas en `@Body({ schema })` +
    `StandardSchemaValidationPipe` como `APP_PIPE` en `AppModule` (aplica igual
    en prod que en tests, que no pasan por `main.ts`).
