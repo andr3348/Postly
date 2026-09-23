@@ -9,6 +9,9 @@ async function bootstrap() {
   // Lets `PrismaService.onModuleDestroy()` (`$disconnect()`) run on SIGTERM/SIGINT.
   // Never disconnect per-request — the client pool is shared.
   app.enableShutdownHooks();
+
+  app.setGlobalPrefix('api'); // /api/auth, /api/dashboard, etc.
+
   await app.listen(process.env.PORT ?? 3001);
 }
 await bootstrap();
