@@ -38,8 +38,9 @@ Marketing (Next.js) → prompt → IA texto/imagen/video → preview + aprobaci�
 ```
 
 - **Monorepo Turborepo:** un solo repo para backend, frontend y tipos compartidos.
-- **Backend NestJS:** campañas, autenticación (planificado), persistencia y
-  webhooks bidireccionales NestJS ↔ n8n (reintentos, tokens por red).
+- **Backend NestJS:** autenticación JWT stateless (ver §4/§7), campañas
+  (planificado), persistencia y webhooks bidireccionales NestJS ↔ n8n
+  (reintentos, tokens por red).
 - **Dashboard Next.js:** ingresar prompt, previsualizar (mockup por red),
   aprobar/rechazar, más pestaña **Analytics** con gráficos e
   **Insights Estratégicos por IA** (ver §3).
@@ -82,7 +83,7 @@ React declarativo y el camino oficialmente documentado por Shadcn. Estado:
 
 | Pieza                                                   | Estado                                                                                                                                                                                                                                                                                                           |
 | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/api` (NestJS 12)                                  | `AppModule` + `PrismaModule` + `DashboardModule`. `DashboardService` con KPIs reales (totales, engagement calculado, performance por plataforma); controller pendiente. Tests: 3 unit + e2e en verde.                                                                                                                                                           |
+| `apps/api` (NestJS 12)                                  | `AppModule` + `PrismaModule` + `DashboardModule` + `AuthModule` (Clean Architecture: `modules/auth/{domain,application,infrastructure,presentation}`). Auth JWT stateless con argon2id: `POST /auth/register|login|refresh`, `GET /auth/me`; guard global con opt-out `@Public()`. `DashboardService` con KPIs reales; su controller pendiente. Tests: 14 unit + 3 e2e en verde. |
 | `apps/web` (Next.js 16.3.5, React 19, Tailwind 4)       | Scaffold `create-next-app` casi intacto (`src/app/page.tsx`). Sin dashboard real todavía.                                                                                                                                                                                                                        |
 | `packages/database` (`@postly/database`, Prisma 7.10.0) | **Esquema definido y migrado:** `User`, `Publication`, `PublicationTarget`, `TargetMetric`, `ConnectedAccount` + enums (`Role`, `MediaType`, `PublicationStatus`, `Platform`, `PlatformStatus`). Migraciones `20260921171619_init` (base) y `20260922012202_init` aplicadas; seed funcional. Singleton `prisma` verificado contra PG vivo. |
 | `compose.yaml` (PostgreSQL 17-alpine)                   | Funcional, verificado.                                                                                                                                                                                                                                                                                           |
@@ -101,7 +102,7 @@ User 1 ──N Publication (como aprobador)
 **Tablas.**
 
 - `User` — personal de marketing. `email` único, `name`, `passwordHash`
-  (bcrypt/argon2, nunca texto plano — base de la autenticación del Obj. 3),
+  (**argon2id**, nunca texto plano — base de la autenticación del Obj. 3),
   `role` (`ADMIN` | `MARKETING`, default `MARKETING`), `createdAt`/`updatedAt`.
 - `Publication` — pieza de contenido + trazabilidad de IA. Guarda `originalPrompt`
   (lo que escribió marketing), `systemPrompt` (plantilla de tono por canal),
@@ -138,6 +139,13 @@ prompts/modelos/tokens ✓, flujo de estados para n8n ✓, tokens OAuth por cana
 publicación por canal con reintentos (`status` + `errorMessage`) ✓, auditoría de
 aprobación ✓, métricas para Analytics ✓.
 
+**Decisión argon2id sobre bcrypt (punto defendible en tesis):** bcrypt es lento
+a propósito pero no es memory-hard (vulnerable a GPU/ASIC) y trunca a 72 bytes;
+argon2id es la primera recomendación OWASP para hashing de contraseñas
+(resistente a GPU/ASIC por costo de memoria + tiempo). Parámetros explícitos en
+`Argon2PasswordHasher` (`argon2id`, m=19 MiB, t=2, p=1). Queda tras el puerto
+`PasswordHasher`: intercambiable sin tocar casos de uso.
+
 **Historial:** `prisma/migrations/20260921171619_init/` (esquema base de 4
 tablas) + `prisma/migrations/20260922012202_init/` (5 correcciones de diseño).
 `prisma/seed.ts` deja 1 usuario + 1 publicación PUBLISHED con 2 targets y
@@ -148,7 +156,7 @@ métricas (`pnpm --filter database exec prisma db seed`, re-ejecutable).
 | Capa            | Tecnología (versión real)                                                                         |
 | --------------- | ------------------------------------------------------------------------------------------------- |
 | Monorepo        | Turborepo 2.10.12, pnpm 11.25.0, Node ≥ 24                                                        |
-| Backend         | NestJS 12, `vitest`, `oxlint`, `supertest`                                                        |
+| Backend         | NestJS 12, `@nestjs/jwt` + `argon2` + `zod` (auth), `vitest`, `oxlint`, `supertest` |
 | ORM/Datos       | Prisma **7.10.0** (línea estable; NO v8 RC), `@prisma/adapter-pg`, `pg`, PostgreSQL **17-alpine** |
 | Frontend        | Next.js 16.3.5, React 19.2.8, Tailwind CSS 4, Shadcn UI + Recharts (planificado — ver §3) |
 | Orquestación/IA | n8n + APIs LinkedIn/OpenAI/Claude/difusión — planificados                                         |
@@ -162,10 +170,14 @@ métricas (`pnpm --filter database exec prisma db seed`, re-ejecutable).
 Postly/
 ├── apps/
 │   ├── api/                    # NestJS
-│   │   └── src/
-│   │       ├── app.module.ts   # imports: PrismaModule, DashboardModule
-│   │       ├── shared/prisma/  # PrismaModule + PrismaService (solo lifecycle)
-│   │       └── dashboard/      # stub — aquí nace el módulo de campañas
+│   │   ├── src/
+│   │   │   ├── app.module.ts   # imports + APP_PIPE (Zod) + APP_FILTER (dominio→HTTP)
+│   │   │   ├── shared/         # prisma/, errors.ts, decorators.ts, filters.ts
+│   │   │   ├── modules/auth/   # domain/, application/, infrastructure/, presentation/
+│   │   │   └── dashboard/      # service con KPIs; controller pendiente
+│   │   └── test/
+│   │       ├── unit/           # espejo de src/ (nunca .spec junto al código)
+│   │       └── *.e2e-spec.ts
 │   └── web/                    # Next.js (scaffold intacto)
 ├── packages/
 │   └── database/               # DUEÑO de la conexión y el esquema
@@ -177,7 +189,7 @@ Postly/
 └── turbo.json
 ```
 
-## 7. Contrato de base de datos (reglas para humanos y agentes)
+## 7. Contratos del backend (reglas para humanos y agentes)
 
 1. **Un solo dueño de `DATABASE_URL`: `packages/database/.env`.**
    No existe `apps/api/.env`; nada en `apps/api/src` lee esa variable.
@@ -195,6 +207,14 @@ Postly/
    `schema.prisma` + `prisma generate`.
 5. **Puerto local 5433, NO 5432** (5432 suele estar ocupado por otros proyectos).
    URL local: `postgresql://postly:postly@localhost:5433/postly`.
+6. **Secretos JWT son propiedad del api** (`JWT_ACCESS_SECRET`,
+   `JWT_REFRESH_SECRET`, expiraciones opcionales). `DATABASE_URL` sigue siendo
+   exclusiva de `packages/database` (regla 1). Sin revocación ni sesiones en
+   esta fase: ambos tokens son stateless, **no existe tabla de refresh tokens
+   por diseño** (ver `modules/auth`).
+7. **Validación Zod-first (NestJS v12):** schemas en `@Body({ schema })` +
+   `StandardSchemaValidationPipe` como `APP_PIPE` en `AppModule` (aplica igual
+   en prod que en tests). `class-validator` no se usa en código nuevo.
 
 ## 8. Puesta en marcha (onboarding en 5 minutos)
 
@@ -205,12 +225,17 @@ pnpm install
 # 1. Credenciales locales (solo packages/database)
 cp packages/database/.env.example packages/database/.env
 
+# 1b. Secretos JWT del api (requeridos: el AuthModule falla rápido sin ellos)
+export JWT_ACCESS_SECRET="$(openssl rand -hex 32)"
+export JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
+# Opcionales: JWT_ACCESS_EXPIRES_IN=15m, JWT_REFRESH_EXPIRES_IN=7d
+
 # 2. Base de datos local
 docker compose up -d
 docker compose exec -T db pg_isready -U postly -d postly
 
-# 3. Primera migración real (cuando el esquema esté aprobado)
-pnpm --filter database exec prisma migrate dev --name init
+# 3. Migraciones (esquema ya definido, ver §4; para cambios futuros)
+pnpm --filter database exec prisma migrate dev --name <cambio>
 pnpm --filter database run build   # = prisma generate + tsc
 
 # 4. Desarrollo
@@ -239,7 +264,12 @@ pnpm --filter database run reset     # ⚠️ borra datos locales
 - **Antes de codificar:** leer este README + `packages/database/prisma/schema.prisma`
   - `packages/database/src/index.ts` + el `package.json` del workspace tocado.
 - **No crear archivos** salvo que sea imprescindible; preferir editar los existentes.
-- **No asumir** n8n, auth, S3, ni endpoints de IA/redes — hoy no existen.
+- **No asumir** n8n, S3, ni endpoints de IA/redes — hoy no existen.
+  Auth JWT stateless sí existe (`modules/auth`, patrón Clean Architecture a replicar).
+- **Backend (`apps/api`):** controllers delgados sin try-catch (errores de dominio
+  → HTTP vía `DomainExceptionFilter` global); specs unitarios en `test/unit/`
+  como espejo de `src/` (nunca colocados junto al código); e2e en `test/*.e2e-spec.ts`.
+  `src/shared/` nunca importa de `src/modules/`.
 - **No mover** el adapter, `DATABASE_URL` ni el singleton fuera de
   `packages/database`. Si una tarea lo exige, pedir confirmación primero.
 - **Verificar ejecutando:** `check-types` del paquete tocado; para backend,
@@ -253,7 +283,9 @@ pnpm --filter database run reset     # ⚠️ borra datos locales
 - [x] Obj. 1 (parcial): flujo actual analizado y documentado (§1–§2).
 - [x] Obj. 2: monorepo + esquema relacional **definido, migrado y verificado**
       (§4). Falta: diagramas UML (casos de uso, clases, despliegue, secuencia).
-- [ ] Obj. 3: backend NestJS — campañas, auth, persistencia, integración LLMs/difusión.
+- [ ] Obj. 3: backend NestJS — campañas, persistencia, integración LLMs/difusión.
+      Auth lista (stateless + argon2id, patrón Clean Architecture a replicar en
+      el resto de módulos).
 - [ ] Obj. 4: dashboard Next.js — prompt → preview → aprobación human-in-the-loop,
       más pestaña Analytics (Shadcn + Recharts) e Insights Estratégicos por IA (§3).
       Base iniciada: `DashboardService` con KPIs en el backend, controller pendiente.
