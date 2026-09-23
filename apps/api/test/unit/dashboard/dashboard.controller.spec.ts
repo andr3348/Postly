@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { DashboardController } from './dashboard.controller.js';
+import { DashboardController } from '../../../src/dashboard/dashboard.controller.js';
 
 describe('DashboardController', () => {
   let controller: DashboardController;
