@@ -11,7 +11,7 @@
     "deploy": "nest deploy",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
-    "start:dev": "nest start --watch",
+    "dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "oxlint src/ test/",
@@ -23,18 +23,24 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@postly/database": "workspace:*",
     "@nestjs/common": "^12.0.1",
+    "@nestjs/config": "^12.0.0",
     "@nestjs/core": "^12.0.1",
+    "@nestjs/jwt": "^12.0.2",
     "@nestjs/platform-express": "^12.0.1",
+    "@postly/database": "workspace:*",
+    "argon2": "^0.45.1",
+    "cookie-parser": "^1.4.7",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.0",
     "@nestjs/mau": "^0.2.6",
     "@nestjs/schematics": "^12.0.0",
     "@nestjs/testing": "^12.0.1",
+    "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/node": "^24.0.0",
     "@types/supertest": "^7.0.0",
