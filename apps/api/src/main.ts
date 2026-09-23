@@ -1,9 +1,11 @@
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
+import { setupApp } from './setup-app.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  setupApp(app);
   // El pipe global de validación Zod vive en `AppModule` (APP_PIPE) para
   // que aplique igual en producción que en tests.
   // Lets `PrismaService.onModuleDestroy()` (`$disconnect()`) run on SIGTERM/SIGINT.
