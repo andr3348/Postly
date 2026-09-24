@@ -3,15 +3,25 @@
 > Estado: Autenticación base completada (Login/Registro). Arquitectura modular definida.
 > Dashboard real en desarrollo (solo cuenta con placeholder protegido).
 
-## 1. Arquitectura y Autenticación (Implementado)
+## 1. Arquitectura Híbrida: App Router + Feature-Driven
 
-Para mantener una alta cohesión, la aplicación sigue una **Arquitectura Orientada a Funcionalidades (Feature-Driven Architecture)**, muy alineada a los principios Clean Architecture del backend:
+Para mantener el frontend escalable y alineado con los principios de **Clean Architecture** del backend (ver `docs/backend.md`), se implementó un patrón arquitectónico híbrido. Es una combinación de las convenciones de enrutamiento impuestas por el framework y un encapsulamiento modular por dominio de negocio (inspirado en *Feature-Sliced Design*):
 
-- **`src/app/`**: Se reserva estrictamente para el enrutamiento (Next.js App Router). Separa flujos usando Route Groups como `(auth)` para compartir el layout de los formularios, y `/dashboard` para las vistas protegidas.
-- **`src/features/`**: Alberga la lógica y componentes por dominio de negocio. Actualmente incluye el módulo `auth` con sus componentes (`LoginForm.tsx`, `RegisterForm.tsx`) y Server Actions (`actions.ts`).
-- **`src/shared/`** (Próximamente): Utilidades, componentes UI base (Shadcn) y lógica global.
+### A. Capa de Enrutamiento e Infraestructura (`src/app/`)
+Esta capa pertenece exclusivamente al **Next.js App Router**.
+- **Responsabilidad:** Gestionar las URLs, protección de rutas y layouts (SSR/RSC).
+- **Regla estricta:** Se mantiene "delgada". Los archivos `page.tsx` no contienen lógica de negocio compleja ni formularios pesados; solo actúan como orquestadores que importan componentes desde la capa de negocio.
+- **Route Groups:** Se usan agrupaciones como `(auth)` para aislar layouts (p. ej., el contenedor centrado del Login) sin ensuciar la URL (se mantiene `/login`, no `/auth/login`).
 
-### Flujo de Integración con NestJS
+### B. Capa de Negocio / Módulos (`src/features/`)
+Esta es la capa donde reside el verdadero valor de la aplicación. En lugar de organizar el código por tipo técnico (todos los componentes mezclados en `src/components`), se agrupa por **Dominio de Negocio** (`auth`, `campaigns`, `analytics`).
+- **Alta cohesión:** Si el módulo de autenticación necesita mantenimiento, toda su UI (`LoginForm.tsx`, `RegisterForm.tsx`), llamadas a la API o Server Actions (`actions.ts`) están aisladas en `src/features/auth`.
+- **Beneficio (Tesis):** Este enfoque refleja exactamente cómo NestJS divide sus responsabilidades en `apps/api/src/modules/`, permitiendo que frontend y backend evolucionen con el mismo lenguaje de dominio, previniendo el "código espagueti".
+
+### C. Capa Compartida (`src/shared/`)
+- **Planificado:** Aquí vivirán los componentes UI agnósticos (botones, inputs, Shadcn UI) y utilidades puras que pueden ser usadas por cualquier *Feature*.
+
+## 2. Flujo de Autenticación e Integración con NestJS
 
 El frontend delega por completo la seguridad y emisión de JWT al backend (tal como se define en `docs/backend.md`), mediante los siguientes mecanismos:
 
