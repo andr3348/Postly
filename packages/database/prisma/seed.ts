@@ -1,5 +1,5 @@
 import { prisma } from '../src/index.js';
-import { Platform, PlatformStatus, PublicationStatus, MediaType } from '../src/generated/prisma/client.js';
+import { Platform, PlatformStatus, PublicationStatus, MediaType } from '../src/generated/prisma/index.js';
 
 async function main() {
   await prisma.targetMetric.deleteMany();
@@ -7,6 +7,7 @@ async function main() {
   await prisma.publication.deleteMany();
   await prisma.connectedAccount.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.brand.deleteMany();
 
   const user = await prisma.user.create({
     data: {
@@ -17,8 +18,15 @@ async function main() {
     },
   });
 
+  const brand = await prisma.brand.create({
+    data: {
+      name: 'Alma Quinta',
+    },
+  });
+
   const post1 = await prisma.publication.create({
     data: {
+      brandId: brand.id,
       userId: user.id,
       originalPrompt: 'Campaña de ciberseguridad corporativa para B2B',
       copy: 'Protege la infraestructura de tu empresa contra ataques modernos. Conoce nuestras soluciones integrales.',
