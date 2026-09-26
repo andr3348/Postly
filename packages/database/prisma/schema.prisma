@@ -3,9 +3,13 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
+
+// =========================================================================
+// ENUMS
+// =========================================================================
 
 enum Role {
   ADMIN
@@ -18,12 +22,13 @@ enum MediaType {
 }
 
 enum PublicationStatus {
-  DRAFT
-  SCHEDULED
-  PROCESSING
-  PUBLISHED
-  PARTIAL
-  FAILED
+  DRAFT             // Creado o generado por IA, editable
+  PENDING_APPROVAL  // Enviado por marketing, esperando visto bueno de admin
+  SCHEDULED         // Aprobado y agendado para una fecha futura
+  PROCESSING        // Enviado al Webhook de n8n para despacho
+  PUBLISHED         // Publicado con éxito en todas las redes elegidas
+  PARTIAL           // Publicado en algunas redes, falló en otras
+  FAILED            // Rechazado en todas las redes
 }
 
 enum Platform {
@@ -39,94 +44,156 @@ enum PlatformStatus {
   FAILED
 }
 
+enum AccountStatus {
+  CONNECTED
+  DISCONNECTED
+  EXPIRED
+}
+
+// =========================================================================
+// MODELOS
+// =========================================================================
+
 model User {
-  id                   String             @id @default(cuid())
-  email                String             @unique
+  id                   String        @id @default(cuid())
+  email                String        @unique
   name                 String
-  // Hash de credencial (p. ej. bcrypt/argon2, nunca texto plano).
-  // Requerido: el Obj. 3 de tesis exige autenticación propia del backend.
   passwordHash         String
-  role                 Role               @default(MARKETING)
-  publications         Publication[]      @relation("UserPublications")
-  approvedPublications Publication[]      @relation("PublicationApprovals")
-  accounts             ConnectedAccount[]
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  role                 Role          @default(MARKETING)
+
+  // Trazabilidad de creación y aprobación
+  createdPublications Publication[] @relation("CreatedPublications")
+  approvedPublications Publication[] @relation("ApprovedPublications")
+
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  @@index([role])
+}
+
+model Brand {
+  id                String             @id @default(cuid())
+  name              String             // ej. "Alma Quinta"
+  logoUrl           String?
+  websiteUrl        String?
+
+  // --- Contexto para el motor de IA de NestJS ---
+  aiTone            String             @default("Profesional y persuasivo")
+  aiBrandVoice      String?            @db.Text // Descripción de la identidad de la marca
+  aiTargetAudience  String?            @db.Text // Segmento al que se dirige
+  defaultHashtags   String[]           // Array nativo de PostgreSQL: ["#Tech", "#Marketing"]
+
+  connectedAccounts ConnectedAccount[]
+  publications      Publication[]
+
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model ConnectedAccount {
+  id                String         @id @default(cuid())
+  brandId           String
+  brand             Brand          @relation(fields: [brandId], references: [id], onDelete: Cascade)
+
+  platform          Platform
+  status            AccountStatus  @default(CONNECTED)
+
+  // Identificadores visibles y de API
+  accountName       String         // ej. "almaquintaoficial" o "Alma Quinta FanPage"
+  externalAccountId String?        // Facebook Page ID, IG Business Account ID, etc.
+
+  // Credenciales directas para n8n (System User Token o OAuth)
+  accessToken       String?        @db.Text
+  refreshToken      String?        @db.Text
+  expiresAt         DateTime?
+  scope             String?        @db.Text
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Una marca solo puede tener vinculada una cuenta por plataforma
+  @@unique([brandId, platform])
+  @@index([brandId, status])
 }
 
 model Publication {
-  id             String              @id @default(cuid())
-  userId         String
-  user           User                @relation("UserPublications", fields: [userId], references: [id], onDelete: Cascade)
-  originalPrompt String
-  systemPrompt   String?
-  modelText      String              @default("gpt-4o")
-  modelMedia     String?
-  tokensUsed     Int?
-  // Opcionales: el DRAFT se crea con el prompt ANTES de generar copy/media
-  // (flujo prompt-primero del dashboard).
-  copy           String?
-  mediaUrl       String?
-  mediaType      MediaType           @default(IMAGE)
-  status         PublicationStatus   @default(DRAFT)
-  scheduledAt    DateTime?
-  // Auditoría del human-in-the-loop: quién aprobó y cuándo.
-  approvedBy     String?
-  approvedByUser User?               @relation("PublicationApprovals", fields: [approvedBy], references: [id], onDelete: SetNull)
-  approvedAt     DateTime?
-  targets        PublicationTarget[]
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+  id              String             @id @default(cuid())
+  brandId         String
+  brand           Brand              @relation(fields: [brandId], references: [id], onDelete: Cascade)
 
+  // Auditoría: Quién lo redactó y quién lo autorizó
+  userId          String
+  user            User               @relation("CreatedPublications", fields: [userId], references: [id], onDelete: Cascade)
+  approvedById    String?
+  approvedBy      User?              @relation("ApprovedPublications", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt      DateTime?
+
+  // Datos de la IA Generativa (NestJS)
+  originalPrompt  String             @db.Text
+  systemPrompt    String?            @db.Text
+  modelText       String             @default("gemini-1.5-flash")
+  modelMedia      String?
+  tokensUsed      Int?
+
+  // Contenido final consolidado
+  copy            String             @db.Text
+  mediaUrl        String             @db.Text
+  mediaType       MediaType          @default(IMAGE)
+
+  // Ciclo de vida y agenda
+  status          PublicationStatus  @default(DRAFT)
+  scheduledAt     DateTime?
+  dispatchedAt    DateTime?
+
+  // Redes seleccionadas y estados de publicación
+  targets         PublicationTarget[]
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([brandId, status])
   @@index([userId, status])
-}
-
-/// Credenciales OAuth por plataforma para publicar vía APIs oficiales.
-/// Los tokens se guardan cifrados a nivel aplicación (nunca en claro).
-model ConnectedAccount {
-  id                String    @id @default(cuid())
-  userId            String
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  platform          Platform
-  externalAccountId String?
-  accessToken       String
-  refreshToken      String?
-  expiresAt         DateTime?
-  scope             String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  @@unique([userId, platform])
+  @@index([scheduledAt])
 }
 
 model PublicationTarget {
   id              String         @id @default(cuid())
   publicationId   String
   publication     Publication    @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
   platform        Platform
   status          PlatformStatus @default(PENDING)
-  externalPostId  String?
-  externalPostUrl String?
-  errorMessage    String?
+
+  // Resultados reportados por n8n tras llamar a las APIs oficiales
+  externalPostId  String?        // ID devuelto por Meta Graph / LinkedIn API
+  externalPostUrl String?        @db.Text
+  errorMessage    String?        @db.Text
+  publishedAt     DateTime?
+
+  // Historial de métricas para el Dashboard
   metrics         TargetMetric[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   @@unique([publicationId, platform])
+  @@index([platform, status])
 }
 
 model TargetMetric {
   id                  String            @id @default(cuid())
   publicationTargetId String
   publicationTarget   PublicationTarget @relation(fields: [publicationTargetId], references: [id], onDelete: Cascade)
-  impressions         Int               @default(0)
+
+  // Métricas agregadas
+  impressions         Int               @default(0) // Alcance / Vistas
   likes               Int               @default(0)
   comments            Int               @default(0)
   shares              Int               @default(0)
   clicks              Int               @default(0)
 
-  capturedAt DateTime @default(now())
+  capturedAt          DateTime          @default(now())
+  createdAt           DateTime          @default(now())
 
   @@index([publicationTargetId, capturedAt])
 }
