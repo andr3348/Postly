@@ -96,7 +96,28 @@ hoy no tienen comportamiento. Una clase con solo props + getters sería
 ceremonia. Revisitar cuando una entidad necesite métodos
 (p. ej. `publication.canTransitionTo(...)`).
 
-## 3. Contratos del api
+## 3. Módulo publications (human-in-the-loop)
+
+Máquina de estados (transiciones permitidas en `domain/publication.entity.ts`
+via `canTransition`; n8n moverá `SCHEDULED → PROCESSING → PUBLISHED/PARTIAL/FAILED`):
+
+```text
+POST   /publications            → crea DRAFT (verifica la marca: 404 si no existe)
+GET    /publications?brandId=&status= → bandeja (usa índice [brandId, status])
+GET    /publications/:id        → detalle (404 si no existe)
+PATCH  /publications/:id        → edita copy/media solo en DRAFT (dueño o admin)
+POST   /publications/:id/submit → DRAFT → PENDING_APPROVAL (dueño o admin)
+POST   /publications/:id/approve→ PENDING_APPROVAL → SCHEDULED, solo ADMIN
+                                   (body { scheduledAt }; fija approvedBy/approvedAt)
+POST   /publications/:id/reject → PENDING_APPROVAL → DRAFT, solo ADMIN
+```
+
+Autorización en los casos de uso (no en guards): el `requester` (`id` + `rol`
+del `@CurrentUser()`) viaja al caso de uso; dueño-or-admin para editar/enviar,
+solo-ADMIN para aprobar/rechazar. Errores: `PublicationNotFoundError` → 404,
+`InvalidPublicationTransitionError` → 400, `ForbiddenError` → 403.**
+
+## 4. Contratos del api
 
 1. **Secretos JWT son propiedad del api** (`JWT_ACCESS_SECRET`,
    `JWT_REFRESH_SECRET`, opcionales `JWT_ACCESS_EXPIRES_IN_SECONDS=900` y
@@ -114,7 +135,7 @@ ceremonia. Revisitar cuando una entidad necesite métodos
 4. **Datos solo vía `this.prisma.client.<modelo>...`.** El api nunca depende de
    `pg` / `@prisma/adapter-pg`.
 
-## 4. Módulo brand (Gestión de Marcas)
+## 5. Módulo brand (Gestión de Marcas)
 
 Siguiendo el patrón Clean Architecture ya establecido, el módulo de **Brand** expone el CRUD básico de las marcas conectadas a la aplicación.
 
@@ -128,7 +149,7 @@ Capas (`src/modules/brand/`):
 **Traducción de Errores**:
 En caso de buscar o intentar actualizar/eliminar un ID inexistente, el caso de uso arroja `BrandNotFoundError`. El filtro global `DomainExceptionFilter` (en `src/shared/filters.ts`) atrapa esta excepción pura y devuelve automáticamente un `404 Not Found` al cliente.
 
-## 5. Tests y comandos
+## 6. Tests y comandos
 
 - Unitarios en `test/unit/` como espejo de `src/` (nunca `.spec` junto al código);
   casos de uso con puertos stub tipados, sin DB. E2E en `test/*.e2e-spec.ts`
