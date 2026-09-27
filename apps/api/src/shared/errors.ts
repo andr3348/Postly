@@ -23,10 +23,3 @@ export class InvalidRefreshTokenError extends Error {
     this.name = 'InvalidRefreshTokenError';
   }
 }
-
-export class BrandNotFoundError extends Error {
-  constructor(id: string) {
-    super(`Brand with id ${id} not found`);
-    this.name = 'BrandNotFoundError';
-  }
-}
