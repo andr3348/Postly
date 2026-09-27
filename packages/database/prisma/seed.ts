@@ -1,5 +1,8 @@
 import { prisma } from '../src/index.js';
-import { Platform, PlatformStatus, PublicationStatus, MediaType } from '../src/generated/prisma/index.js';
+// Enums runtime solo vía namespace `$Enums` (el cliente v7 no los re-exporta planos).
+import { $Enums } from '../src/generated/prisma/client.js';
+
+const { MediaType, Platform, PlatformStatus, PublicationStatus } = $Enums;
 
 async function main() {
   await prisma.targetMetric.deleteMany();
@@ -21,16 +24,22 @@ async function main() {
   const brand = await prisma.brand.create({
     data: {
       name: 'Alma Quinta',
+      aiTone: 'Profesional y persuasivo',
+      aiBrandVoice: 'Marca arequipeña cercana que combina tradición con innovación',
+      aiTargetAudience: 'Negocios B2B del sur del Perú',
+      defaultHashtags: ['#Marketing', '#Arequipa'],
     },
   });
 
-  const post1 = await prisma.publication.create({
+  // Publicación completa ya publicada (alimenta Analytics del dashboard).
+  await prisma.publication.create({
     data: {
       brandId: brand.id,
       userId: user.id,
       originalPrompt: 'Campaña de ciberseguridad corporativa para B2B',
       copy: 'Protege la infraestructura de tu empresa contra ataques modernos. Conoce nuestras soluciones integrales.',
-      mediaUrl: 'https://www.esic.edu/sites/default/files/2024-07/que%20es%20la%20ciberseguridad.jpg',
+      mediaUrl:
+        'https://www.esic.edu/sites/default/files/2024-07/que%20es%20la%20ciberseguridad.jpg',
       mediaType: MediaType.IMAGE,
       status: PublicationStatus.PUBLISHED,
       targets: {
@@ -59,6 +68,17 @@ async function main() {
           },
         ],
       },
+    },
+  });
+
+  // DRAFT prompt-primero: existe ANTES de generar copy/media (flujo real del
+  // dashboard). Prueba viva de que `copy`/`mediaUrl` son opcionales.
+  await prisma.publication.create({
+    data: {
+      brandId: brand.id,
+      userId: user.id,
+      originalPrompt: 'Post sobre los beneficios del café arequipeño para LinkedIn',
+      status: PublicationStatus.DRAFT,
     },
   });
 
