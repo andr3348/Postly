@@ -16,6 +16,9 @@ import {
   InvalidPublicationTransitionError,
   InvalidRefreshTokenError,
   PublicationNotFoundError,
+  PublicationTargetAlreadyAttachedError,
+  PublicationTargetNotFoundError,
+  PublicationWithoutTargetsError,
 } from './errors.js';
 
 /**
@@ -29,6 +32,9 @@ import {
   InvalidRefreshTokenError,
   BrandNotFoundError,
   PublicationNotFoundError,
+  PublicationTargetNotFoundError,
+  PublicationTargetAlreadyAttachedError,
+  PublicationWithoutTargetsError,
   InvalidPublicationTransitionError,
   ForbiddenError,
 )
@@ -37,13 +43,20 @@ export class DomainExceptionFilter implements ExceptionFilter {
     if (exception instanceof EmailAlreadyTakenError) {
       throw new ConflictException(exception.message);
     }
+    if (exception instanceof PublicationTargetAlreadyAttachedError) {
+      throw new ConflictException(exception.message);
+    }
     if (
       exception instanceof BrandNotFoundError ||
-      exception instanceof PublicationNotFoundError
+      exception instanceof PublicationNotFoundError ||
+      exception instanceof PublicationTargetNotFoundError
     ) {
       throw new NotFoundException(exception.message);
     }
-    if (exception instanceof InvalidPublicationTransitionError) {
+    if (
+      exception instanceof InvalidPublicationTransitionError ||
+      exception instanceof PublicationWithoutTargetsError
+    ) {
       throw new BadRequestException(exception.message);
     }
     if (exception instanceof ForbiddenError) {

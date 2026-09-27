@@ -66,6 +66,23 @@ describe('Publications (e2e)', () => {
     expect(created.body).toMatchObject({ status: 'DRAFT', brandId });
     publicationId = created.body.id as string;
 
+    // Sin canales no se puede enviar: 400.
+    await agent.post(`/api/publications/${publicationId}/submit`).expect(400);
+
+    await agent
+      .post(`/api/publications/${publicationId}/targets`)
+      .send({ platform: 'LINKEDIN' })
+      .expect(201);
+
+    // Canal duplicado: 409.
+    await agent
+      .post(`/api/publications/${publicationId}/targets`)
+      .send({ platform: 'LINKEDIN' })
+      .expect(409);
+
+    const targets = await agent.get(`/api/publications/${publicationId}/targets`).expect(200);
+    expect(targets.body).toHaveLength(1);
+
     await agent.post(`/api/publications/${publicationId}/submit`).expect(200);
 
     // Marketing no puede aprobar: 403.
