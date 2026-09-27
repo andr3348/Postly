@@ -7,6 +7,13 @@ import type {
   BrandsRepository,
 } from '../domain/ports/brands.repository.js';
 
+/**
+ * Adaptador Prisma de `BrandsRepository`.
+ * Es el único lugar del módulo de Brands que interactúa directamente
+ * con la base de datos (Prisma). Mapea los resultados generados por Prisma
+ * hacia las interfaces de dominio puras (Brand) para mantener
+ * el desacoplamiento en las capas superiores.
+ */
 @Injectable()
 export class PrismaBrandsRepository implements BrandsRepository {
   constructor(private readonly prisma: PrismaService) {}
