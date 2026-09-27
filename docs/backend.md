@@ -115,7 +115,22 @@ POST   /publications/:id/reject → PENDING_APPROVAL → DRAFT, solo ADMIN
 Autorización en los casos de uso (no en guards): el `requester` (`id` + `rol`
 del `@CurrentUser()`) viaja al caso de uso; dueño-or-admin para editar/enviar,
 solo-ADMIN para aprobar/rechazar. Errores: `PublicationNotFoundError` → 404,
-`InvalidPublicationTransitionError` → 400, `ForbiddenError` → 403.**
+`InvalidPublicationTransitionError` → 400, `ForbiddenError` → 403.
+
+**Destinos omnicanal (sin módulo propio):** la publicación decide *qué*,
+el target *dónde*. Anidados bajo la publicación (dueño o admin, solo antes de
+programar):
+
+```text
+GET    /publications/:id/targets              → canales con su estado
+POST   /publications/:id/targets { platform } → adjunta canal (409 si duplica)
+DELETE /publications/:id/targets/:platform    → quita canal (404 si no existe)
+```
+
+Regla: `submit` exige ≥1 canal (`PublicationWithoutTargetsError` → 400). La
+unicidad `[publicationId, platform]` la garantiza la BD; el caso de uso la
+verifica antes para un 409 limpio. A futuro n8n actualizará cada target
+(`status`, `externalPostId/Url`, `errorMessage`) y escribirá `TargetMetric`.**
 
 ## 4. Contratos del api
 
