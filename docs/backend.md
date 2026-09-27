@@ -114,7 +114,21 @@ ceremonia. Revisitar cuando una entidad necesite métodos
 4. **Datos solo vía `this.prisma.client.<modelo>...`.** El api nunca depende de
    `pg` / `@prisma/adapter-pg`.
 
-## 4. Tests y comandos
+## 4. Módulo brand (Gestión de Marcas)
+
+Siguiendo el patrón Clean Architecture ya establecido, el módulo de **Brand** expone el CRUD básico de las marcas conectadas a la aplicación.
+
+Capas (`src/modules/brand/`):
+
+- `domain/` — entidad `Brand` pura (interfaz sin decoradores). Definición del puerto `BrandsRepository` (`BRANDS_REPOSITORY`).
+- `application/` — casos de uso `CreateBrand`, `GetBrand`, `GetBrands`, `UpdateBrand`, `DeleteBrand`. Orquestan la lógica sin estar acoplados a la base de datos o a HTTP. Lanzan errores de dominio como `BrandNotFoundError`.
+- `infrastructure/` — `PrismaBrandsRepository` es el único que conoce Prisma. Mapea la fila de la DB de vuelta hacia la interfaz pura de la capa de dominio.
+- `presentation/` — controlador REST (`BrandController`) muy delgado. Solo usa Zod para validar (schemas `create-brand.schema.ts` y `update-brand.schema.ts`) y delega el control.
+
+**Traducción de Errores**:
+En caso de buscar o intentar actualizar/eliminar un ID inexistente, el caso de uso arroja `BrandNotFoundError`. El filtro global `DomainExceptionFilter` (en `src/shared/filters.ts`) atrapa esta excepción pura y devuelve automáticamente un `404 Not Found` al cliente.
+
+## 5. Tests y comandos
 
 - Unitarios en `test/unit/` como espejo de `src/` (nunca `.spec` junto al código);
   casos de uso con puertos stub tipados, sin DB. E2E en `test/*.e2e-spec.ts`
@@ -127,3 +141,4 @@ pnpm --filter api run test:e2e      # e2e (DB levantada)
 pnpm --filter api run check-types   # tsc --noEmit
 pnpm --filter api run lint          # oxlint src/ test/
 ```
+

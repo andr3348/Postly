@@ -6,14 +6,16 @@ import { resolveApiEnvFilePath } from './shared/env-file-path.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { PrismaModule } from './shared/prisma/prisma.module.js';
-import { DashboardModule } from './dashboard/dashboard.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { BrandModule } from './modules/brand/brand.module.js';
+import { PublicationsModule } from './modules/publications/publications.module.js';
 
 @Module({
   imports: [
     PrismaModule,
-    DashboardModule,
     AuthModule,
+    BrandModule,
+    PublicationsModule,
     // Configuración propia de Nest (`ConfigService`): carga `apps/api/.env`
     // sin `dotenv` directo. Global para no importar en cada módulo.
     ConfigModule.forRoot({ isGlobal: true, envFilePath: resolveApiEnvFilePath(), cache: true }),

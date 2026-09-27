@@ -23,3 +23,31 @@ export class InvalidRefreshTokenError extends Error {
     this.name = 'InvalidRefreshTokenError';
   }
 }
+
+export class ForbiddenError extends Error {
+  constructor(reason = 'Forbidden') {
+    super(reason);
+    this.name = 'ForbiddenError';
+  }
+}
+
+export class PublicationNotFoundError extends Error {
+  constructor(id: string) {
+    super(`Publication with id ${id} not found`);
+    this.name = 'PublicationNotFoundError';
+  }
+}
+
+export class InvalidPublicationTransitionError extends Error {
+  constructor(from: string, to: string) {
+    super(`Cannot transition publication from ${from} to ${to}`);
+    this.name = 'InvalidPublicationTransitionError';
+  }
+}
+
+export class BrandNotFoundError extends Error {
+  constructor(id: string) {
+    super(`Brand with id ${id} not found`);
+    this.name = 'BrandNotFoundError';
+  }
+}

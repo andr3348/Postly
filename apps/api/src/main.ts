@@ -12,7 +12,7 @@ async function bootstrap() {
   // Never disconnect per-request — the client pool is shared.
   app.enableShutdownHooks();
 
-  app.setGlobalPrefix('api'); // /api/auth, /api/dashboard, etc.
+  app.setGlobalPrefix('api'); // /api/auth, /api/brands, /api/publications, etc.
 
   await app.listen(process.env.PORT ?? 3001);
 }
