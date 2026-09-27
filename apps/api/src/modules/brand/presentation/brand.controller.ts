@@ -28,6 +28,10 @@ export class BrandController {
     private readonly deleteBrandUseCase: DeleteBrandUseCase,
   ) {}
 
+  /**
+   * Crea una nueva marca y su perfil asociado para la IA.
+   * Valida la entrada usando Zod (createBrandSchema) antes de llegar aquí.
+   */
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
@@ -37,18 +41,28 @@ export class BrandController {
     return { brand };
   }
 
+  /**
+   * Obtiene la lista completa de marcas, ordenadas por fecha de creación (descendente).
+   */
   @Get()
   async findAll(): Promise<{ brands: Brand[] }> {
     const brands = await this.getBrandsUseCase.execute();
     return { brands };
   }
 
+  /**
+   * Obtiene los detalles de una marca específica por su ID.
+   * Si no existe, se lanzará un BrandNotFoundError que el filtro global traduce a 404 HTTP.
+   */
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<{ brand: Brand }> {
     const brand = await this.getBrandUseCase.execute(id);
     return { brand };
   }
 
+  /**
+   * Actualiza parcialmente la información de una marca.
+   */
   @Patch(':id')
   async update(
     @Param('id') id: string,
@@ -58,6 +72,9 @@ export class BrandController {
     return { brand };
   }
 
+  /**
+   * Elimina una marca de forma permanente por su ID.
+   */
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(@Param('id') id: string): Promise<void> {
