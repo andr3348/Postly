@@ -50,8 +50,8 @@ User  1 ──N Publication (como aprobador)
   (lo que escribió marketing), `systemPrompt` (plantilla de tono por canal,
   derivable de `Brand.aiTone`/`aiBrandVoice`),
   `modelText` (default `"gemini-1.5-flash"`) / `modelMedia`, `tokensUsed` (base del cálculo
-  B/C), `copy` + `mediaUrl` (**obligatorios de nuevo**: ver decisión pendiente
-  abajo) + `mediaType` (`IMAGE` | `VIDEO`),
+  B/C), `copy` + `mediaUrl` (**obligatorios**: DRAFT = ya generado por IA y
+  editable; el prompt pre-generación vive en el frontend, no en BD) + `mediaType` (`IMAGE` | `VIDEO`),
   estado (`DRAFT → PENDING_APPROVAL → SCHEDULED → PROCESSING → PUBLISHED`, con
   `PARTIAL`/`FAILED` para fallos por canal), `scheduledAt` (agenda) y
   `dispatchedAt` (cuándo se envió a n8n: distingue "agendado" de "despachado"),
@@ -94,17 +94,20 @@ con ciclo de vida ✓,
 publicación por canal con reintentos (`status` + `errorMessage`) ✓, auditoría de
 aprobación ✓, métricas para Analytics ✓.
 
-**Decisión (resuelta):** `copy`/`mediaUrl` son **opcionales** — el `DRAFT` se
-crea con el prompt ANTES de generar (flujo prompt-primero). El seed incluye un
-DRAFT sin copy como prueba viva.
+**Decisión (resuelta):** `copy`/`mediaUrl` son **obligatorios** — el enum lo
+confirma: DRAFT = "creado o generado por IA, editable", es decir, la fila solo
+existe *después* de generar. Nada existe en BD antes de la generación.
 
 **Historial:** `prisma/migrations/20260921171619_init/` (esquema base de 4
 tablas) + `prisma/migrations/20260922012202_init/` (5 correcciones de diseño)
 + `prisma/migrations/20260927165028_brand_support/` (Brand + campos nuevos,
 generada por `migrate diff` + `migrate deploy`: `migrate dev` no corre sin TTY
 en este entorno). Requirió reset en dev (filas seed vs. `brandId` requerido).
++ `prisma/migrations/20260927170741_draft_content_required/` (`copy`/`mediaUrl`
+a NOT NULL, SQL manual de 2 líneas; requirió backfill de la fila DRAFT seed y
+`migrate resolve --rolled-back` tras el primer intento fallido).
 El seed deja 1 marca + 1 usuario + 1 publicación PUBLISHED con 2 targets y
-métricas + 1 DRAFT sin copy (`prisma db seed`, re-ejecutable).
+métricas + 1 DRAFT con contenido editable (`prisma db seed`, re-ejecutable).
 
 Notas de mantenimiento: el generator es `prisma-client` (salida `.ts`; NO
 `prisma-client-js`, cuya salida `.js` convive mal con los imports y revive

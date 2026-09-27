@@ -71,13 +71,15 @@ async function main() {
     },
   });
 
-  // DRAFT prompt-primero: existe ANTES de generar copy/media (flujo real del
-  // dashboard). Prueba viva de que `copy`/`mediaUrl` son opcionales.
+  // DRAFT = ya generado por IA y editable (el prompt pre-generación vive
+  // en el frontend, no en BD). Muestra el estado editable del dashboard.
   await prisma.publication.create({
     data: {
       brandId: brand.id,
       userId: user.id,
       originalPrompt: 'Post sobre los beneficios del café arequipeño para LinkedIn',
+      copy: 'BORRADOR: El café arequipeño combina tradición e innovación en cada taza. ¿Ya probaste nuestra nueva línea? #Arequipa',
+      mediaUrl: 'https://example.com/drafts/cafe-arequipeno.jpg',
       status: PublicationStatus.DRAFT,
     },
   });

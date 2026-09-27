@@ -135,9 +135,10 @@ model Publication {
   modelMedia     String?
   tokensUsed     Int?
 
-  // Contenido final consolidado (copy/mediaUrl opcionales para DRAFT antes de ser generado por IA)
-  copy      String?   @db.Text
-  mediaUrl  String?   @db.Text
+  // Contenido final consolidado: DRAFT = ya generado por IA y editable.
+  // El prompt pre-generación vive en el frontend, no en BD.
+  copy      String   @db.Text
+  mediaUrl  String   @db.Text
   mediaType MediaType @default(IMAGE)
 
   // Ciclo de vida y agenda
