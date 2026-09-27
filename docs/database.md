@@ -75,8 +75,7 @@ User  1 ──N Publication (como aprobador)
   por plataforma).
 - `TargetMetric` — snapshots de métricas por target (`impressions`, `likes`,
   `comments`, `shares`, `clicks`, `capturedAt`). La tasa de engagement se
-  **calcula** (`(likes+comments+shares)/impressions*100`, ver
-  `DashboardService.getSummaryMetrics`), no se almacena. Alimenta la pestaña
+  **calcula** (`(likes+comments+shares)/impressions*100`), no se almacena. Alimenta la pestaña
   Analytics (ver `docs/frontend.md`).
 
 **Reglas de integridad:** cascadas `Brand → Publication → PublicationTarget →

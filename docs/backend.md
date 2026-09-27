@@ -96,7 +96,28 @@ hoy no tienen comportamiento. Una clase con solo props + getters sería
 ceremonia. Revisitar cuando una entidad necesite métodos
 (p. ej. `publication.canTransitionTo(...)`).
 
-## 3. Contratos del api
+## 3. Módulo publications (human-in-the-loop)
+
+Máquina de estados (transiciones permitidas en `domain/publication.entity.ts`
+via `canTransition`; n8n moverá `SCHEDULED → PROCESSING → PUBLISHED/PARTIAL/FAILED`):
+
+```text
+POST   /publications            → crea DRAFT (verifica la marca: 404 si no existe)
+GET    /publications?brandId=&status= → bandeja (usa índice [brandId, status])
+GET    /publications/:id        → detalle (404 si no existe)
+PATCH  /publications/:id        → edita copy/media solo en DRAFT (dueño o admin)
+POST   /publications/:id/submit → DRAFT → PENDING_APPROVAL (dueño o admin)
+POST   /publications/:id/approve→ PENDING_APPROVAL → SCHEDULED, solo ADMIN
+                                   (body { scheduledAt }; fija approvedBy/approvedAt)
+POST   /publications/:id/reject → PENDING_APPROVAL → DRAFT, solo ADMIN
+```
+
+Autorización en los casos de uso (no en guards): el `requester` (`id` + `rol`
+del `@CurrentUser()`) viaja al caso de uso; dueño-or-admin para editar/enviar,
+solo-ADMIN para aprobar/rechazar. Errores: `PublicationNotFoundError` → 404,
+`InvalidPublicationTransitionError` → 400, `ForbiddenError` → 403.**
+
+## 4. Contratos del api
 
 1. **Secretos JWT son propiedad del api** (`JWT_ACCESS_SECRET`,
    `JWT_REFRESH_SECRET`, opcionales `JWT_ACCESS_EXPIRES_IN_SECONDS=900` y
@@ -114,7 +135,21 @@ ceremonia. Revisitar cuando una entidad necesite métodos
 4. **Datos solo vía `this.prisma.client.<modelo>...`.** El api nunca depende de
    `pg` / `@prisma/adapter-pg`.
 
-## 4. Tests y comandos
+## 5. Módulo brand (Gestión de Marcas)
+
+Siguiendo el patrón Clean Architecture ya establecido, el módulo de **Brand** expone el CRUD básico de las marcas conectadas a la aplicación.
+
+Capas (`src/modules/brand/`):
+
+- `domain/` — entidad `Brand` pura (interfaz sin decoradores). Definición del puerto `BrandsRepository` (`BRANDS_REPOSITORY`).
+- `application/` — casos de uso `CreateBrand`, `GetBrand`, `GetBrands`, `UpdateBrand`, `DeleteBrand`. Orquestan la lógica sin estar acoplados a la base de datos o a HTTP. Lanzan errores de dominio como `BrandNotFoundError`.
+- `infrastructure/` — `PrismaBrandsRepository` es el único que conoce Prisma. Mapea la fila de la DB de vuelta hacia la interfaz pura de la capa de dominio.
+- `presentation/` — controlador REST (`BrandController`) muy delgado. Solo usa Zod para validar (schemas `create-brand.schema.ts` y `update-brand.schema.ts`) y delega el control.
+
+**Traducción de Errores**:
+En caso de buscar o intentar actualizar/eliminar un ID inexistente, el caso de uso arroja `BrandNotFoundError`. El filtro global `DomainExceptionFilter` (en `src/shared/filters.ts`) atrapa esta excepción pura y devuelve automáticamente un `404 Not Found` al cliente.
+
+## 6. Tests y comandos
 
 - Unitarios en `test/unit/` como espejo de `src/` (nunca `.spec` junto al código);
   casos de uso con puertos stub tipados, sin DB. E2E en `test/*.e2e-spec.ts`
@@ -127,3 +162,4 @@ pnpm --filter api run test:e2e      # e2e (DB levantada)
 pnpm --filter api run check-types   # tsc --noEmit
 pnpm --filter api run lint          # oxlint src/ test/
 ```
+
