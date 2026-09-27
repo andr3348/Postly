@@ -25,54 +25,91 @@
 ## 2. Diseño del esquema (definido y verificado)
 
 ```text
-User 1 ──N Publication 1 ──N PublicationTarget 1 ──N TargetMetric
-User 1 ──N ConnectedAccount
-User 1 ──N Publication (como aprobador)
+Brand 1 ──N Publication 1 ──N PublicationTarget 1 ──N TargetMetric
+Brand 1 ──N ConnectedAccount
+User  1 ──N Publication (como creador)
+User  1 ──N Publication (como aprobador)
 ```
 
 **Tablas.**
 
+- `Brand` — **tabla nueva**: la empresa gestiona una o más marcas (ej. "Alma Quinta").
+  Además de identidad (`name`, `logoUrl`, `websiteUrl`), guarda el **contexto para
+  el motor de IA**: `aiTone`, `aiBrandVoice`, `aiTargetAudience` (alimentan el
+  `systemPrompt` por marca/canal — responde al requisito de tono consistente) y
+  `defaultHashtags` (array nativo PG). `Publication` y `ConnectedAccount`
+  cuelgan de la marca, no del usuario.
 - `User` — personal de marketing. `email` único, `name`, `passwordHash`
   (**argon2id**, nunca texto plano — ver decisión en `docs/backend.md`),
   `role` (`ADMIN` | `MARKETING`, default `MARKETING`), `createdAt`/`updatedAt`.
-- `Publication` — pieza de contenido + trazabilidad de IA. Guarda `originalPrompt`
-  (lo que escribió marketing), `systemPrompt` (plantilla de tono por canal),
-  `modelText` (default `"gpt-4o"`) / `modelMedia`, `tokensUsed` (base del cálculo
-  B/C), `copy` + `mediaUrl` (**opcionales**: el `DRAFT` se crea con el prompt
-  ANTES de generar, flujo prompt-primero) + `mediaType` (`IMAGE` | `VIDEO`),
-  estado (`DRAFT → SCHEDULED → PROCESSING → PUBLISHED`, con `PARTIAL`/`FAILED`
-  para fallos por canal), `scheduledAt` (lo que consume n8n), `approvedBy` /
-  `approvedAt` (auditoría del human-in-the-loop, FK con `SET NULL`),
-  `createdAt`/`updatedAt`.
-- `ConnectedAccount` — credenciales OAuth por plataforma para publicar vía APIs
-  oficiales (`platform`, `externalAccountId`, `accessToken`, `refreshToken`,
-  `expiresAt`, `scope`; tokens cifrados a nivel aplicación). Unicidad
-  `[userId, platform]`: una cuenta conectada por usuario y red.
+  Relaciones renombradas: `createdPublications` (lo que redactó) y
+  `approvedPublications` (lo que aprobó); las cuentas conectadas se movieron a
+  `Brand`. Índice `[role]`.
+- `Publication` — pieza de contenido **por marca** (`brandId` requerido) +
+  trazabilidad de IA. Guarda `originalPrompt`
+  (lo que escribió marketing), `systemPrompt` (plantilla de tono por canal,
+  derivable de `Brand.aiTone`/`aiBrandVoice`),
+  `modelText` (default `"gemini-1.5-flash"`) / `modelMedia`, `tokensUsed` (base del cálculo
+  B/C), `copy` + `mediaUrl` (**obligatorios de nuevo**: ver decisión pendiente
+  abajo) + `mediaType` (`IMAGE` | `VIDEO`),
+  estado (`DRAFT → PENDING_APPROVAL → SCHEDULED → PROCESSING → PUBLISHED`, con
+  `PARTIAL`/`FAILED` para fallos por canal), `scheduledAt` (agenda) y
+  `dispatchedAt` (cuándo se envió a n8n: distingue "agendado" de "despachado"),
+  `approvedById` / `approvedAt` (auditoría del human-in-the-loop, FK con
+  `SET NULL`; marketing redacta → admin aprueba vía `PENDING_APPROVAL`),
+  `createdAt`/`updatedAt`. Índices `[brandId, status]`, `[userId, status]`,
+  `[scheduledAt]` (este último para el polling de n8n).
+- `ConnectedAccount` — credenciales OAuth **por marca** (ya no por usuario):
+  `brandId` requerido, unicidad `[brandId, platform]`. Nuevo `status`
+  (`CONNECTED` | `DISCONNECTED` | `EXPIRED`: ciclo de vida del token — `EXPIRED`
+  indica re-autenticar antes de que n8n publique) y `accountName` visible
+  (ej. "almaquintaoficial"). Tokens (`accessToken`, `refreshToken`) ahora
+  opcionales en `Text`: permiten vincular la cuenta antes de completar OAuth.
+  Índice `[brandId, status]`.
 - `PublicationTarget` — publicación omnicanal: una fila por plataforma
   (`FACEBOOK` | `INSTAGRAM` | `LINKEDIN` | `TIKTOK`), con estado propio
   (`PENDING` | `SUCCESS` | `FAILED`), `externalPostId`/`externalPostUrl` de la
   red, y `errorMessage` para reintentos. Unicidad `[publicationId, platform]`:
-  una misma pieza no se publica dos veces en la misma red.
+  una misma pieza no se publica dos veces en la misma red. Nuevo `publishedAt`
+  (cuándo confirmó cada red) e índice `[platform, status]` (reintentos de n8n
+  por plataforma).
 - `TargetMetric` — snapshots de métricas por target (`impressions`, `likes`,
   `comments`, `shares`, `clicks`, `capturedAt`). La tasa de engagement se
   **calcula** (`(likes+comments+shares)/impressions*100`, ver
   `DashboardService.getSummaryMetrics`), no se almacena. Alimenta la pestaña
   Analytics (ver `docs/frontend.md`).
 
-**Reglas de integridad:** cascadas `User → Publication → PublicationTarget →
-TargetMetric` y `User → ConnectedAccount` (`onDelete: Cascade`); aprobación con
-`SET NULL` (borrar un usuario no borra lo que aprobó); índice `[userId, status]`
+**Reglas de integridad:** cascadas `Brand → Publication → PublicationTarget →
+TargetMetric`, `Brand → ConnectedAccount` y `User → Publication` (creador)
+(`onDelete: Cascade`); aprobación con `SET NULL` (borrar un usuario no borra
+lo que aprobó); índice `[userId, status]`
 (bandeja por estado) e índice `[publicationTargetId, capturedAt]` (series
 temporales).
 
-**Cobertura de requisitos:** roles + credenciales para auth ✓, trazabilidad de
-prompts/modelos/tokens ✓, flujo de estados para n8n ✓, tokens OAuth por canal ✓,
+**Cobertura de requisitos:** roles + credenciales para auth ✓, multi-marca con
+contexto IA por marca ✓, trazabilidad de
+prompts/modelos/tokens ✓, flujo de estados para n8n (con aprobación
+`PENDING_APPROVAL` y `dispatchedAt`) ✓, tokens OAuth por marca y plataforma
+con ciclo de vida ✓,
 publicación por canal con reintentos (`status` + `errorMessage`) ✓, auditoría de
 aprobación ✓, métricas para Analytics ✓.
 
+**Decisión (resuelta):** `copy`/`mediaUrl` son **opcionales** — el `DRAFT` se
+crea con el prompt ANTES de generar (flujo prompt-primero). El seed incluye un
+DRAFT sin copy como prueba viva.
+
 **Historial:** `prisma/migrations/20260921171619_init/` (esquema base de 4
-tablas) + `prisma/migrations/20260922012202_init/` (5 correcciones de diseño).
-Verificado con migraciones aplicadas + CRUD vivo + seed funcional.
+tablas) + `prisma/migrations/20260922012202_init/` (5 correcciones de diseño)
++ `prisma/migrations/20260927165028_brand_support/` (Brand + campos nuevos,
+generada por `migrate diff` + `migrate deploy`: `migrate dev` no corre sin TTY
+en este entorno). Requirió reset en dev (filas seed vs. `brandId` requerido).
+El seed deja 1 marca + 1 usuario + 1 publicación PUBLISHED con 2 targets y
+métricas + 1 DRAFT sin copy (`prisma db seed`, re-ejecutable).
+
+Notas de mantenimiento: el generator es `prisma-client` (salida `.ts`; NO
+`prisma-client-js`, cuya salida `.js` convive mal con los imports y revive
+stubs CJS que ocultan al cliente real — si reaparecen `.js`/`.d.ts` bajo
+`src/generated/`, borrarlos y regenerar).
 
 ## 3. Comandos
 
