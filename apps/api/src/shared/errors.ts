@@ -38,6 +38,27 @@ export class PublicationNotFoundError extends Error {
   }
 }
 
+export class PublicationTargetNotFoundError extends Error {
+  constructor(publicationId: string, platform: string) {
+    super(`Target ${platform} not attached to publication ${publicationId}`);
+    this.name = 'PublicationTargetNotFoundError';
+  }
+}
+
+export class PublicationTargetAlreadyAttachedError extends Error {
+  constructor(publicationId: string, platform: string) {
+    super(`Target ${platform} already attached to publication ${publicationId}`);
+    this.name = 'PublicationTargetAlreadyAttachedError';
+  }
+}
+
+export class PublicationWithoutTargetsError extends Error {
+  constructor(id: string) {
+    super(`Publication ${id} has no targets and cannot be submitted`);
+    this.name = 'PublicationWithoutTargetsError';
+  }
+}
+
 export class InvalidPublicationTransitionError extends Error {
   constructor(from: string, to: string) {
     super(`Cannot transition publication from ${from} to ${to}`);

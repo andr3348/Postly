@@ -41,3 +41,16 @@ export const listPublicationsSchema = z.object({
 });
 
 export type ListPublicationsDto = z.infer<typeof listPublicationsSchema>;
+
+export const targetPlatformSchema = z.enum([
+  'FACEBOOK',
+  'INSTAGRAM',
+  'LINKEDIN',
+  'TIKTOK',
+]);
+
+export const addTargetSchema = z.object({
+  platform: targetPlatformSchema,
+});
+
+export type AddTargetDto = z.infer<typeof addTargetSchema>;

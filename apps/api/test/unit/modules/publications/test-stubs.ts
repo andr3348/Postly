@@ -1,7 +1,9 @@
 import type { Brand } from '../../../../src/modules/brand/domain/brand.entity.js';
 import type { BrandsRepository } from '../../../../src/modules/brand/domain/ports/brands.repository.js';
 import type { Publication } from '../../../../src/modules/publications/domain/publication.entity.js';
+import type { PublicationTarget } from '../../../../src/modules/publications/domain/target.entity.js';
 import type { PublicationsRepository } from '../../../../src/modules/publications/domain/ports/publications.repository.js';
+import type { PublicationTargetsRepository } from '../../../../src/modules/publications/domain/ports/publication-targets.repository.js';
 
 const BASE_BRAND: Brand = {
   id: 'brand-1',
@@ -62,6 +64,28 @@ export function stubPublicationsRepository(
     findMany: async () => [],
     create: async (data) => ({ ...BASE_PUBLICATION, ...data }),
     update: async (id, data) => ({ ...BASE_PUBLICATION, id, ...data }),
+    ...overrides,
+  };
+}
+
+export function stubPublicationTargetsRepository(
+  overrides: Partial<PublicationTargetsRepository> = {},
+): PublicationTargetsRepository {
+  return {
+    findByPublication: async () => [],
+    add: async (publicationId, platform) => ({
+      id: 'target-1',
+      publicationId,
+      platform,
+      status: 'PENDING',
+      externalPostId: null,
+      externalPostUrl: null,
+      errorMessage: null,
+      publishedAt: null,
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      updatedAt: new Date('2026-01-01T00:00:00Z'),
+    }),
+    remove: async () => true,
     ...overrides,
   };
 }
