@@ -16,7 +16,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "build": "prisma generate && tsc -p tsconfig.build.json && node -e \"import('node:fs').then(m => m.cpSync('src/generated', 'dist/generated', {recursive:true}))\"",
     "check-types": "tsc --noEmit",
     "generate": "prisma generate",
     "migrate": "prisma migrate dev",
