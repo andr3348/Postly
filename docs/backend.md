@@ -192,6 +192,13 @@ Capas (`src/modules/connected-accounts/`):
 **Manejo Interno de Credenciales**:
 El caso de uso `GetCredentialsUseCase` está exportado desde `ConnectedAccountsModule` para ser utilizado por `PublicationsModule` en el proceso de dispatch a n8n. Si alguna red no está conectada, el caso de uso lanza un `MissingConnectedAccountError`, que el filtro global traduce a 400 Bad Request. Los tokens no son expuestos en las consultas HTTP públicas.
 
+**Cifrado de Credenciales en Reposo**:
+Los campos `accessToken` y `refreshToken` se encriptan de forma transparente en la capa de infraestructura (`PrismaConnectedAccountsRepository`) antes de ser guardados en la base de datos de PostgreSQL, garantizando la seguridad en reposo.
+- **Algoritmo**: `AES-256-GCM` (provisto de forma nativa por el módulo `node:crypto`).
+- **Clave**: Se inyecta mediante la variable de entorno `ENCRYPTION_KEY` administrada por `ConfigService` (debe ser una cadena en formato hexadecimal de 32 bytes). Si la variable no está presente, el sistema arroja un error (`Fast Fail`) y no permite iniciar el repositorio de cuentas conectadas.
+- **Formato**: El texto cifrado se almacena con la forma `IV:AuthTag:Ciphertext`.
+- **Lectura**: El caso de uso `GetCredentialsUseCase` obtiene y descifra las credenciales al vuelo para integrarse de forma segura con el webhook de n8n.
+
 ## 7. Tests y comandos
 
 - Unitarios en `test/unit/` como espejo de `src/` (nunca `.spec` junto al código);
