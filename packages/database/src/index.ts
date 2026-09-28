@@ -44,3 +44,4 @@ export const prisma: PrismaClient = (globalForPrisma.__postlyPrisma ??= createPr
 
 export { Prisma, PrismaClient };
 export type * from "./generated/prisma/models.js";
+export * from "./generated/prisma/client.js";

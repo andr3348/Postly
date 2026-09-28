@@ -19,6 +19,7 @@ import {
   PublicationTargetAlreadyAttachedError,
   PublicationTargetNotFoundError,
   PublicationWithoutTargetsError,
+  MissingConnectedAccountError,
 } from './errors.js';
 
 /**
@@ -37,6 +38,7 @@ import {
   PublicationWithoutTargetsError,
   InvalidPublicationTransitionError,
   ForbiddenError,
+  MissingConnectedAccountError,
 )
 export class DomainExceptionFilter implements ExceptionFilter {
   catch(exception: Error, _host: ArgumentsHost): void {
@@ -55,7 +57,8 @@ export class DomainExceptionFilter implements ExceptionFilter {
     }
     if (
       exception instanceof InvalidPublicationTransitionError ||
-      exception instanceof PublicationWithoutTargetsError
+      exception instanceof PublicationWithoutTargetsError ||
+      exception instanceof MissingConnectedAccountError
     ) {
       throw new BadRequestException(exception.message);
     }

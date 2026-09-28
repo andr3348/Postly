@@ -72,3 +72,10 @@ export class BrandNotFoundError extends Error {
     this.name = 'BrandNotFoundError';
   }
 }
+
+export class MissingConnectedAccountError extends Error {
+  constructor(brandId: string, missingPlatforms: string[]) {
+    super(`Brand ${brandId} is missing connected accounts for: ${missingPlatforms.join(', ')}`);
+    this.name = 'MissingConnectedAccountError';
+  }
+}

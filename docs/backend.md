@@ -96,7 +96,25 @@ hoy no tienen comportamiento. Una clase con solo props + getters sería
 ceremonia. Revisitar cuando una entidad necesite métodos
 (p. ej. `publication.canTransitionTo(...)`).
 
-## 3. Módulo publications (human-in-the-loop)
+## 3. Contratos del api
+
+1. **Secretos JWT son propiedad del api** (`JWT_ACCESS_SECRET`,
+   `JWT_REFRESH_SECRET`, opcionales `JWT_ACCESS_EXPIRES_IN_SECONDS=900` y
+   `JWT_REFRESH_EXPIRES_IN_SECONDS=604800`). Viven en `apps/api/.env`, que
+   carga el `ConfigModule` propio de Nest (`isGlobal`, ruta anclada al package
+   root en `src/shared/env-file-path.ts` — independiente del CWD en dev,
+   `dist/` y tests; sin `dotenv` como dependencia directa). `DATABASE_URL`
+   sigue siendo exclusiva de `packages/database`. Variables reales siempre
+   ganan. Validación de forma con Zod en la factoría de opciones.
+2. **Validación Zod-first (NestJS v12):** schemas en `@Body({ schema })` +
+   `StandardSchemaValidationPipe` como `APP_PIPE` en `AppModule` (aplica igual
+   en prod que en tests, que no pasan por `main.ts`).
+   `class-validator` no se usa en código nuevo.
+3. **Guard global:** todo queda protegido salvo rutas con `@Public()`.
+4. **Datos solo vía `this.prisma.client.<modelo>...`.** El api nunca depende de
+   `pg` / `@prisma/adapter-pg`.
+
+## 4. Módulo publications (human-in-the-loop)
 
 Máquina de estados (transiciones permitidas en `domain/publication.entity.ts`
 via `canTransition`; n8n moverá `SCHEDULED → PROCESSING → PUBLISHED/PARTIAL/FAILED`):
@@ -132,27 +150,17 @@ unicidad `[publicationId, platform]` la garantiza la BD; el caso de uso la
 verifica antes para un 409 limpio. A futuro n8n actualizará cada target
 (`status`, `externalPostId/Url`, `errorMessage`) y escribirá `TargetMetric`.**
 
-## 4. Contratos del api
-
-1. **Secretos JWT son propiedad del api** (`JWT_ACCESS_SECRET`,
-   `JWT_REFRESH_SECRET`, opcionales `JWT_ACCESS_EXPIRES_IN_SECONDS=900` y
-   `JWT_REFRESH_EXPIRES_IN_SECONDS=604800`). Viven en `apps/api/.env`, que
-   carga el `ConfigModule` propio de Nest (`isGlobal`, ruta anclada al package
-   root en `src/shared/env-file-path.ts` — independiente del CWD en dev,
-   `dist/` y tests; sin `dotenv` como dependencia directa). `DATABASE_URL`
-   sigue siendo exclusiva de `packages/database`. Variables reales siempre
-   ganan. Validación de forma con Zod en la factoría de opciones.
-2. **Validación Zod-first (NestJS v12):** schemas en `@Body({ schema })` +
-   `StandardSchemaValidationPipe` como `APP_PIPE` en `AppModule` (aplica igual
-   en prod que en tests, que no pasan por `main.ts`).
-   `class-validator` no se usa en código nuevo.
-3. **Guard global:** todo queda protegido salvo rutas con `@Public()`.
-4. **Datos solo vía `this.prisma.client.<modelo>...`.** El api nunca depende de
-   `pg` / `@prisma/adapter-pg`.
-
 ## 5. Módulo brand (Gestión de Marcas)
 
 Siguiendo el patrón Clean Architecture ya establecido, el módulo de **Brand** expone el CRUD básico de las marcas conectadas a la aplicación.
+
+```text
+POST   /brands         → crea una nueva marca (valida con Zod, 201)
+GET    /brands         → lista completa de marcas ordenadas por fecha descendente
+GET    /brands/:id     → obtiene los detalles de la marca (404 si no existe)
+PATCH  /brands/:id     → actualiza parcialmente la información de la marca
+DELETE /brands/:id     → elimina una marca de forma permanente (204)
+```
 
 Capas (`src/modules/brand/`):
 
@@ -164,7 +172,27 @@ Capas (`src/modules/brand/`):
 **Traducción de Errores**:
 En caso de buscar o intentar actualizar/eliminar un ID inexistente, el caso de uso arroja `BrandNotFoundError`. El filtro global `DomainExceptionFilter` (en `src/shared/filters.ts`) atrapa esta excepción pura y devuelve automáticamente un `404 Not Found` al cliente.
 
-## 6. Tests y comandos
+## 6. Módulo connected-accounts (ConnectedAccounts)
+
+Gestiona la vinculación de cuentas de redes sociales (Facebook, Instagram, LinkedIn, TikTok) pertenecientes a una marca (`Brand`), guardando los tokens para su uso interno por `PublicationsModule` e inyección hacia n8n.
+
+```text
+POST   /brands/:brandId/accounts            → conecta/actualiza una cuenta en una plataforma (Upsert, 201)
+GET    /brands/:brandId/accounts            → lista cuentas conectadas sanitizadas (sin tokens, 200)
+DELETE /brands/:brandId/accounts/:platform  → desvincula la cuenta de esa plataforma (204)
+```
+
+Capas (`src/modules/connected-accounts/`):
+
+- `domain/` — entidad `ConnectedAccount` (segura) y `ConnectedAccountWithCredentials` (con tokens). Puerto `CONNECTED_ACCOUNTS_REPOSITORY`.
+- `application/` — casos de uso puramente funcionales: `UpsertAccountUseCase`, `GetAccountsUseCase`, `DisconnectAccountUseCase` para consumo externo, y `GetCredentialsUseCase` (expuesto internamente a otros módulos).
+- `infrastructure/` — `PrismaConnectedAccountsRepository` que interactúa con Prisma. En el listado aisla y omite los tokens (`accessToken`, `refreshToken`).
+- `presentation/` — controlador REST delgado, delegando peticiones post-validación (con `connectAccountSchema` Zod) a los casos de uso.
+
+**Manejo Interno de Credenciales**:
+El caso de uso `GetCredentialsUseCase` está exportado desde `ConnectedAccountsModule` para ser utilizado por `PublicationsModule` en el proceso de dispatch a n8n. Si alguna red no está conectada, el caso de uso lanza un `MissingConnectedAccountError`, que el filtro global traduce a 400 Bad Request. Los tokens no son expuestos en las consultas HTTP públicas.
+
+## 7. Tests y comandos
 
 - Unitarios en `test/unit/` como espejo de `src/` (nunca `.spec` junto al código);
   casos de uso con puertos stub tipados, sin DB. E2E en `test/*.e2e-spec.ts`
@@ -177,4 +205,3 @@ pnpm --filter api run test:e2e      # e2e (DB levantada)
 pnpm --filter api run check-types   # tsc --noEmit
 pnpm --filter api run lint          # oxlint src/ test/
 ```
-
