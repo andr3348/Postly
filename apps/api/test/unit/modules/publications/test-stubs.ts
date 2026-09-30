@@ -4,6 +4,7 @@ import type { Publication } from '../../../../src/modules/publications/domain/pu
 import type { PublicationTarget } from '../../../../src/modules/publications/domain/target.entity.js';
 import type { PublicationsRepository } from '../../../../src/modules/publications/domain/ports/publications.repository.js';
 import type { PublicationTargetsRepository } from '../../../../src/modules/publications/domain/ports/publication-targets.repository.js';
+import type { PublicationMetricsRepository } from '../../../../src/modules/publications/domain/ports/publication-metrics.repository.js';
 
 const BASE_BRAND: Brand = {
   id: 'brand-1',
@@ -86,6 +87,25 @@ export function stubPublicationTargetsRepository(
       updatedAt: new Date('2026-01-01T00:00:00Z'),
     }),
     remove: async () => true,
+    ...overrides,
+  };
+}
+
+export function stubPublicationMetricsRepository(
+  overrides: Partial<PublicationMetricsRepository> = {},
+): PublicationMetricsRepository {
+  return {
+    record: async (targetId, snapshot) => ({
+      id: 'metric-1',
+      publicationTargetId: targetId,
+      impressions: snapshot.impressions ?? 0,
+      likes: snapshot.likes ?? 0,
+      comments: snapshot.comments ?? 0,
+      shares: snapshot.shares ?? 0,
+      clicks: snapshot.clicks ?? 0,
+      capturedAt: new Date('2026-01-02T00:00:00Z'),
+    }),
+    history: async () => [],
     ...overrides,
   };
 }
