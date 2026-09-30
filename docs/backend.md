@@ -222,7 +222,32 @@ Los campos `accessToken` y `refreshToken` se encriptan de forma transparente en 
 
 **Tests**: 9 unitarios (`test/unit/modules/connected-accounts/`) + flujo e2e (`test/connected-accounts.e2e-spec.ts`: conectar → listar sin secretos → desvincular → 404 → 400).
 
-## 7. Tests y comandos
+## 7. Módulo dispatch (superficie n8n)
+
+Cierra el loop que el dashboard deja en `SCHEDULED`: n8n hace poll, reclama,
+publica en la(s) red(es) y reporta. Sin persistencia propia — reutiliza puertos
+de Publications y credenciales de ConnectedAccounts. Sin estas rutas, lo
+programado jamás saldría de `SCHEDULED` (nada mueve ese estado).
+
+```text
+POST /dispatch/claim               → próxima vencida + credenciales, marcada
+                                     PROCESSING (200; 204 sin cuerpo si no hay)
+POST /dispatch/targets/:id/report  → status + externalIds/error (+ metrics
+                                     opcional); recalcula PUBLISHED/PARTIAL/
+                                     FAILED cuando no quedan PENDING (200)
+```
+
+Auth máquina-a-máquina: `N8nApiKeyGuard` (header `x-api-key`, comparación
+`timingSafeEqual` sobre hashes SHA-256, fail-fast sin la env). Las rutas son
+`@Public()` solo para omitir el guard JWT de usuarios — la auth real es la de
+servicio. Sin TLS en producción, ni esto basta.
+
+Reglas: el reclamo es atómico (`markProcessing` condicional: si otro worker la
+tomó, se intenta con la siguiente); sin credenciales para algún canal no se
+reclama (400 visible, la pieza queda SCHEDULED para reintento); el reporte con
+métricas las registra en la misma llamada.
+
+## 8. Tests y comandos
 
 - Unitarios en `test/unit/` como espejo de `src/` (nunca `.spec` junto al código);
   casos de uso con puertos stub tipados, sin DB. E2E en `test/*.e2e-spec.ts`
