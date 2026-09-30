@@ -150,6 +150,19 @@ unicidad `[publicationId, platform]` la garantiza la BD; el caso de uso la
 verifica antes para un 409 limpio. A futuro n8n actualizará cada target
 (`status`, `externalPostId/Url`, `errorMessage`) y escribirá `TargetMetric`.**
 
+**Métricas (sin módulo propio):** snapshots por destino, base de los gráficos
+de Analytics. Solo en destinos `SUCCESS` (medir lo no publicado es ruido;
+`TargetNotPublishedError` → 400):
+
+```text
+GET    /publications/:id/targets/:platform/metrics → historial por capturedAt
+POST   /publications/:id/targets/:platform/metrics → registra snapshot
+       { impressions?, likes?, comments?, shares?, clicks? } (enteros ≥0)
+```
+
+Cada POST es una fila (serie temporal, índice `[publicationTargetId,
+capturedAt]`); la tasa de engagement se calcula al leer, nunca se almacena.
+
 ## 5. Módulo brand (Gestión de Marcas)
 
 Siguiendo el patrón Clean Architecture ya establecido, el módulo de **Brand** expone el CRUD básico de las marcas conectadas a la aplicación.
