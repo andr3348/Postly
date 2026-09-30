@@ -77,7 +77,9 @@ pnpm --filter api run test:e2e      # e2e (DB levantada)
 - [ ] Obj. 3: backend — campañas, persistencia, LLMs/difusión.
       Auth lista (patrón Clean Architecture a replicar).
 - [ ] Obj. 4: dashboard — prompt → preview → aprobación + Analytics/Insights.
-- [ ] Obj. 5: n8n — programación/publicación vía APIs (LinkedIn primero).
+- [ ] Obj. 5: n8n — superficie de despacho lista (`/dispatch`: claim atómico,
+  reporte, métricas; ver `docs/backend.md` §7). Pendientes los workflows en el
+  VPS contra las APIs (LinkedIn primero).
 - [ ] Obj. 6: pruebas unitarias/integración/rendimiento.
 - [ ] Obj. 7: medición 45 min → 3–5 min y cálculo B/C.
 

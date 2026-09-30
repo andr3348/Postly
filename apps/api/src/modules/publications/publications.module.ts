@@ -46,5 +46,11 @@ import { PublicationsController } from './presentation/publications.controller.j
     { provide: PUBLICATION_TARGETS_REPOSITORY, useClass: PrismaPublicationTargetsRepository },
     { provide: PUBLICATION_METRICS_REPOSITORY, useClass: PrismaPublicationMetricsRepository },
   ],
+  // Puertos compartidos con el módulo dispatch (reclamo y reporte n8n).
+  exports: [
+    PUBLICATIONS_REPOSITORY,
+    PUBLICATION_TARGETS_REPOSITORY,
+    PUBLICATION_METRICS_REPOSITORY,
+  ],
 })
 export class PublicationsModule {}

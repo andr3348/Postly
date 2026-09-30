@@ -40,6 +40,13 @@ export interface PublicationsRepository {
   findMany(filters: PublicationFilters): Promise<Publication[]>;
   create(data: CreatePublicationData): Promise<Publication>;
   update(id: string, data: UpdatePublicationData): Promise<Publication>;
+  /** Próximas vencidas para despacho (SCHEDULED + scheduledAt pasado). */
+  findDueDispatch(limit: number, now: Date): Promise<Publication[]>;
+  /**
+   * Reclamo atómico: pasa a PROCESSING solo si sigue SCHEDULED.
+   * `false` = otro worker la tomó (reintentar con la siguiente).
+   */
+  markProcessing(id: string): Promise<boolean>;
 }
 
 export const PUBLICATIONS_REPOSITORY: unique symbol = Symbol('PublicationsRepository');

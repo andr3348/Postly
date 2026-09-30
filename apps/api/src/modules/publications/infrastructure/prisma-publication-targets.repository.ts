@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../shared/prisma/prisma.service.js';
 import type { PublicationTarget, TargetPlatform, TargetStatus } from '../domain/target.entity.js';
-import type { PublicationTargetsRepository } from '../domain/ports/publication-targets.repository.js';
+import type { PublicationTargetsRepository, UpdateTargetData } from '../domain/ports/publication-targets.repository.js';
 
 /** Adaptador Prisma de `PublicationTargetsRepository`. */
 @Injectable()
@@ -28,6 +28,25 @@ export class PrismaPublicationTargetsRepository implements PublicationTargetsRep
       where: { publicationId, platform },
     });
     return deleted.count > 0;
+  }
+
+  async findById(id: string): Promise<PublicationTarget | null> {
+    const row = await this.prisma.client.publicationTarget.findUnique({ where: { id } });
+    return row === null ? null : toDomainTarget(row);
+  }
+
+  async updateTarget(id: string, data: UpdateTargetData): Promise<PublicationTarget> {
+    const row = await this.prisma.client.publicationTarget.update({
+      where: { id },
+      data: {
+        status: data.status,
+        externalPostId: data.externalPostId,
+        externalPostUrl: data.externalPostUrl,
+        errorMessage: data.errorMessage,
+        publishedAt: data.publishedAt,
+      },
+    });
+    return toDomainTarget(row);
   }
 }
 

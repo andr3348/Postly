@@ -65,6 +65,8 @@ export function stubPublicationsRepository(
     findMany: async () => [],
     create: async (data) => ({ ...BASE_PUBLICATION, ...data }),
     update: async (id, data) => ({ ...BASE_PUBLICATION, id, ...data }),
+    findDueDispatch: async () => [],
+    markProcessing: async () => true,
     ...overrides,
   };
 }
@@ -73,6 +75,7 @@ export function stubPublicationTargetsRepository(
   overrides: Partial<PublicationTargetsRepository> = {},
 ): PublicationTargetsRepository {
   return {
+    findById: async () => null,
     findByPublication: async () => [],
     add: async (publicationId, platform) => ({
       id: 'target-1',
@@ -87,6 +90,19 @@ export function stubPublicationTargetsRepository(
       updatedAt: new Date('2026-01-01T00:00:00Z'),
     }),
     remove: async () => true,
+    updateTarget: async (id, data) => ({
+      id,
+      publicationId: 'pub-1',
+      platform: 'LINKEDIN',
+      status: 'PENDING',
+      externalPostId: null,
+      externalPostUrl: null,
+      errorMessage: null,
+      publishedAt: null,
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      updatedAt: new Date('2026-01-01T00:00:00Z'),
+      ...data,
+    }),
     ...overrides,
   };
 }

@@ -11,7 +11,6 @@ import type {
   PublicationsRepository,
   UpdatePublicationData,
 } from '../domain/ports/publications.repository.js';
-
 /**
  * Adaptador Prisma de `PublicationsRepository`.
  * Único lugar del módulo que conoce al cliente generado.
@@ -67,6 +66,23 @@ export class PrismaPublicationsRepository implements PublicationsRepository {
       },
     });
     return toDomainPublication(row);
+  }
+
+  async findDueDispatch(limit: number, now: Date): Promise<Publication[]> {
+    const rows = await this.prisma.client.publication.findMany({
+      where: { status: 'SCHEDULED', scheduledAt: { lte: now } },
+      orderBy: { scheduledAt: 'asc' },
+      take: limit,
+    });
+    return rows.map(toDomainPublication);
+  }
+
+  async markProcessing(id: string): Promise<boolean> {
+    const claimed = await this.prisma.client.publication.updateMany({
+      where: { id, status: 'SCHEDULED' },
+      data: { status: 'PROCESSING', dispatchedAt: new Date() },
+    });
+    return claimed.count > 0;
   }
 }
 
