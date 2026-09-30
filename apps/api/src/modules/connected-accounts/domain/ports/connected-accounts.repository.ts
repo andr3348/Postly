@@ -1,21 +1,29 @@
-import { ConnectedAccount, ConnectedAccountWithCredentials } from '../connected-account.entity.js';
-import { Platform } from '@postly/database';
+import type {
+  AccountPlatform,
+  AccountStatus,
+  ConnectedAccount,
+  ConnectedAccountWithCredentials,
+} from '../connected-account.entity.js';
 
-export const CONNECTED_ACCOUNTS_REPOSITORY = Symbol('CONNECTED_ACCOUNTS_REPOSITORY');
+export const CONNECTED_ACCOUNTS_REPOSITORY: unique symbol = Symbol('CONNECTED_ACCOUNTS_REPOSITORY');
 
 export interface UpsertAccountPayload {
-  platform: Platform;
+  platform: AccountPlatform;
   accountName: string;
   externalAccountId: string;
   accessToken: string;
   refreshToken?: string;
   expiresAt?: Date;
   scope?: string;
+  status: AccountStatus;
 }
 
 export interface ConnectedAccountsRepository {
   upsertAccount(brandId: string, payload: UpsertAccountPayload): Promise<ConnectedAccount>;
   findAllByBrand(brandId: string): Promise<ConnectedAccount[]>;
-  disconnectAccount(brandId: string, platform: Platform): Promise<void>;
-  getCredentialsForDispatch(brandId: string, platforms: Platform[]): Promise<ConnectedAccountWithCredentials[]>;
+  disconnectAccount(brandId: string, platform: AccountPlatform): Promise<boolean>;
+  getCredentialsForDispatch(
+    brandId: string,
+    platforms: AccountPlatform[],
+  ): Promise<ConnectedAccountWithCredentials[]>;
 }

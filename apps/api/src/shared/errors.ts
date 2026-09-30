@@ -79,3 +79,10 @@ export class MissingConnectedAccountError extends Error {
     this.name = 'MissingConnectedAccountError';
   }
 }
+
+export class ConnectedAccountNotFoundError extends Error {
+  constructor(brandId: string, platform: string) {
+    super(`Brand ${brandId} has no connected account for ${platform}`);
+    this.name = 'ConnectedAccountNotFoundError';
+  }
+}

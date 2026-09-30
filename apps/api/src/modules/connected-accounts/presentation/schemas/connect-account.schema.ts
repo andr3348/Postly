@@ -1,14 +1,19 @@
 import { z } from 'zod';
-import { Platform } from '@postly/database';
+
+export const accountPlatformSchema = z.enum(['FACEBOOK', 'INSTAGRAM', 'LINKEDIN', 'TIKTOK']);
 
 export const connectAccountSchema = z.object({
-  platform: z.nativeEnum(Platform),
-  accountName: z.string().min(2, 'Account name must be at least 2 characters'),
-  externalAccountId: z.string().min(1, 'External Account ID is required'),
-  accessToken: z.string().min(1, 'Access Token is required'),
-  refreshToken: z.string().optional(),
-  expiresAt: z.string().datetime().optional().transform(val => val ? new Date(val) : undefined),
-  scope: z.string().optional(),
+  platform: accountPlatformSchema,
+  accountName: z.string().trim().min(2).max(200),
+  externalAccountId: z.string().trim().min(1).max(200),
+  accessToken: z.string().min(1).max(8000),
+  refreshToken: z.string().min(1).max(8000).optional(),
+  expiresAt: z
+    .string()
+    .datetime()
+    .optional()
+    .transform((value) => (value === undefined ? undefined : new Date(value))),
+  scope: z.string().max(2000).optional(),
 });
 
 export type ConnectAccountDto = z.infer<typeof connectAccountSchema>;
