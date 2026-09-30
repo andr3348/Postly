@@ -59,6 +59,13 @@ export class PublicationWithoutTargetsError extends Error {
   }
 }
 
+export class TargetNotPublishedError extends Error {
+  constructor(publicationId: string, platform: string) {
+    super(`Target ${platform} of publication ${publicationId} is not published`);
+    this.name = 'TargetNotPublishedError';
+  }
+}
+
 export class InvalidPublicationTransitionError extends Error {
   constructor(from: string, to: string) {
     super(`Cannot transition publication from ${from} to ${to}`);

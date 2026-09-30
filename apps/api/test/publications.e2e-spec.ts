@@ -111,5 +111,29 @@ describe('Publications (e2e)', () => {
 
     // Publicación inexistente: 404.
     await agent.get('/api/publications/xxx-missing').expect(404);
+
+    // Métricas solo en destinos publicados: el target sigue PENDING → 400.
+    await agent
+      .post(`/api/publications/${publicationId}/targets/LINKEDIN/metrics`)
+      .send({ impressions: 100 })
+      .expect(400);
+
+    // n8n marcaría SUCCESS directo en BD (sin endpoint aún); simulado aquí.
+    await prisma.client.publicationTarget.updateMany({
+      where: { publicationId },
+      data: { status: 'SUCCESS', externalPostId: 'urn:li:share:e2e' },
+    });
+
+    const recorded = await agent
+      .post(`/api/publications/${publicationId}/targets/LINKEDIN/metrics`)
+      .send({ impressions: 1420, likes: 85, comments: 12 })
+      .expect(201);
+    expect(recorded.body).toMatchObject({ impressions: 1420, likes: 85, comments: 12 });
+
+    const history = await agent
+      .get(`/api/publications/${publicationId}/targets/LINKEDIN/metrics`)
+      .expect(200);
+    expect(history.body).toHaveLength(1);
+    expect(history.body[0]).toMatchObject({ impressions: 1420 });
   });
 });

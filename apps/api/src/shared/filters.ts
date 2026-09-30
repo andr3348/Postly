@@ -21,6 +21,7 @@ import {
   PublicationTargetNotFoundError,
   PublicationWithoutTargetsError,
   MissingConnectedAccountError,
+  TargetNotPublishedError,
 } from './errors.js';
 
 /**
@@ -38,6 +39,7 @@ import {
   PublicationTargetNotFoundError,
   PublicationTargetAlreadyAttachedError,
   PublicationWithoutTargetsError,
+  TargetNotPublishedError,
   InvalidPublicationTransitionError,
   ForbiddenError,
   MissingConnectedAccountError,
@@ -61,6 +63,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
     if (
       exception instanceof InvalidPublicationTransitionError ||
       exception instanceof PublicationWithoutTargetsError ||
+      exception instanceof TargetNotPublishedError ||
       exception instanceof MissingConnectedAccountError
     ) {
       throw new BadRequestException(exception.message);

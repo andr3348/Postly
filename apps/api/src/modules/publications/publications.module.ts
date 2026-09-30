@@ -11,9 +11,13 @@ import { ListPublicationsUseCase } from './application/list-publications.use-cas
 import { AddTargetUseCase } from './application/add-target.use-case.js';
 import { ListTargetsUseCase } from './application/list-targets.use-case.js';
 import { RemoveTargetUseCase } from './application/remove-target.use-case.js';
+import { RecordMetricUseCase } from './application/record-metric.use-case.js';
+import { ListMetricsUseCase } from './application/list-metrics.use-case.js';
 import { PUBLICATIONS_REPOSITORY } from './domain/ports/publications.repository.js';
+import { PUBLICATION_METRICS_REPOSITORY } from './domain/ports/publication-metrics.repository.js';
 import { PUBLICATION_TARGETS_REPOSITORY } from './domain/ports/publication-targets.repository.js';
 import { PrismaPublicationsRepository } from './infrastructure/prisma-publications.repository.js';
+import { PrismaPublicationMetricsRepository } from './infrastructure/prisma-publication-metrics.repository.js';
 import { PrismaPublicationTargetsRepository } from './infrastructure/prisma-publication-targets.repository.js';
 import { PublicationsController } from './presentation/publications.controller.js';
 
@@ -36,8 +40,11 @@ import { PublicationsController } from './presentation/publications.controller.j
     AddTargetUseCase,
     ListTargetsUseCase,
     RemoveTargetUseCase,
+    RecordMetricUseCase,
+    ListMetricsUseCase,
     { provide: PUBLICATIONS_REPOSITORY, useClass: PrismaPublicationsRepository },
     { provide: PUBLICATION_TARGETS_REPOSITORY, useClass: PrismaPublicationTargetsRepository },
+    { provide: PUBLICATION_METRICS_REPOSITORY, useClass: PrismaPublicationMetricsRepository },
   ],
 })
 export class PublicationsModule {}

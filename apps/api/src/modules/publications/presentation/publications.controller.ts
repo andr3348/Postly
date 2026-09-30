@@ -24,6 +24,8 @@ import { ListPublicationsUseCase } from '../application/list-publications.use-ca
 import { AddTargetUseCase } from '../application/add-target.use-case.js';
 import { ListTargetsUseCase } from '../application/list-targets.use-case.js';
 import { RemoveTargetUseCase } from '../application/remove-target.use-case.js';
+import { RecordMetricUseCase } from '../application/record-metric.use-case.js';
+import { ListMetricsUseCase } from '../application/list-metrics.use-case.js';
 import type { TargetPlatform } from '../domain/target.entity.js';
 import {
   approvePublicationSchema,
@@ -34,6 +36,8 @@ import {
   type CreatePublicationDto,
   listPublicationsSchema,
   type ListPublicationsDto,
+  recordMetricSchema,
+  type RecordMetricDto,
   targetPlatformSchema,
   updateDraftSchema,
   type UpdateDraftDto,
@@ -58,6 +62,8 @@ export class PublicationsController {
     private readonly addTargetUseCase: AddTargetUseCase,
     private readonly listTargetsUseCase: ListTargetsUseCase,
     private readonly removeTargetUseCase: RemoveTargetUseCase,
+    private readonly recordMetricUseCase: RecordMetricUseCase,
+    private readonly listMetricsUseCase: ListMetricsUseCase,
   ) {}
 
   @Post()
@@ -156,6 +162,32 @@ export class PublicationsController {
       publicationId: id,
       platform,
       requester: { id: user.userId, role: user.role },
+    });
+  }
+
+  @Get(':id/targets/:platform/metrics')
+  listMetrics(
+    @Param('id') id: string,
+    @Param('platform', { schema: targetPlatformSchema })
+    platform: TargetPlatform,
+  ) {
+    return this.listMetricsUseCase.execute({ publicationId: id, platform });
+  }
+
+  @Post(':id/targets/:platform/metrics')
+  @HttpCode(HttpStatus.CREATED)
+  recordMetric(
+    @Param('id') id: string,
+    @Param('platform', { schema: targetPlatformSchema })
+    platform: TargetPlatform,
+    @Body({ schema: recordMetricSchema }) body: RecordMetricDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.recordMetricUseCase.execute({
+      publicationId: id,
+      platform,
+      requester: { id: user.userId, role: user.role },
+      snapshot: body,
     });
   }
 }

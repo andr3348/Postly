@@ -54,3 +54,15 @@ export const addTargetSchema = z.object({
 });
 
 export type AddTargetDto = z.infer<typeof addTargetSchema>;
+
+const nonNegativeMetric = z.number().int().min(0).max(1_000_000_000).optional();
+
+export const recordMetricSchema = z.object({
+  impressions: nonNegativeMetric,
+  likes: nonNegativeMetric,
+  comments: nonNegativeMetric,
+  shares: nonNegativeMetric,
+  clicks: nonNegativeMetric,
+});
+
+export type RecordMetricDto = z.infer<typeof recordMetricSchema>;
