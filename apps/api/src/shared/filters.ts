@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   BrandNotFoundError,
+  ConnectedAccountNotFoundError,
   EmailAlreadyTakenError,
   ForbiddenError,
   InvalidCredentialsError,
@@ -32,6 +33,7 @@ import {
   InvalidCredentialsError,
   InvalidRefreshTokenError,
   BrandNotFoundError,
+  ConnectedAccountNotFoundError,
   PublicationNotFoundError,
   PublicationTargetNotFoundError,
   PublicationTargetAlreadyAttachedError,
@@ -50,6 +52,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
     }
     if (
       exception instanceof BrandNotFoundError ||
+      exception instanceof ConnectedAccountNotFoundError ||
       exception instanceof PublicationNotFoundError ||
       exception instanceof PublicationTargetNotFoundError
     ) {

@@ -1,13 +1,17 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../shared/prisma/prisma.service.js';
 import type {
   ConnectedAccountsRepository,
   UpsertAccountPayload,
 } from '../domain/ports/connected-accounts.repository.js';
-import type { ConnectedAccount, ConnectedAccountWithCredentials } from '../domain/connected-account.entity.js';
-import type { Platform } from '@postly/database';
-import { encrypt, decrypt } from '../../../shared/encryption.js';
+import type {
+  AccountPlatform,
+  AccountStatus,
+  ConnectedAccount,
+  ConnectedAccountWithCredentials,
+} from '../domain/connected-account.entity.js';
+import { decrypt, encrypt } from '../../../shared/encryption.js';
 
 @Injectable()
 export class PrismaConnectedAccountsRepository implements ConnectedAccountsRepository {
@@ -18,15 +22,20 @@ export class PrismaConnectedAccountsRepository implements ConnectedAccountsRepos
     configService: ConfigService,
   ) {
     const key = configService.get<string>('ENCRYPTION_KEY');
-    if (!key) {
-      throw new InternalServerErrorException('ENCRYPTION_KEY is missing');
+    if (key === undefined || key === '') {
+      throw new Error(
+        '[connected-accounts] Missing ENCRYPTION_KEY. Define it in the api environment (64 hex chars).',
+      );
     }
     this.encryptionKey = key;
   }
 
   async upsertAccount(brandId: string, payload: UpsertAccountPayload): Promise<ConnectedAccount> {
     const encryptedAccessToken = encrypt(payload.accessToken, this.encryptionKey);
-    const encryptedRefreshToken = payload.refreshToken ? encrypt(payload.refreshToken, this.encryptionKey) : undefined;
+    const encryptedRefreshToken =
+      payload.refreshToken === undefined
+        ? undefined
+        : encrypt(payload.refreshToken, this.encryptionKey);
 
     const account = await this.prisma.client.connectedAccount.upsert({
       where: {
@@ -38,7 +47,7 @@ export class PrismaConnectedAccountsRepository implements ConnectedAccountsRepos
       create: {
         brandId,
         platform: payload.platform,
-        status: 'CONNECTED',
+        status: payload.status,
         accountName: payload.accountName,
         externalAccountId: payload.externalAccountId,
         accessToken: encryptedAccessToken,
@@ -53,11 +62,11 @@ export class PrismaConnectedAccountsRepository implements ConnectedAccountsRepos
         refreshToken: encryptedRefreshToken,
         expiresAt: payload.expiresAt,
         scope: payload.scope,
-        status: 'CONNECTED',
+        status: payload.status,
       },
     });
 
-    return this.mapToDomain(account);
+    return toDomainAccount(account);
   }
 
   async findAllByBrand(brandId: string): Promise<ConnectedAccount[]> {
@@ -75,24 +84,23 @@ export class PrismaConnectedAccountsRepository implements ConnectedAccountsRepos
       },
     });
 
-    return accounts.map(this.mapToDomain);
+    return accounts.map(toDomainAccount);
   }
 
-  async disconnectAccount(brandId: string, platform: Platform): Promise<void> {
-    await this.prisma.client.connectedAccount.updateMany({
-      where: {
-        brandId,
-        platform,
-      },
-      data: {
-        status: 'DISCONNECTED',
-      },
+  async disconnectAccount(brandId: string, platform: AccountPlatform): Promise<boolean> {
+    const disconnected = await this.prisma.client.connectedAccount.updateMany({
+      // Solo un vínculo activo se puede desvincular: repetir sobre una cuenta
+      // ya DISCONNECTED es 404, no éxito silencioso.
+      where: { brandId, platform, status: { in: ['CONNECTED', 'EXPIRED'] } },
+      // Desvincular = sin credenciales: no retener secretos de una cuenta suelta.
+      data: { status: 'DISCONNECTED', accessToken: null, refreshToken: null },
     });
+    return disconnected.count > 0;
   }
 
   async getCredentialsForDispatch(
     brandId: string,
-    platforms: Platform[],
+    platforms: AccountPlatform[],
   ): Promise<ConnectedAccountWithCredentials[]> {
     const accounts = await this.prisma.client.connectedAccount.findMany({
       where: {
@@ -102,32 +110,51 @@ export class PrismaConnectedAccountsRepository implements ConnectedAccountsRepos
       },
     });
 
-    return accounts.map((acc) => ({
-      id: acc.id,
-      brandId: acc.brandId,
-      platform: acc.platform,
-      status: acc.status,
-      accountName: acc.accountName,
-      externalAccountId: acc.externalAccountId,
-      createdAt: acc.createdAt,
-      updatedAt: acc.updatedAt,
-      accessToken: acc.accessToken ? decrypt(acc.accessToken, this.encryptionKey) : null,
-      refreshToken: acc.refreshToken ? decrypt(acc.refreshToken, this.encryptionKey) : null,
-      expiresAt: acc.expiresAt,
-      scope: acc.scope,
+    return accounts.map((account) => ({
+      ...toDomainAccount(account),
+      accessToken: account.accessToken === null ? null : decrypt(account.accessToken, this.encryptionKey),
+      refreshToken:
+        account.refreshToken === null ? null : decrypt(account.refreshToken, this.encryptionKey),
+      expiresAt: account.expiresAt,
+      scope: account.scope,
     }));
   }
+}
 
-  private mapToDomain(record: any): ConnectedAccount {
-    return {
-      id: record.id,
-      brandId: record.brandId,
-      platform: record.platform,
-      status: record.status,
-      accountName: record.accountName,
-      externalAccountId: record.externalAccountId,
-      createdAt: record.createdAt,
-      updatedAt: record.updatedAt,
-    };
+interface AccountRow {
+  readonly id: string;
+  readonly brandId: string;
+  readonly platform: string;
+  readonly status: string;
+  readonly accountName: string;
+  readonly externalAccountId: string | null;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+}
+
+function toDomainAccount(row: AccountRow): ConnectedAccount {
+  return {
+    id: row.id,
+    brandId: row.brandId,
+    platform: toDomainPlatform(row.platform),
+    status: toDomainStatus(row.status),
+    accountName: row.accountName,
+    externalAccountId: row.externalAccountId,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function toDomainPlatform(value: string): AccountPlatform {
+  if (value === 'FACEBOOK' || value === 'INSTAGRAM' || value === 'LINKEDIN' || value === 'TIKTOK') {
+    return value;
   }
+  throw new Error(`[connected-accounts] Unknown platform in database: ${value}`);
+}
+
+function toDomainStatus(value: string): AccountStatus {
+  if (value === 'CONNECTED' || value === 'DISCONNECTED' || value === 'EXPIRED') {
+    return value;
+  }
+  throw new Error(`[connected-accounts] Unknown account status in database: ${value}`);
 }

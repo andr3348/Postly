@@ -1,10 +1,19 @@
-import { Controller, Post, Get, Delete, Body, Param, HttpCode, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
 import { UpsertAccountUseCase } from '../application/upsert-account.use-case.js';
 import { GetAccountsUseCase } from '../application/get-accounts.use-case.js';
 import { DisconnectAccountUseCase } from '../application/disconnect-account.use-case.js';
-import { connectAccountSchema, type ConnectAccountDto } from './schemas/connect-account.schema.js';
-import type { Platform } from '@postly/database';
+import type { AccountPlatform } from '../domain/connected-account.entity.js';
+import {
+  accountPlatformSchema,
+  connectAccountSchema,
+  type ConnectAccountDto,
+} from './schemas/connect-account.schema.js';
 
+/**
+ * Controller delgado: valida (Zod), delega al caso de uso y retorna.
+ * Las credenciales entran por el cuerpo pero jamás salen: el listado
+ * las excluye por `select` en el adaptador.
+ */
 @Controller('brands/:brandId/accounts')
 export class ConnectedAccountsController {
   constructor(
@@ -18,7 +27,7 @@ export class ConnectedAccountsController {
     @Param('brandId') brandId: string,
     @Body({ schema: connectAccountSchema }) dto: ConnectAccountDto,
   ) {
-    return this.upsertAccountUseCase.execute(brandId, dto);
+    return this.upsertAccountUseCase.execute({ brandId, ...dto });
   }
 
   @Get()
@@ -30,8 +39,9 @@ export class ConnectedAccountsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async disconnectAccount(
     @Param('brandId') brandId: string,
-    @Param('platform') platform: Platform,
-  ) {
+    // El pipe valida contra el schema: si llega aquí, es valor del enum.
+    @Param('platform', { schema: accountPlatformSchema }) platform: AccountPlatform,
+  ): Promise<void> {
     await this.disconnectAccountUseCase.execute(brandId, platform);
   }
 }

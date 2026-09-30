@@ -15,7 +15,7 @@ export class GetAccountsUseCase {
 
   async execute(brandId: string): Promise<ConnectedAccount[]> {
     const brand = await this.brandsRepository.findById(brandId);
-    if (!brand) {
+    if (brand === null) {
       throw new BrandNotFoundError(brandId);
     }
     return this.accountsRepository.findAllByBrand(brandId);
