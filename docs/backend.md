@@ -172,15 +172,23 @@ Capas (`src/modules/brand/`):
 **Traducción de Errores**:
 En caso de buscar o intentar actualizar/eliminar un ID inexistente, el caso de uso arroja `BrandNotFoundError`. El filtro global `DomainExceptionFilter` (en `src/shared/filters.ts`) atrapa esta excepción pura y devuelve automáticamente un `404 Not Found` al cliente.
 
+**Tests**: 8 unitarios (`test/unit/modules/brand/`) con repositorio stub tipado.
+
 ## 6. Módulo connected-accounts (ConnectedAccounts)
 
-Gestiona la vinculación de cuentas de redes sociales (Facebook, Instagram, LinkedIn, TikTok) pertenecientes a una marca (`Brand`), guardando los tokens para su uso interno por `PublicationsModule` e inyección hacia n8n.
+Gestiona la vinculación de cuentas de redes sociales (Facebook, Instagram, LinkedIn, TikTok) pertenecientes a una marca (`Brand`). Punto de extensión para el despacho (n8n): hoy ningún consumidor lo usa todavía.
 
 ```text
 POST   /brands/:brandId/accounts            → conecta/actualiza una cuenta en una plataforma (Upsert, 201)
 GET    /brands/:brandId/accounts            → lista cuentas conectadas sanitizadas (sin tokens, 200)
-DELETE /brands/:brandId/accounts/:platform  → desvincula la cuenta de esa plataforma (204)
+DELETE /brands/:brandId/accounts/:platform  → desvincula la cuenta (204; 404 si no estaba vinculada)
 ```
+
+Semántica: el dominio usa uniones locales (`AccountPlatform`, `AccountStatus`;
+el adaptador mapea en el borde, sin importar enums de `@postly/database`).
+Upsert con token ya vencido nace `EXPIRED` (la UI debe pedir re-autenticar).
+Desvincular pone `DISCONNECTED` y **borra los tokens**: no se retienen secretos
+de una cuenta suelta; repetir sobre una ya desvinculada es 404.
 
 Capas (`src/modules/connected-accounts/`):
 
@@ -195,9 +203,11 @@ El caso de uso `GetCredentialsUseCase` está exportado desde `ConnectedAccountsM
 **Cifrado de Credenciales en Reposo**:
 Los campos `accessToken` y `refreshToken` se encriptan de forma transparente en la capa de infraestructura (`PrismaConnectedAccountsRepository`) antes de ser guardados en la base de datos de PostgreSQL, garantizando la seguridad en reposo.
 - **Algoritmo**: `AES-256-GCM` (provisto de forma nativa por el módulo `node:crypto`).
-- **Clave**: Se inyecta mediante la variable de entorno `ENCRYPTION_KEY` administrada por `ConfigService` (debe ser una cadena en formato hexadecimal de 32 bytes). Si la variable no está presente, el sistema arroja un error (`Fast Fail`) y no permite iniciar el repositorio de cuentas conectadas.
+- **Clave**: Se inyecta mediante la variable de entorno `ENCRYPTION_KEY` administrada por `ConfigService` (64 hex chars; generar con `openssl rand -hex 32`). Si falta, el repositorio falla rápido con `Error` plano (no excepción HTTP). En e2e se fija una de prueba en `vitest.config.e2e.ts`.
 - **Formato**: El texto cifrado se almacena con la forma `IV:AuthTag:Ciphertext`.
 - **Lectura**: El caso de uso `GetCredentialsUseCase` obtiene y descifra las credenciales al vuelo para integrarse de forma segura con el webhook de n8n.
+
+**Tests**: 9 unitarios (`test/unit/modules/connected-accounts/`) + flujo e2e (`test/connected-accounts.e2e-spec.ts`: conectar → listar sin secretos → desvincular → 404 → 400).
 
 ## 7. Tests y comandos
 
