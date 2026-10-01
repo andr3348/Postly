@@ -7,6 +7,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { PrismaModule } from './shared/prisma/prisma.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { AnalyticsModule } from './modules/analytics/analytics.module.js';
 import { BrandModule } from './modules/brand/brand.module.js';
 import { PublicationsModule } from './modules/publications/publications.module.js';
 import { ConnectedAccountsModule } from './modules/connected-accounts/connected-accounts.module.js';
@@ -16,6 +17,7 @@ import { DispatchModule } from './modules/dispatch/dispatch.module.js';
   imports: [
     PrismaModule,
     AuthModule,
+    AnalyticsModule,
     BrandModule,
     PublicationsModule,
     ConnectedAccountsModule,

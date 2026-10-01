@@ -1,8 +1,20 @@
 import { prisma } from '../src/index.js';
 // Enums runtime solo vía namespace `$Enums` (el cliente v7 no los re-exporta planos).
 import { $Enums } from '../src/generated/prisma/client.js';
+import * as argon2 from 'argon2';
 
 const { MediaType, Platform, PlatformStatus, PublicationStatus } = $Enums;
+
+/** Env requerida con mensaje accionable (el seed no adivina credenciales). */
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (value === undefined || value === '') {
+    throw new Error(
+      `[seed] Missing ${name}. Define it in packages/database/.env (see .env.example).`,
+    );
+  }
+  return value;
+}
 
 async function main() {
   await prisma.targetMetric.deleteMany();
@@ -12,12 +24,26 @@ async function main() {
   await prisma.user.deleteMany();
   await prisma.brand.deleteMany();
 
+  // Admin bootstrap: sin esto ningún ADMIN existiría (register crea MARKETING
+  // y este era el único usuario). Hash argon2id real = login funcional en dev.
+  const admin = await prisma.user.create({
+    data: {
+      email: requiredEnv('SEED_ADMIN_EMAIL'),
+      name: 'Administrador',
+      role: 'ADMIN',
+      passwordHash: await argon2.hash(requiredEnv('SEED_ADMIN_PASSWORD'), {
+        type: argon2.argon2id,
+      }),
+    },
+  });
+
   const user = await prisma.user.create({
     data: {
       email: 'marketing@almaquinta.com',
       name: 'Equipo Marketing',
-      // Solo seed local. En real: hash bcrypt/argon2 generado en registro.
-      passwordHash: 'seed-local-no-usar-en-produccion',
+      passwordHash: await argon2.hash(requiredEnv('SEED_MARKETING_PASSWORD'), {
+        type: argon2.argon2id,
+      }),
     },
   });
 
@@ -32,10 +58,13 @@ async function main() {
   });
 
   // Publicación completa ya publicada (alimenta Analytics del dashboard).
+  // El admin la "aprobó": ejercita la auditoría human-in-the-loop.
   await prisma.publication.create({
     data: {
       brandId: brand.id,
       userId: user.id,
+      approvedById: admin.id,
+      approvedAt: new Date(),
       originalPrompt: 'Campaña de ciberseguridad corporativa para B2B',
       copy: 'Protege la infraestructura de tu empresa contra ataques modernos. Conoce nuestras soluciones integrales.',
       mediaUrl:

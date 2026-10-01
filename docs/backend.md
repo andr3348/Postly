@@ -113,6 +113,10 @@ ceremonia. Revisitar cuando una entidad necesite métodos
 3. **Guard global:** todo queda protegido salvo rutas con `@Public()`.
 4. **Datos solo vía `this.prisma.client.<modelo>...`.** El api nunca depende de
    `pg` / `@prisma/adapter-pg`.
+5. **CORS con credenciales** (`setup-app.ts`, heredado por e2e): sin
+   `enableCors({ origin, credentials: true })` el dashboard (otro origen) no
+   puede autenticarse con cookies. Orígenes coma-separados en `WEB_ORIGIN`
+   (`apps/api/.env`).
 
 ## 4. Módulo publications (human-in-the-loop)
 
@@ -247,7 +251,21 @@ tomó, se intenta con la siguiente); sin credenciales para algún canal no se
 reclama (400 visible, la pieza queda SCHEDULED para reintento); el reporte con
 métricas las registra en la misma llamada.
 
-## 8. Tests y comandos
+## 8. Módulo analytics (solo lectura)
+
+Agregados para la pestaña Analytics del dashboard. Sin persistencia propia:
+reutiliza los puertos exportados por Publications.
+
+```text
+GET /analytics/summary?brandId= → { totalPublications, byStatus,
+  totalImpressions, totalInteractions, engagementRate, byPlatform[] }
+```
+
+Regla CLAVE: por destino solo cuenta su snapshot más reciente (sumar el
+historial duplicaría impresiones); sin impresiones el engagement es 0
+(nunca división por cero).
+
+## 9. Tests y comandos
 
 - Unitarios en `test/unit/` como espejo de `src/` (nunca `.spec` junto al código);
   casos de uso con puertos stub tipados, sin DB. E2E en `test/*.e2e-spec.ts`

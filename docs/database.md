@@ -105,8 +105,11 @@ en este entorno). Requirió reset en dev (filas seed vs. `brandId` requerido).
 + `prisma/migrations/20260927170741_draft_content_required/` (`copy`/`mediaUrl`
 a NOT NULL, SQL manual de 2 líneas; requirió backfill de la fila DRAFT seed y
 `migrate resolve --rolled-back` tras el primer intento fallido).
-El seed deja 1 marca + 1 usuario + 1 publicación PUBLISHED con 2 targets y
-métricas + 1 DRAFT con contenido editable (`prisma db seed`, re-ejecutable).
+El seed deja 1 admin (hash argon2id real desde `SEED_ADMIN_*`: único bootstrap
+del rol ADMIN, pues `register` siempre crea MARKETING) + 1 marca + 1 usuario
+marketing (hash real desde `SEED_MARKETING_PASSWORD`) + 1 publicación PUBLISHED
+aprobada con 2 targets y métricas + 1 DRAFT con contenido editable
+(`prisma db seed`, re-ejecutable; falla rápido sin las env).
 
 Notas de mantenimiento: el generator es `prisma-client` (salida `.ts`; NO
 `prisma-client-js`, cuya salida `.js` convive mal con los imports y revive
@@ -120,7 +123,7 @@ pnpm --filter database exec prisma migrate dev --name <cambio>  # nueva migraci�
 pnpm --filter database run build      # = prisma generate + tsc
 pnpm --filter database run generate   # regenerar cliente tras editar schema
 pnpm --filter database run studio     # inspector visual
-pnpm --filter database exec prisma db seed  # 1 usuario + 1 publicación + métricas (re-ejecutable)
+pnpm --filter database exec prisma db seed  # admin + marca + usuarios + pubs + métricas (re-ejecutable; exige SEED_* en .env)
 pnpm --filter database run push       # prototipado sin migración (no usar para tesis)
 pnpm --filter database run reset      # ⚠️ borra datos locales
 ```
