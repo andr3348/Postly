@@ -39,23 +39,38 @@ solo orquesta estas llamadas (sin lógica propia). Leyenda de estados:
 `DRAFT → PENDING_APPROVAL → SCHEDULED → PROCESSING → PUBLISHED/PARTIAL/FAILED`.
 
 ```text
-MARKETING                         ADMIN                          n8n (x-api-key)
-   |                                |                                 |
-   |-- POST /auth/login (cookie) -->|                                 |
-   |-- POST /publications --------->| DRAFT (ya generado por IA, editable)
-   |-- POST /:id/targets ---------->| canales (409 si duplica)
-   |-- POST /:id/submit ----------->| PENDING_APPROVAL (exige ≥1 canal)
-   |                                |
-   |      ┌-- GET /publications?status=PENDING_APPROVAL (bandeja) <--|
-   |      ├── POST /:id/approve {scheduledAt} --> SCHEDULED (+auditoría)
-   |      └── POST /:id/reject --> DRAFT (re-trabajo)
-   |                                |                                 |
-   |                                |      ┌-- POST /dispatch/claim --> PROCESSING
-   |                                |      │   (atómico; 204 si nada; 400 sin credenciales)
-   |                                |      ├── publica en cada red (token descifrado)
-   |                                |      └── POST /dispatch/targets/:id/report --> SUCCESS/FAILED
-   |                                |          (+ métricas; auto: PUBLISHED/PARTIAL/FAILED)
-   |-- GET /analytics/summary <-----┤<-- (ambos roles: totales, engagement, por plataforma)
+MARKETING                          ADMIN                              n8n (x-api-key)
+   |                                 |                                   |
+   |-- login: POST /auth/login       |                                   |
+   |   (cookie HttpOnly)             |                                   |
+   |-- crear: POST /publications     |                                   |
+   |   --> DRAFT (generado, editable)|                                   |
+   |-- canales: POST /:id/targets    |                                   |
+   |   --> (409 si duplica)          |                                   |
+   |-- enviar: POST /:id/submit      |                                   |
+   |   --> PENDING_APPROVAL          |                                   |
+   |       (>= 1 canal, si no 400)   |                                   |
+   |                                 |                                   |
+   |                                 |-- bandeja:                        |
+   |                                 |   GET /publications               |
+   |                                 |   ?status=PENDING_APPROVAL        |
+   |                                 |-- aprobar: POST /:id/approve      |
+   |                                 |   --> SCHEDULED (+auditoría)      |
+   |                                 |-- rechazar: POST /:id/reject      |
+   |                                 |   --> DRAFT (re-trabajo)          |
+   |                                 |                                   |
+   |                                 |                                   |-- poll:
+   |                                 |                                   |   POST /dispatch/claim
+   |                                 |                                   |   (atómico; 204 si nada;
+   |                                 |                                   |    400 sin credenciales)
+   |                                 |                                   |-- publica en cada red
+   |                                 |                                   |   (token descifrado)
+   |                                 |                                   |-- reporta:
+   |                                 |                                   |   POST .../targets/:id/report
+   |                                 |                                   |   --> SUCCESS/FAILED + métricas
+   |                                 |                                   |   auto: PUBLISHED/PARTIAL/FAILED
+   |                                 |                                   |
+   |-- GET /analytics/summary (ambos roles: totales, engagement, por plataforma)
 ```
 
 **Caso extremo ADMIN** (todo lo de MARKETING, más): aprueba/rechaza,
@@ -112,8 +127,8 @@ pnpm --filter api run test:e2e      # e2e (DB levantada)
 - [ ] Obj. 4: dashboard — prompt → preview → aprobación + Analytics/Insights.
       Backend listo: `GET /analytics/summary` + CORS con credenciales para el frontend.
 - [ ] Obj. 5: n8n — superficie de despacho lista (`/dispatch`: claim atómico,
-  reporte, métricas; ver `docs/backend.md` §7). Pendientes los workflows en el
-  VPS contra las APIs (LinkedIn primero).
+      reporte, métricas; ver `docs/backend.md` §7). Pendientes los workflows en el
+      VPS contra las APIs (LinkedIn primero).
 - [ ] Obj. 6: pruebas unitarias/integración/rendimiento.
 - [ ] Obj. 7: medición 45 min → 3–5 min y cálculo B/C.
 
