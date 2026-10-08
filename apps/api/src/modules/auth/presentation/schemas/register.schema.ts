@@ -5,7 +5,7 @@ import { z } from 'zod';
  * `z.infer` deriva el tipo estático. Sin clases DTO duplicadas.
  */
 export const registerSchema = z.object({
-  email: z.string().email().max(254),
+  email: z.email().max(254),
   name: z.string().trim().min(1).max(100),
   password: z.string().min(8).max(128),
 });

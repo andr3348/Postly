@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { login } from "@/features/auth/api";
+import { loginSchema } from "@/features/auth/schemas";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
@@ -12,28 +14,22 @@ export function LoginForm() {
 
   const [errorMsg, setErrorMsg] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
     setErrorMsg("");
 
+    const parsed = loginSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      setErrorMsg(parsed.error.issues[0]?.message ?? "Datos inválidos");
+      return;
+    }
+
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Credenciales inválidas");
-      }
-
+      await login(parsed.data);
       router.push("/dashboard");
       router.refresh();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Error al iniciar sesión");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Error al iniciar sesión");
     }
   };
 

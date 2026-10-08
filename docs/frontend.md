@@ -5,37 +5,61 @@
 
 ## 1. Arquitectura Híbrida: App Router + Feature-Driven
 
-Para mantener el frontend escalable y alineado con los principios de **Clean Architecture** del backend (ver `docs/backend.md`), se implementó un patrón arquitectónico híbrido. Es una combinación de las convenciones de enrutamiento impuestas por el framework y un encapsulamiento modular por dominio de negocio (inspirado en *Feature-Sliced Design*):
+Para mantener el frontend escalable y alineado con los principios de **Clean Architecture** del backend (ver `docs/backend.md`), se implementó un patrón arquitectónico híbrido. Es una combinación de las convenciones de enrutamiento impuestas por el framework y un encapsulamiento modular por dominio de negocio (inspirado en _Feature-Sliced Design_):
 
 ### A. Capa de Enrutamiento e Infraestructura (`src/app/`)
+
 Esta capa pertenece exclusivamente al **Next.js App Router**.
+
 - **Responsabilidad:** Gestionar las URLs, protección de rutas y layouts (SSR/RSC).
 - **Regla estricta:** Se mantiene "delgada". Los archivos `page.tsx` no contienen lógica de negocio compleja ni formularios pesados; solo actúan como orquestadores que importan componentes desde la capa de negocio.
 - **Route Groups:** Se usan agrupaciones como `(auth)` para aislar layouts (p. ej., el contenedor centrado del Login) sin ensuciar la URL (se mantiene `/login`, no `/auth/login`).
 
 ### B. Capa de Negocio / Módulos (`src/features/`)
+
 Esta es la capa donde reside el verdadero valor de la aplicación. En lugar de organizar el código por tipo técnico (todos los componentes mezclados en `src/components`), se agrupa por **Dominio de Negocio** (`auth`, `campaigns`, `analytics`).
+
 - **Alta cohesión:** Si el módulo de autenticación necesita mantenimiento, toda su UI (`LoginForm.tsx`, `RegisterForm.tsx`), llamadas a la API o Server Actions (`actions.ts`) están aisladas en `src/features/auth`.
 - **Beneficio (Tesis):** Este enfoque refleja exactamente cómo NestJS divide sus responsabilidades en `apps/api/src/modules/`, permitiendo que frontend y backend evolucionen con el mismo lenguaje de dominio, previniendo el "código espagueti".
 
 ### C. Capa Compartida (`src/shared/`)
-- **Planificado:** Aquí vivirán los componentes UI agnósticos (botones, inputs, Shadcn UI) y utilidades puras que pueden ser usadas por cualquier *Feature*.
+
+- **Planificado:** Aquí vivirán los componentes UI agnósticos (botones, inputs, Shadcn UI) y utilidades puras que pueden ser usadas por cualquier _Feature_.
 
 ## 2. Flujo de Autenticación e Integración con NestJS
 
 El frontend delega por completo la seguridad y emisión de JWT al backend (tal como se define en `docs/backend.md`), mediante los siguientes mecanismos:
 
 1. **Proxy a la API:** En `next.config.ts` se estableció un `rewrite` de `/api/:path*` hacia `http://localhost:3001/api/:path*`. Esto soluciona problemas de CORS y unifica el origen de las peticiones para el navegador.
-2. **Peticiones Fetch:** Los componentes del cliente usan `fetch` con `credentials: 'include'`. De este modo, la respuesta de éxito de NestJS logra inyectar los JWT como cookies `HttpOnly` (`accessToken` y `refreshToken`) directamente en el navegador.
+2. **Peticiones Axios:** Los componentes usan el cliente central (`src/lib/api.ts`, axios con `withCredentials`) con interceptor de refresh-on-401. De este modo, la respuesta de éxito de NestJS logra inyectar los JWT como cookies `HttpOnly` (`accessToken` y `refreshToken`) directamente en el navegador.
 3. **Middleware de Protección (`src/proxy.ts`):** Adaptado al estándar de Next.js 16.3.5 (que depreca `middleware.ts` en favor de `proxy.ts`). Intercepta cada solicitud y verifica la existencia de las cookies reales de NestJS. Redirige a `/login` si no hay sesión, y a `/dashboard` si el usuario intenta acceder al login estando logueado.
-4. **Cierre de Sesión Seguro (Server Actions):** Debido a que el entorno cliente (JavaScript) no puede destruir cookies `HttpOnly`, el logout invoca una *Server Action* nativa (`logoutAction`) que elimina las cookies desde el servidor de Next.js antes de redirigir a `/login`.
+4. **Cierre de Sesión Seguro (Server Actions):** Debido a que el entorno cliente (JavaScript) no puede destruir cookies `HttpOnly`, el logout invoca una _Server Action_ nativa (`logoutAction`) que elimina las cookies desde el servidor de Next.js antes de redirigir a `/login`.
 
-## 2. Alcance previsto
+## 5. Convenciones frontend (alineadas al backend)
 
-Dashboard de marketing: ingresar prompt, previsualizar (mockup por red),
-aprobar/rechazar (human-in-the-loop), más pestaña **Analytics** (ver §3).
+- **Sin `fetch`/axios crudo en componentes**: cada feature expone `api.ts` (llamadas tipadas sobre el cliente central) + `schemas.ts` (Zod cliente espejando límites del backend con `z.email()`/`z.url()` top-level, nunca los métodos deprecados de `z.string()`; el backend siempre revalida).
+- **Eventos de form**: `React.SubmitEvent` (`FormEvent` está deprecado en `@types/react`).
+- **`src/lib/api.ts`**: `apiFetch` (`credentials: include` + refresh-on-401 con un reintento) y `apiJson<T>` (errores → `ApiError` con mensaje). Verificado en vivo: register → cookies → refresh → `/me` 200/401.
+- **Sin `any` en `catch`**: `unknown` + narrowing (`err instanceof Error`).
+- **Sin selector de rol en register**: el backend lo ignora (siempre MARKETING; el admin nace del seed).
 
-## 3. Analytics e Insights por IA (requisito de tesis)
+## 3. Mapa de vistas planificadas
+
+Infra previa (una vez): `src/lib/api.ts` (`apiFetch`: `credentials: include` + reintento 401 → refresh → reintentar 1 vez), sesión y rol desde `GET /auth/me`. Cada feature suma su `api.ts` + `schemas.ts` (Zod cliente espejando al backend).
+
+| Vista                              | Ruta                               | Consume (backend)                                                                                  |
+| ---------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Dashboard home                     | `/dashboard`                       | `GET /analytics/summary?brandId=` — KPIs + primer gráfico Recharts                                 |
+| Marcas                             | `/dashboard/marcas`                | CRUD `/brands` + **brand switcher** (la marca actual condiciona todo; va en contexto, no en URL)   |
+| Publicaciones (bandeja por estado) | `/dashboard/publicaciones?status=` | `GET /publications?brandId=&status=`                                                               |
+| Crear publicación                  | `/dashboard/publicaciones/nueva`   | `POST /publications` + `POST /:id/targets`                                                         |
+| Detalle + flujo                    | `/dashboard/publicaciones/:id`     | `PATCH`, `submit`, `approve`/`reject` (solo ADMIN según `/me`), targets, historial de métricas     |
+| Cuentas conectadas                 | `/dashboard/cuentas`               | CRUD anidado `/brands/:id/accounts` + badge `EXPIRED`                                              |
+| Analytics                          | `/dashboard/analytics`             | `summary` + series por destino; Insights IA como placeholder (endpoint LLM planificado, no existe) |
+
+Sin vista: `/dispatch` (superficie máquina de n8n, sin UI).
+
+## 4. Analytics e Insights por IA (requisito de tesis)
 
 Pestaña **Analytics** con dos capas:
 
