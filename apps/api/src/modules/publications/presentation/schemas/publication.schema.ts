@@ -14,7 +14,7 @@ export const createPublicationSchema = z.object({
   brandId: z.string().min(1).max(100),
   originalPrompt: z.string().max(10000).optional(),
   copy: z.string().trim().min(1).max(10000),
-  mediaUrl: z.string().url().max(2000),
+  mediaUrl: z.url().max(2000),
   mediaType: z.enum(['IMAGE', 'VIDEO']).optional(),
 });
 
@@ -23,7 +23,7 @@ export type CreatePublicationDto = z.infer<typeof createPublicationSchema>;
 export const updateDraftSchema = z.object({
   originalPrompt: z.string().max(10000).optional(),
   copy: z.string().trim().min(1).max(10000).optional(),
-  mediaUrl: z.string().url().max(2000).optional(),
+  mediaUrl: z.url().max(2000).optional(),
   mediaType: z.enum(['IMAGE', 'VIDEO']).optional(),
 });
 
