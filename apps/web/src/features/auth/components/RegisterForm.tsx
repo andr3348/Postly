@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { register } from "@/features/auth/api";
+import { registerSchema } from "@/features/auth/schemas";
 
 export function RegisterForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("MARKETING");
   const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
@@ -18,24 +19,18 @@ export function RegisterForm() {
     e.preventDefault();
     setErrorMsg("");
 
+    const parsed = registerSchema.safeParse({ name, email, password });
+    if (!parsed.success) {
+      setErrorMsg(parsed.error.issues[0]?.message ?? "Datos inválidos");
+      return;
+    }
+
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, email, password, role }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Error al registrar el usuario");
-      }
-
+      await register(parsed.data);
       router.push("/dashboard");
       router.refresh();
-    } catch (err: any) {
-      setErrorMsg(err.message || "Ocurrió un error");
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Ocurrió un error");
     }
   };
 
@@ -105,23 +100,6 @@ export function RegisterForm() {
         </div>
       </div>
 
-      <div className="flex flex-col mt-2">
-        <label className="text-[#151717] font-semibold text-sm mb-1">Rol</label>
-        <div className="border-[1.5px] border-[#ecedec] rounded-[10px] h-[50px] flex items-center px-3 transition-colors duration-200 focus-within:border-[#2d79f3] bg-white">
-          <svg height="20" viewBox="0 0 24 24" width="20" xmlns="http://www.w3.org/2000/svg" className="fill-gray-400 shrink-0">
-            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"></path>
-          </svg>
-          <select 
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="ml-2.5 border-none flex-1 h-full focus:outline-none bg-transparent text-[#151717] text-sm w-full cursor-pointer"
-          >
-            <option value="MARKETING">Marketing</option>
-            <option value="ADMIN">Administrador</option>
-          </select>
-        </div>
-      </div>
-      
       <button type="submit" className="mt-5 mb-2.5 bg-[#151717] text-white text-[15px] font-medium rounded-[10px] h-[50px] w-full cursor-pointer hover:bg-[#252727] transition-colors duration-200">
         Registrarse
       </button>
