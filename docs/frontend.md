@@ -31,13 +31,14 @@ Esta es la capa donde reside el verdadero valor de la aplicación. En lugar de o
 El frontend delega por completo la seguridad y emisión de JWT al backend (tal como se define en `docs/backend.md`), mediante los siguientes mecanismos:
 
 1. **Proxy a la API:** En `next.config.ts` se estableció un `rewrite` de `/api/:path*` hacia `http://localhost:3001/api/:path*`. Esto soluciona problemas de CORS y unifica el origen de las peticiones para el navegador.
-2. **Peticiones Fetch:** Los componentes del cliente usan `fetch` con `credentials: 'include'`. De este modo, la respuesta de éxito de NestJS logra inyectar los JWT como cookies `HttpOnly` (`accessToken` y `refreshToken`) directamente en el navegador.
+2. **Peticiones Axios:** Los componentes usan el cliente central (`src/lib/api.ts`, axios con `withCredentials`) con interceptor de refresh-on-401. De este modo, la respuesta de éxito de NestJS logra inyectar los JWT como cookies `HttpOnly` (`accessToken` y `refreshToken`) directamente en el navegador.
 3. **Middleware de Protección (`src/proxy.ts`):** Adaptado al estándar de Next.js 16.3.5 (que depreca `middleware.ts` en favor de `proxy.ts`). Intercepta cada solicitud y verifica la existencia de las cookies reales de NestJS. Redirige a `/login` si no hay sesión, y a `/dashboard` si el usuario intenta acceder al login estando logueado.
 4. **Cierre de Sesión Seguro (Server Actions):** Debido a que el entorno cliente (JavaScript) no puede destruir cookies `HttpOnly`, el logout invoca una _Server Action_ nativa (`logoutAction`) que elimina las cookies desde el servidor de Next.js antes de redirigir a `/login`.
 
 ## 5. Convenciones frontend (alineadas al backend)
 
-- **Sin `fetch` crudo en componentes**: cada feature expone `api.ts` (llamadas tipadas) + `schemas.ts` (Zod cliente espejando límites del backend; el backend siempre revalida).
+- **Sin `fetch`/axios crudo en componentes**: cada feature expone `api.ts` (llamadas tipadas sobre el cliente central) + `schemas.ts` (Zod cliente espejando límites del backend con `z.email()`/`z.url()` top-level, nunca los métodos deprecados de `z.string()`; el backend siempre revalida).
+- **Eventos de form**: `React.SubmitEvent` (`FormEvent` está deprecado en `@types/react`).
 - **`src/lib/api.ts`**: `apiFetch` (`credentials: include` + refresh-on-401 con un reintento) y `apiJson<T>` (errores → `ApiError` con mensaje). Verificado en vivo: register → cookies → refresh → `/me` 200/401.
 - **Sin `any` en `catch`**: `unknown` + narrowing (`err instanceof Error`).
 - **Sin selector de rol en register**: el backend lo ignora (siempre MARKETING; el admin nace del seed).
