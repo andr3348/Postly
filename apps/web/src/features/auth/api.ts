@@ -13,9 +13,9 @@ import {
  */
 export async function login(input: LoginInput): Promise<{ user: AuthUser }> {
   try {
-    return await apiJson<{ user: AuthUser }>('/api/auth/login', {
+    return await apiJson<{ user: AuthUser }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify(loginSchema.parse(input)),
+      data: loginSchema.parse(input),
     });
   } catch (error) {
     throw toSpanish(error, 'Credenciales inválidas');
@@ -24,10 +24,10 @@ export async function login(input: LoginInput): Promise<{ user: AuthUser }> {
 
 export async function register(input: RegisterInput): Promise<{ user: AuthUser }> {
   try {
-    return await apiJson<{ user: AuthUser }>('/api/auth/register', {
+    return await apiJson<{ user: AuthUser }>('/auth/register', {
       method: 'POST',
       // El backend ignora `role` (siempre MARKETING; el admin nace del seed).
-      body: JSON.stringify(registerSchema.parse(input)),
+      data: registerSchema.parse(input),
     });
   } catch (error) {
     throw toSpanish(error, 'Error al registrar el usuario');
