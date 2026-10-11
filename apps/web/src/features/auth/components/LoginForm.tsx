@@ -1,18 +1,20 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "@/features/auth/api";
 import { loginSchema } from "@/features/auth/schemas";
+import { AlmaLogo } from "@/shared/components/AlmaLogo";
 
 export function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const router = useRouter();
 
   const [errorMsg, setErrorMsg] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
@@ -25,6 +27,7 @@ export function LoginForm() {
     }
 
     try {
+      setIsLoading(true);
       await login(parsed.data);
       router.push("/dashboard");
       router.refresh();
@@ -32,116 +35,145 @@ export function LoginForm() {
       setErrorMsg(
         err instanceof Error ? err.message : "Error al iniciar sesión",
       );
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-col gap-3 bg-white p-8 w-full max-w-112.5 rounded-[20px] shadow-sm mx-auto"
-    >
-      {errorMsg && (
-        <p className="text-red-500 text-sm text-center font-medium">
-          {errorMsg}
-        </p>
-      )}
-      <div className="flex flex-col">
-        <label className="text-[#151717] font-semibold text-sm mb-1">
-          Correo electrónico
-        </label>
-        <div className="border-[1.5px] border-[#ecedec] rounded-[10px] h-12.5 flex items-center px-3 transition-colors duration-200 focus-within:border-[#2d79f3]">
-          <svg
-            height="20"
-            viewBox="0 0 32 32"
-            width="20"
-            xmlns="http://www.w3.org/2000/svg"
-            className="fill-gray-400 shrink-0"
-          >
-            <g id="Layer_3" data-name="Layer 3">
-              <path d="m30.853 13.87a15 15 0 0 0 -29.729 4.082 15.1 15.1 0 0 0 12.876 12.918 15.6 15.6 0 0 0 2.016.13 14.85 14.85 0 0 0 7.715-2.145 1 1 0 1 0 -1.031-1.711 13.007 13.007 0 1 1 5.458-6.529 2.149 2.149 0 0 1 -4.158-.759v-10.856a1 1 0 0 0 -2 0v1.726a8 8 0 1 0 .2 10.325 4.135 4.135 0 0 0 7.83.274 15.2 15.2 0 0 0 .823-7.455zm-14.853 8.13a6 6 0 1 1 6-6 6.006 6.006 0 0 1 -6 6z"></path>
-            </g>
-          </svg>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="ml-2.5 rounded-[10px] border-none flex-1 h-full focus:outline-none bg-transparent text-[#151717] text-sm w-full"
-            placeholder="Ingresa tu correo"
-            required
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col mt-2">
-        <label className="text-[#151717] font-semibold text-sm mb-1">
-          Contraseña
-        </label>
-        <div className="border-[1.5px] border-[#ecedec] rounded-[10px] h-12.5 flex items-center px-3 transition-colors duration-200 focus-within:border-[#2d79f3]">
-          <svg
-            height="20"
-            viewBox="-64 0 512 512"
-            width="20"
-            xmlns="http://www.w3.org/2000/svg"
-            className="fill-gray-400 shrink-0"
-          >
-            <path d="m336 512h-288c-26.453125 0-48-21.523438-48-48v-224c0-26.476562 21.546875-48 48-48h288c26.453125 0 48 21.523438 48 48v224c0 26.476562-21.546875 48-48 48zm-288-288c-8.8125 0-16 7.167969-16 16v224c0 8.832031 7.1875 16 16 16h288c8.8125 0 16-7.167969 16-16v-224c0-8.832031-7.1875-16-16-16zm0 0"></path>
-            <path d="m304 224c-8.832031 0-16-7.167969-16-16v-80c0-52.929688-43.070312-96-96-96s-96 43.070312-96 96v80c0 8.832031-7.167969 16-16 16s-16-7.167969-16-16v-80c0-70.59375 57.40625-128 128-128s128 57.40625 128 128v80c0 8.832031-7.167969 16-16 16zm0 0"></path>
-          </svg>
-          <input
-            type={showPassword ? "text" : "password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="ml-2.5 rounded-[10px] border-none flex-1 h-full focus:outline-none bg-transparent text-[#151717] text-sm w-full"
-            placeholder="Ingresa tu contraseña"
-            required
-          />
-          <svg
-            viewBox="0 0 576 512"
-            height="1em"
-            xmlns="http://www.w3.org/2000/svg"
-            className="fill-gray-400 cursor-pointer hover:fill-gray-600 transition-colors shrink-0"
-            onClick={() => setShowPassword(!showPassword)}
-          >
-            <path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64c-7.1 0-13.9-1.2-20.3-3.3c-5.5-1.8-11.9 1.6-11.7 7.4c.3 6.9 1.3 13.8 3.2 20.7c13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3z"></path>
-          </svg>
-        </div>
-      </div>
-
-      <div className="flex flex-row items-center justify-between gap-2.5 mt-2">
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="remember"
-            className="w-4 h-4 rounded border-gray-300 text-[#2d79f3] focus:ring-[#2d79f3]"
-          />
-          <label
-            htmlFor="remember"
-            className="text-[14px] text-gray-700 font-normal ml-2 cursor-pointer"
-          >
-            Recordarme
-          </label>
-        </div>
-        <span className="text-[14px] text-[#2d79f3] font-medium cursor-pointer hover:underline">
-          ¿Olvidaste tu contraseña?
-        </span>
-      </div>
-
-      <button
-        type="submit"
-        className="mt-5 mb-2.5 bg-[#151717] text-white text-[15px] font-medium rounded-[10px] h-12.5 w-full cursor-pointer hover:bg-[#252727] transition-colors duration-200"
+    <div className="w-full max-w-[430px] mx-auto">
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col bg-white dark:bg-[#232a3e] p-7 sm:p-9 rounded-[32px] shadow-lg dark:shadow-2xl border border-gray-100/80 dark:border-[#2d374e] transition-colors duration-300"
       >
-        Iniciar Sesión
-      </button>
+        {/* Header con Logo Alma Quinta oficial & Website Logo */}
+        <div className="flex items-center justify-center gap-6 pt-2 pb-7">
+          {/* Lado Izquierdo: Logo Alma Quinta oficial importado de @/shared/components/AlmaLogo */}
+          <div className="flex flex-col items-center select-none">
+            <AlmaLogo className="h-16 w-auto text-[#083A3D] dark:text-white transition-colors duration-200" />
+          </div>
 
-      <p className="text-center text-gray-600 text-[14px] my-1.5">
-        ¿No tienes una cuenta?{" "}
-        <Link
-          href="/register"
-          className="text-[#2d79f3] font-medium cursor-pointer hover:underline"
-        >
-          Regístrate
-        </Link>
-      </p>
-    </form>
+          {/* Separador vertical */}
+          <div className="h-14 w-[1.5px] bg-[#c8ccc8] dark:bg-[#4b5563]" />
+
+          {/* Lado Derecho: Website Logo */}
+          <div className="flex flex-col justify-center select-none text-left">
+            <span className="text-[17px] font-normal tracking-[0.08em] text-[#083A3D] dark:text-white leading-tight transition-colors duration-200">
+              WEBSITE
+            </span>
+            <span className="text-[17px] font-normal tracking-[0.08em] text-[#083A3D] dark:text-white leading-tight transition-colors duration-200">
+              LOGO
+            </span>
+          </div>
+        </div>
+
+        {errorMsg && (
+          <p className="text-red-500 text-xs sm:text-sm text-center font-medium mb-3">
+            {errorMsg}
+          </p>
+        )}
+
+        {/* Input: Correo Electrónico */}
+        <div className="flex flex-col mt-1 mb-4">
+          <label className="text-xs sm:text-[13px] font-semibold text-[#083A3D] dark:text-white mb-1.5 flex items-center transition-colors duration-200">
+            Correo Electronico <span className="ml-0.5">*</span>
+          </label>
+          <div className="rounded-[16px] h-12 flex items-center px-3.5 transition-all duration-200 bg-white border border-[#6b7280]/80 focus-within:border-[#083A3D] focus-within:ring-1 focus-within:ring-[#083A3D] dark:bg-[#485779] dark:border-transparent dark:focus-within:border-[#7387b3] dark:focus-within:ring-1 dark:focus-within:ring-[#7387b3]">
+            {/* Icono Arroba conservado */}
+            <svg
+              height="20"
+              viewBox="0 0 32 32"
+              width="20"
+              xmlns="http://www.w3.org/2000/svg"
+              className="fill-gray-400 dark:fill-slate-300 shrink-0"
+            >
+              <g id="Layer_3" data-name="Layer 3">
+                <path d="m30.853 13.87a15 15 0 0 0 -29.729 4.082 15.1 15.1 0 0 0 12.876 12.918 15.6 15.6 0 0 0 2.016.13 14.85 14.85 0 0 0 7.715-2.145 1 1 0 1 0 -1.031-1.711 13.007 13.007 0 1 1 5.458-6.529 2.149 2.149 0 0 1 -4.158-.759v-10.856a1 1 0 0 0 -2 0v1.726a8 8 0 1 0 .2 10.325 4.135 4.135 0 0 0 7.83.274 15.2 15.2 0 0 0 .823-7.455zm-14.853 8.13a6 6 0 1 1 6-6 6.006 6.006 0 0 1 -6 6z"></path>
+              </g>
+            </svg>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="ml-2.5 rounded-[12px] border-none flex-1 h-full focus:outline-none bg-transparent text-[#151717] dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-300/80 text-sm w-full font-sans"
+              placeholder="Ingresa tu correo"
+              required
+            />
+          </div>
+        </div>
+
+        {/* Input: Contraseña */}
+        <div className="flex flex-col mb-3">
+          <label className="text-xs sm:text-[13px] font-semibold text-[#083A3D] dark:text-white mb-1.5 flex items-center transition-colors duration-200">
+            Contraseña <span className="ml-0.5">*</span>
+          </label>
+          <div className="rounded-[16px] h-12 flex items-center px-3.5 transition-all duration-200 bg-white border border-[#6b7280]/80 focus-within:border-[#083A3D] focus-within:ring-1 focus-within:ring-[#083A3D] dark:bg-[#485779] dark:border-transparent dark:focus-within:border-[#7387b3] dark:focus-within:ring-1 dark:focus-within:ring-[#7387b3]">
+            {/* Icono Candado conservado */}
+            <svg
+              height="20"
+              viewBox="-64 0 512 512"
+              width="20"
+              xmlns="http://www.w3.org/2000/svg"
+              className="fill-gray-400 dark:fill-slate-300 shrink-0"
+            >
+              <path d="m336 512h-288c-26.453125 0-48-21.523438-48-48v-224c0-26.476562 21.546875-48 48-48h288c26.453125 0 48 21.523438 48 48v224c0 26.476562-21.546875 48-48 48zm-288-288c-8.8125 0-16 7.167969-16 16v224c0 8.832031 7.1875 16 16 16h288c8.8125 0 16-7.167969 16-16v-224c0-8.832031-7.1875-16-16-16zm0 0"></path>
+              <path d="m304 224c-8.832031 0-16-7.167969-16-16v-80c0-52.929688-43.070312-96-96-96s-96 43.070312-96 96v80c0 8.832031-7.167969 16-16 16s-16-7.167969-16-16v-80c0-70.59375 57.40625-128 128-128s128 57.40625 128 128v80c0 8.832031-7.167969 16-16 16zm0 0"></path>
+            </svg>
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="ml-2.5 rounded-[12px] border-none flex-1 h-full focus:outline-none bg-transparent text-[#151717] dark:text-white placeholder:text-gray-400 dark:placeholder:text-slate-300/80 text-sm w-full font-sans"
+              placeholder="Ingresa tu contraseña"
+              required
+            />
+            {/* Icono Ojo toggle conservado */}
+            <svg
+              viewBox="0 0 576 512"
+              height="18"
+              xmlns="http://www.w3.org/2000/svg"
+              className="fill-gray-400 hover:fill-gray-600 dark:fill-slate-300 dark:hover:fill-white cursor-pointer transition-colors shrink-0 ml-1.5"
+              onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? "Ocultar contraseña" : "Ver contraseña"}
+            >
+              <path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM144 256a144 144 0 1 1 288 0 144 144 0 1 1 -288 0zm144-64c0 35.3-28.7 64-64 64c-7.1 0-13.9-1.2-20.3-3.3c-5.5-1.8-11.9 1.6-11.7 7.4c.3 6.9 1.3 13.8 3.2 20.7c13.7 51.2 66.4 81.6 117.6 67.9s81.6-66.4 67.9-117.6c-11.1-41.5-47.8-69.4-88.6-71.1c-5.8-.2-9.2 6.1-7.4 11.7c2.1 6.4 3.3 13.2 3.3 20.3z"></path>
+            </svg>
+          </div>
+        </div>
+
+        {/* Fila: Mantener sesión activa y ¿Olvidó su contraseña? */}
+        <div className="flex flex-row items-center justify-between gap-2 my-2 text-xs sm:text-[13px]">
+          <label className="flex items-center cursor-pointer select-none">
+            <input
+              type="checkbox"
+              id="remember"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-gray-300 dark:border-slate-500 bg-transparent text-[#2d79f3] focus:ring-1 focus:ring-[#2d79f3]"
+            />
+            <span className="text-[#083A3D] dark:text-gray-200 ml-2 font-normal transition-colors duration-200">
+              Mantener sesión activa
+            </span>
+          </label>
+          <a
+            href="#forgot-password"
+            className="text-[#2070d6] dark:text-[#4294f8] hover:underline font-normal whitespace-nowrap"
+          >
+            ¿Olvidó su contraseña?
+          </a>
+        </div>
+
+        {/* Botón Acceder centrado */}
+        <div className="flex justify-center mt-6 mb-1">
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-36 py-2.5 px-6 rounded-[14px] bg-[#c8d3dc] hover:bg-[#b8c6d1] active:scale-95 text-[#1b2330] font-medium text-[15px] cursor-pointer transition-all duration-150 shadow-sm disabled:opacity-50 text-center"
+          >
+            {isLoading ? "Accediendo..." : "Acceder"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
