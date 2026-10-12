@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTransition } from "react";
 import { logoutAction } from "@/features/auth/actions";
+import { ROLE_LABEL } from "@/features/auth/role-label";
+import { clearSessionUser, useSessionUser } from "@/features/auth/session";
 import { useTheme } from "@/shared/context/ThemeContext";
 import {
   DashboardGridIcon,
@@ -52,9 +54,11 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
+  const user = useSessionUser();
   const [isPending, startTransition] = useTransition();
 
   const handleLogout = () => {
+    clearSessionUser();
     startTransition(() => {
       logoutAction();
     });
@@ -146,13 +150,21 @@ export function DashboardSidebar({
             /* Modo Colapsado: Iconos Apilados */
             <div className="flex flex-col items-center gap-2">
               {/* Perfil */}
-              <button
-                type="button"
-                title="Perfil"
+              <Link
+                href="/dashboard/perfil"
+                title={
+                  user ? `${user.name} · ${ROLE_LABEL[user.role]}` : "Perfil"
+                }
                 className="w-10 h-10 rounded-xl flex items-center justify-center text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2d374e] transition-colors cursor-pointer"
               >
-                <ProfileIcon className="w-5 h-5" />
-              </button>
+                {user ? (
+                  <span className="w-8 h-8 rounded-full bg-[#083A3D] dark:bg-[#394560] text-white flex items-center justify-center text-xs font-semibold">
+                    {user.name.charAt(0).toUpperCase()}
+                  </span>
+                ) : (
+                  <ProfileIcon className="w-5 h-5" />
+                )}
+              </Link>
 
               {/* Logout */}
               <button
@@ -194,10 +206,22 @@ export function DashboardSidebar({
             <div className="flex flex-col gap-2">
               {/* Fila 1: Perfil y Logout */}
               <div className="flex items-center justify-between px-2 py-1">
-                <div className="flex items-center gap-2.5 text-sm font-medium text-gray-800 dark:text-gray-200">
-                  <ProfileIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                  <span>Perfil</span>
-                </div>
+                <Link
+                  href="/dashboard/perfil"
+                  className="flex items-center gap-2.5 min-w-0 rounded-lg -mx-1.5 px-1.5 py-1 hover:bg-gray-100 dark:hover:bg-[#2d374e] transition-colors"
+                >
+                  <span className="w-8 h-8 rounded-full bg-[#083A3D] dark:bg-[#394560] text-white flex items-center justify-center text-xs font-semibold shrink-0">
+                    {user?.name?.charAt(0).toUpperCase() ?? "U"}
+                  </span>
+                  <span className="flex flex-col min-w-0 leading-tight">
+                    <span className="text-[13px] font-medium text-gray-800 dark:text-gray-200 truncate">
+                      {user?.name ?? "Usuario"}
+                    </span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                      {user ? ROLE_LABEL[user.role] : "Marketing"}
+                    </span>
+                  </span>
+                </Link>
                 <button
                   type="button"
                   onClick={handleLogout}
