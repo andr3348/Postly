@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "@/features/auth/api";
 import { loginSchema } from "@/features/auth/schemas";
+import { saveSessionUser } from "@/features/auth/session";
 import { AlmaLogo } from "@/shared/components/AlmaLogo";
 
 export function LoginForm() {
@@ -28,7 +29,8 @@ export function LoginForm() {
 
     try {
       setIsLoading(true);
-      await login(parsed.data);
+      const { user } = await login(parsed.data);
+      saveSessionUser(user);
       router.push("/dashboard");
       router.refresh();
     } catch (err: unknown) {

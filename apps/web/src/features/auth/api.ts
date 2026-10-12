@@ -34,6 +34,14 @@ export async function register(input: RegisterInput): Promise<{ user: AuthUser }
   }
 }
 
+export async function getMe(): Promise<{ userId: string; email: string; role: 'ADMIN' | 'MARKETING' }> {
+  try {
+    return await apiJson<{ userId: string; email: string; role: 'ADMIN' | 'MARKETING' }>('/auth/me');
+  } catch (error) {
+    throw toSpanish(error, 'Sesión inválida o expirada');
+  }
+}
+
 function toSpanish(error: unknown, fallback: string): Error {
   if (error instanceof ApiError) {
     if (error.status === 401) return new Error('Credenciales inválidas');
