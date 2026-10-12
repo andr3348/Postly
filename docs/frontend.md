@@ -1,7 +1,7 @@
 # Frontend — `apps/web` (Next.js 16.3.5, React 19, Tailwind 4)
 
-> Estado: Autenticación base completada (Login/Registro). Arquitectura modular definida.
-> Dashboard real en desarrollo (solo cuenta con placeholder protegido).
+> Estado: Autenticación base completada (Login). Dashboard Shell y Profile implementados con soporte responsive y temas claro/oscuro.
+> Integración con backend NestJS activa mediante cookies HttpOnly, sesión sincronizada cliente y proxy `/api`.
 
 ## 1. Arquitectura Híbrida: App Router + Feature-Driven
 
@@ -9,86 +9,86 @@ Para mantener el frontend escalable y alineado con los principios de **Clean Arc
 
 ### A. Capa de Enrutamiento e Infraestructura (`src/app/`)
 
-Esta capa pertenece exclusivamente al **Next.js App Router**.
+Esta capa pertenece exclusivamente al **Next.js App Router** y sus rutas se nombran estrictamente en inglés:
 
 - **Responsabilidad:** Gestionar las URLs, protección de rutas y layouts (SSR/RSC).
 - **Regla estricta:** Se mantiene "delgada". Los archivos `page.tsx` no contienen lógica de negocio compleja ni formularios pesados; solo actúan como orquestadores que importan componentes desde la capa de negocio.
 - **Route Groups:** Se usan agrupaciones como `(auth)` para aislar layouts (p. ej., el contenedor centrado del Login) sin ensuciar la URL (se mantiene `/login`, no `/auth/login`).
+- **Dashboard Shell:** `src/app/dashboard/layout.tsx` orquesta el cascarón (`DashboardShell`), mientras que `src/app/dashboard/page.tsx` y `src/app/dashboard/profile/page.tsx` delegan en componentes de negocio correspondientes.
 
 ### B. Capa de Negocio / Módulos (`src/features/`)
 
-Esta es la capa donde reside el verdadero valor de la aplicación. En lugar de organizar el código por tipo técnico (todos los componentes mezclados en `src/components`), se agrupa por **Dominio de Negocio** (`auth`, `campaigns`, `analytics`).
+Esta es la capa donde reside el verdadero valor de la aplicación. En lugar de organizar el código por tipo técnico (todos los componentes mezclados en `src/components`), se agrupa por **Dominio de Negocio** (`auth`, `dashboard`, `brands`, `publications`, `analytics`):
 
-- **Alta cohesión:** Si el módulo de autenticación necesita mantenimiento, toda su UI (`LoginForm.tsx`, `RegisterForm.tsx`), llamadas a la API o Server Actions (`actions.ts`) están aisladas en `src/features/auth`.
+- **`src/features/auth`:**
+  - Componentes de UI: `LoginForm.tsx`, `ProfileCard.tsx` (vista de perfil en `/dashboard/profile`).
+  - Servicios API: `api.ts` (expone `login`, `register` y `getMe`), `schemas.ts` (esquemas Zod).
+  - Estado de sesión cliente: `session.ts` (captura `{ user }` tras auth y se auto-sincroniza con `GET /auth/me`), `role-label.ts` (etiquetas en español para roles).
+- **`src/features/dashboard`:**
+  - `DashboardShell.tsx`: Cascarón orquestador responsive (soporte para colapso y menú móvil).
+  - `DashboardSidebar.tsx`: Barra lateral flotante con bordes redondeados (`rounded-[28px]`), estado expandido y colapsado, visualización de avatar, nombre y rol del usuario, cierre de sesión y alternancia de tema.
+  - `DashboardNavbar.tsx`: Barra superior flotante con pestañas de navegación ("Analítica" / "Planificación") y selector de marcas (Brand Switcher).
+  - `DashboardHome.tsx`: Vista principal con resumen de KPIs omnicanal e Insights con IA.
 - **Beneficio (Tesis):** Este enfoque refleja exactamente cómo NestJS divide sus responsabilidades en `apps/api/src/modules/`, permitiendo que frontend y backend evolucionen con el mismo lenguaje de dominio, previniendo el "código espagueti".
 
 ### C. Capa Compartida (`src/shared/`)
 
-- **Planificado:** Aquí vivirán los componentes UI agnósticos (botones, inputs, Shadcn UI) y utilidades puras que pueden ser usadas por cualquier _Feature_.
+Aquí viven los componentes UI agnósticos, tokens y utilidades puras usadas transversalmente:
+
+- **Componentes y Marca:** `AlmaLogo.tsx` (isotipo y tipografía vectorial oficial de Alma Quinta reactivo a temas mediante `currentColor`).
+- **Iconografía Vectorial:** `src/shared/components/icons/DashboardIcons.tsx` (redes sociales: Facebook, Instagram, LinkedIn; utilitarios: web, analítica, planificación, reportes, sol/luna, chevrons).
+- **Theming Global:** `src/shared/context/ThemeContext.tsx` (proveedor global de modo claro y oscuro, sincronizado con `localStorage` y `.dark` de Tailwind v4).
 
 ## 2. Flujo de Autenticación e Integración con NestJS
 
 El frontend delega por completo la seguridad y emisión de JWT al backend (tal como se define en `docs/backend.md`), mediante los siguientes mecanismos:
 
 1. **Proxy a la API:** En `next.config.ts` se estableció un `rewrite` de `/api/:path*` hacia `http://localhost:3001/api/:path*`. Esto soluciona problemas de CORS y unifica el origen de las peticiones para el navegador.
-2. **Peticiones Axios:** Los componentes usan el cliente central (`src/lib/api.ts`, axios con `withCredentials`) con interceptor de refresh-on-401. De este modo, la respuesta de éxito de NestJS logra inyectar los JWT como cookies `HttpOnly` (`accessToken` y `refreshToken`) directamente en el navegador.
+2. **Peticiones Axios:** Los componentes usan el cliente central (`src/lib/api.ts`, axios con `withCredentials`) con interceptor de refresh-on-401. De este modo, la respuesta de éxito de NestJS inyecta los JWT como cookies `HttpOnly` (`accessToken` y `refreshToken`) directamente en el navegador.
 3. **Middleware de Protección (`src/proxy.ts`):** Adaptado al estándar de Next.js 16.3.5 (que depreca `middleware.ts` en favor de `proxy.ts`). Intercepta cada solicitud y verifica la existencia de las cookies reales de NestJS. Redirige a `/login` si no hay sesión, y a `/dashboard` si el usuario intenta acceder al login estando logueado.
 4. **Cierre de Sesión Seguro (Server Actions):** Debido a que el entorno cliente (JavaScript) no puede destruir cookies `HttpOnly`, el logout invoca una _Server Action_ nativa (`logoutAction`) que elimina las cookies desde el servidor de Next.js antes de redirigir a `/login`.
+5. **Sesión Cliente y Sonda `/auth/me`:** Al autenticarse, el backend entrega `{ user: { id, email, name, role } }`. Si se accede directamente o se recarga la página, `useSessionUser()` en `src/features/auth/session.ts` consulta automáticamente la sonda protegida `GET /auth/me` para mantener el nombre y rol visibles en la barra lateral y en la vista de perfil.
 
-## 5. Convenciones frontend (alineadas al backend)
+## 3. Convenciones frontend (alineadas al backend)
 
+- **Rutas estrictamente en inglés**: `/login`, `/dashboard`, `/dashboard/profile`, `/dashboard/brands`, etc.
 - **Sin `fetch`/axios crudo en componentes**: cada feature expone `api.ts` (llamadas tipadas sobre el cliente central) + `schemas.ts` (Zod cliente espejando límites del backend con `z.email()`/`z.url()` top-level, nunca los métodos deprecados de `z.string()`; el backend siempre revalida).
 - **Eventos de form**: `React.SubmitEvent` (`FormEvent` está deprecado en `@types/react`).
 - **`src/lib/api.ts`**: `apiFetch` (`credentials: include` + refresh-on-401 con un reintento) y `apiJson<T>` (errores → `ApiError` con mensaje). Verificado en vivo: register → cookies → refresh → `/me` 200/401.
 - **Sin `any` en `catch`**: `unknown` + narrowing (`err instanceof Error`).
 - **Sin selector de rol en register**: el backend lo ignora (siempre MARKETING; el admin nace del seed).
+- **Estilos de tema**: Paleta institucional en modo claro (fondo `#e9edf2`, texto `#083A3D`) y modo oscuro (fondo `#151922`, tarjetas `#232a3e`, texto blanco).
 
-## 3. Mapa de vistas planificadas
+## 4. Mapa de vistas
 
-Infra previa (una vez): `src/lib/api.ts` (`apiFetch`: `credentials: include` + reintento 401 → refresh → reintentar 1 vez), sesión y rol desde `GET /auth/me`. Cada feature suma su `api.ts` + `schemas.ts` (Zod cliente espejando al backend).
-
-| Vista                              | Ruta                               | Consume (backend)                                                                                  |
-| ---------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Dashboard home                     | `/dashboard`                       | `GET /analytics/summary?brandId=` — KPIs + primer gráfico Recharts                                 |
-| Marcas                             | `/dashboard/marcas`                | CRUD `/brands` + **brand switcher** (la marca actual condiciona todo; va en contexto, no en URL)   |
-| Publicaciones (bandeja por estado) | `/dashboard/publicaciones?status=` | `GET /publications?brandId=&status=`                                                               |
-| Crear publicación                  | `/dashboard/publicaciones/nueva`   | `POST /publications` + `POST /:id/targets`                                                         |
-| Detalle + flujo                    | `/dashboard/publicaciones/:id`     | `PATCH`, `submit`, `approve`/`reject` (solo ADMIN según `/me`), targets, historial de métricas     |
-| Cuentas conectadas                 | `/dashboard/cuentas`               | CRUD anidado `/brands/:id/accounts` + badge `EXPIRED`                                              |
-| Analytics                          | `/dashboard/analytics`             | `summary` + series por destino; Insights IA como placeholder (endpoint LLM planificado, no existe) |
+| Vista                              | Ruta                            | Estado        | Consume (backend)                                                                                  |
+| ---------------------------------- | ------------------------------- | ------------- | -------------------------------------------------------------------------------------------------- |
+| Login institucional                | `/login`                        | Completado    | `POST /auth/login` — Set-Cookie + `{ user }`                                                      |
+| Dashboard home (Shell + Resumen)   | `/dashboard`                    | Completado UI | `GET /analytics/summary?brandId=` — KPIs + primer gráfico Recharts (actualmente mock de maquetado) |
+| Perfil de usuario                  | `/dashboard/profile`            | Completado UI | `GET /auth/me` — nombre y rol desde sesión activa                                                  |
+| Marcas                             | `/dashboard/brands`             | Planificado   | CRUD `/brands` + **brand switcher** (la marca actual condiciona todo; va en contexto, no en URL)   |
+| Publicaciones (bandeja por estado) | `/dashboard/publications?status=` | Planificado   | `GET /publications?brandId=&status=`                                                               |
+| Crear publicación                  | `/dashboard/publications/new`   | Planificado   | `POST /publications` + `POST /:id/targets`                                                         |
+| Detalle + flujo                    | `/dashboard/publications/:id`   | Planificado   | `PATCH`, `submit`, `approve`/`reject` (solo ADMIN según `/me`), targets, historial de métricas     |
+| Cuentas conectadas                 | `/dashboard/accounts`           | Planificado   | CRUD anidado `/brands/:id/accounts` + badge `EXPIRED`                                              |
+| Analytics                          | `/dashboard/analytics`          | Planificado   | `summary` + series por destino; Insights IA como placeholder (endpoint LLM planificado)             |
 
 Sin vista: `/dispatch` (superficie máquina de n8n, sin UI).
 
-## 4. Analytics e Insights por IA (requisito de tesis)
+## 5. Analytics e Insights por IA (requisito de tesis)
 
 Pestaña **Analytics** con dos capas:
 
 **a) Muestra de datos.** Gráficos de:
 
-- Métricas de publicaciones: impresiones, clics, reacciones, tasa de engagement
-  (LinkedIn API o registradas tras la publicación → modelo `TargetMetric`,
-  ver `docs/database.md`).
-- Métricas operativas: posts generados vs. aprobados, tiempo promedio de
-  generación, volumen por canal.
+- Métricas de publicaciones: impresiones, clics, reacciones, tasa de engagement (LinkedIn API o registradas tras la publicación → modelo `TargetMetric`, ver `docs/database.md`).
+- Métricas operativas: posts generados vs. aprobados, tiempo promedio de generación, volumen por canal.
 
-**b) Interpretación de datos (el componente estrella de IA).** El backend envía
-un resumen estructurado de métricas a un LLM, p. ej.:
-_"Analiza estas métricas de los últimos 15 días en LinkedIn. Identifica qué
-formatos o temáticas tuvieron mayor engagement y genera 3 recomendaciones
-concretas para las próximas publicaciones."_
-El dashboard muestra **"Insights Estratégicos por IA"**: resumen ejecutivo en
-texto claro, p. ej. _"Las publicaciones con tono técnico y casos de estudio
-obtuvieron un 32% más de alcance orgánico que los anuncios directos. Se sugiere
-programar el próximo post técnico el martes entre las 9:00 y 11:00 am."_
+**b) Interpretación de datos (el componente estrella de IA).** El backend envía un resumen estructurado de métricas a un LLM, p. ej.:
+_"Analiza estas métricas de los últimos 15 días en LinkedIn. Identifica qué formatos o temáticas tuvieron mayor engagement y genera 3 recomendaciones concretas para las próximas publicaciones."_
+El dashboard muestra **"Insights Estratégicos por IA"**: resumen ejecutivo en texto claro, p. ej. _"Las publicaciones con tono técnico y casos de estudio obtuvieron un 32% más de alcance orgánico que los anuncios directos. Se sugiere programar el próximo post técnico el martes entre las 9:00 y 11:00 am."_
 
-**Decisión de librería:** Shadcn UI **no es** un motor de gráficos — sus
-componentes `chart` (`ui.shadcn.com/docs/components/base/chart`) son envoltorios
-declarativos sobre **Recharts** (hoy Recharts v3). Por tanto el stack es
-**Shadcn UI (shell: cards, tabs, theming) + Recharts (motor de render, vía
-primitivas `chart` de Shadcn) + Tailwind**. Se descarta Chart.js: API imperativa
-y sin integración de primera clase con el theming Shadcn, mientras Recharts es
-React declarativo y el camino oficialmente documentado por Shadcn. Estado:
-**planificado** (ni Shadcn ni Recharts están instalados aún en `apps/web`).
+**Decisión de librería:** Shadcn UI **no es** un motor de gráficos — sus componentes `chart` (`ui.shadcn.com/docs/components/base/chart`) son envoltorios declarativos sobre **Recharts** (hoy Recharts v3). Por tanto el stack es **Shadcn UI (shell: cards, tabs, theming) + Recharts (motor de render, vía primitivas `chart` de Shadcn) + Tailwind**. Se descarta Chart.js: API imperativa y sin integración de primera clase con el theming Shadcn, mientras Recharts es React declarativo y el camino oficialmente documentado por Shadcn. Estado: **planificado** (ni Shadcn ni Recharts están instalados aún en `apps/web`).
 
 ```bash
 pnpm --filter web run dev     # frontend en desarrollo
