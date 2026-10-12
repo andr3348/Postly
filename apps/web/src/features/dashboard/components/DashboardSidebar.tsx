@@ -7,12 +7,10 @@ import { logoutAction } from "@/features/auth/actions";
 import { ROLE_LABEL } from "@/features/auth/role-label";
 import { clearSessionUser, useSessionUser } from "@/features/auth/session";
 import { useTheme } from "@/shared/context/ThemeContext";
+import { AlmaLogo } from "@/shared/components/AlmaLogo";
 import {
   DashboardGridIcon,
-  WebSignalIcon,
-  FacebookIcon,
-  InstagramIcon,
-  LinkedinIcon,
+  PlanningIcon,
   ReportsIcon,
   BrandSettingsIcon,
   ProfileIcon,
@@ -21,6 +19,7 @@ import {
   SunIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  UsersIcon,
 } from "@/shared/components/icons/DashboardIcons";
 
 interface DashboardSidebarProps {
@@ -36,14 +35,21 @@ interface NavItem {
   icon: (props: React.SVGProps<SVGSVGElement>) => React.JSX.Element;
 }
 
+/**
+ * Navegación = tabla de rutas de `docs/frontend.md` §4 (rutas en inglés).
+ * Sin páginas por red social: no existen ni están planificadas (la bandeja
+ * filtra por estado y analytics agrega por canal).
+ */
 const navItems: NavItem[] = [
   { name: "Dashboard Resumen", href: "/dashboard", icon: DashboardGridIcon },
-  { name: "Web", href: "/dashboard/web", icon: WebSignalIcon },
-  { name: "Facebook", href: "/dashboard/facebook", icon: FacebookIcon },
-  { name: "Instagram", href: "/dashboard/instagram", icon: InstagramIcon },
-  { name: "LinkedIn", href: "/dashboard/linkedin", icon: LinkedinIcon },
+  { name: "Marcas", href: "/dashboard/brands", icon: BrandSettingsIcon },
+  {
+    name: "Publicaciones",
+    href: "/dashboard/publications",
+    icon: PlanningIcon,
+  },
+  { name: "Cuentas", href: "/dashboard/accounts", icon: UsersIcon },
   { name: "Informes", href: "/dashboard/analytics", icon: ReportsIcon },
-  { name: "Ajustes de marca", href: "/dashboard/marcas", icon: BrandSettingsIcon },
 ];
 
 export function DashboardSidebar({
@@ -78,23 +84,19 @@ export function DashboardSidebar({
         className={`fixed lg:sticky top-3.5 left-3.5 z-50 h-[calc(100vh-1.75rem)] flex flex-col justify-between bg-white dark:bg-[#232a3e] border border-gray-100 dark:border-[#2d374e] rounded-[28px] shadow-sm transition-all duration-300 select-none ${
           isCollapsed ? "w-20 px-2 py-5" : "w-64 p-5"
         } ${
-          mobileOpen ? "translate-x-0" : "-translate-x-[110%] lg:translate-x-0"
+          mobileOpen ? "translate-x-0" : "translate-x-[110%] lg:translate-x-0"
         }`}
       >
         {/* Parte Superior: Logo & Línea Separadora */}
         <div className="flex flex-col">
           {isCollapsed ? (
             <div className="flex flex-col items-center pt-1 pb-3">
-              <div className="h-9 flex items-center justify-center font-bold text-sm tracking-wider text-[#083A3D] dark:text-white">
-                P
-              </div>
+              <AlmaLogo className="h-8 w-auto text-[#083A3D] dark:text-white" />
               <div className="h-[1.5px] w-8 bg-gray-200 dark:bg-slate-700 mt-2" />
             </div>
           ) : (
             <div className="flex flex-col items-center pt-2 pb-4 text-center">
-              <span className="text-[17px] font-semibold tracking-[0.14em] text-[#083A3D] dark:text-white leading-tight">
-                WEBSITE LOGO
-              </span>
+              <AlmaLogo className="h-10 w-auto text-[#083A3D] dark:text-white" />
               <div className="h-[1.5px] w-28 bg-gray-200 dark:bg-slate-700 mt-3" />
             </div>
           )}

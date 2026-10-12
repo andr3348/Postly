@@ -27,7 +27,7 @@ Esta es la capa donde reside el verdadero valor de la aplicación. En lugar de o
 - **`src/features/dashboard`:**
   - `DashboardShell.tsx`: Cascarón orquestador responsive (soporte para colapso y menú móvil).
   - `DashboardSidebar.tsx`: Barra lateral flotante con bordes redondeados (`rounded-[28px]`), estado expandido y colapsado, visualización de avatar, nombre y rol del usuario, cierre de sesión y alternancia de tema.
-  - `DashboardNavbar.tsx`: Barra superior flotante con pestañas de navegación ("Analítica" / "Planificación") y selector de marcas (Brand Switcher).
+  - `DashboardNavbar.tsx`: Barra superior flotante con pestañas que navegan (`Analítica` → `/dashboard`, `Planificación` → `/dashboard/publications`) y selector de marcas con datos reales (`BrandSwitcher`, `GET /brands`).
   - `DashboardHome.tsx`: Vista principal con resumen de KPIs omnicanal e Insights con IA.
 - **Beneficio (Tesis):** Este enfoque refleja exactamente cómo NestJS divide sus responsabilidades en `apps/api/src/modules/`, permitiendo que frontend y backend evolucionen con el mismo lenguaje de dominio, previniendo el "código espagueti".
 
@@ -64,7 +64,7 @@ El frontend delega por completo la seguridad y emisión de JWT al backend (tal c
 | Vista                              | Ruta                            | Estado        | Consume (backend)                                                                                  |
 | ---------------------------------- | ------------------------------- | ------------- | -------------------------------------------------------------------------------------------------- |
 | Login institucional                | `/login`                        | Completado    | `POST /auth/login` — Set-Cookie + `{ user }`                                                      |
-| Dashboard home (Shell + Resumen)   | `/dashboard`                    | Completado UI | `GET /analytics/summary?brandId=` — KPIs + primer gráfico Recharts (actualmente mock de maquetado) |
+| Dashboard home (Shell + Resumen)   | `/dashboard`                    | Completado    | `GET /analytics/summary` — KPIs y canales reales; `not-found.tsx` global para rutas sin vista |
 | Perfil de usuario                  | `/dashboard/profile`            | Completado UI | `GET /auth/me` — nombre y rol desde sesión activa                                                  |
 | Marcas                             | `/dashboard/brands`             | Planificado   | CRUD `/brands` + **brand switcher** (la marca actual condiciona todo; va en contexto, no en URL)   |
 | Publicaciones (bandeja por estado) | `/dashboard/publications?status=` | Planificado   | `GET /publications?brandId=&status=`                                                               |

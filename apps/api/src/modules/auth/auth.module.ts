@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PrismaModule } from '../../shared/prisma/prisma.module.js';
 import { LoginUseCase } from './application/login.use-case.js';
+import { GetMeUseCase } from './application/get-me.use-case.js';
 import { RefreshUseCase } from './application/refresh.use-case.js';
 import { RegisterUseCase } from './application/register.use-case.js';
 import { TOKEN_ISSUER } from './domain/ports/token-issuer.port.js';
@@ -31,6 +32,7 @@ import { AuthController } from './presentation/auth.controller.js';
     RegisterUseCase,
     LoginUseCase,
     RefreshUseCase,
+    GetMeUseCase,
     JwtAuthGuard,
     // Guard global: todo queda protegido salvo rutas con `@Public()`.
     { provide: APP_GUARD, useClass: JwtAuthGuard },

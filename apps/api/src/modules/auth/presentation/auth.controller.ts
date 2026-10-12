@@ -13,6 +13,7 @@ import type { Request, Response } from 'express';
 import { CurrentUser, Public, type AuthenticatedUser } from '../../../shared/decorators.js';
 import { InvalidRefreshTokenError } from '../../../shared/errors.js';
 import { LoginUseCase } from '../application/login.use-case.js';
+import { GetMeUseCase } from '../application/get-me.use-case.js';
 import { RefreshUseCase } from '../application/refresh.use-case.js';
 import { RegisterUseCase } from '../application/register.use-case.js';
 import type { SafeUser } from '../domain/user.entity.js';
@@ -37,6 +38,7 @@ export class AuthController {
     private readonly registerUseCase: RegisterUseCase,
     private readonly loginUseCase: LoginUseCase,
     private readonly refreshUseCase: RefreshUseCase,
+    private readonly getMeUseCase: GetMeUseCase,
     @Inject(AUTH_JWT_OPTIONS) private readonly options: AuthJwtOptions,
   ) {}
 
@@ -84,10 +86,10 @@ export class AuthController {
     return { user: output.user };
   }
 
-  /** Sonda autenticada: verifica guard + `@CurrentUser` de punta a punta. */
+  /** Perfil propio con nombre real (el JWT no lo incluye). */
   @Get('me')
-  me(@CurrentUser() user: AuthenticatedUser): AuthenticatedUser {
-    return user;
+  me(@CurrentUser() user: AuthenticatedUser): Promise<SafeUser> {
+    return this.getMeUseCase.execute(user.userId);
   }
 
   private setAuthCookies(res: Response, accessToken: string, refreshToken: string): void {
