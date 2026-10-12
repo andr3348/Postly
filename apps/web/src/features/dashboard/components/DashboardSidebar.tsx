@@ -43,7 +43,11 @@ interface NavItem {
 const navItems: NavItem[] = [
   { name: "Dashboard Resumen", href: "/dashboard", icon: DashboardGridIcon },
   { name: "Marcas", href: "/dashboard/brands", icon: BrandSettingsIcon },
-  { name: "Publicaciones", href: "/dashboard/publications", icon: PlanningIcon },
+  {
+    name: "Publicaciones",
+    href: "/dashboard/publications",
+    icon: PlanningIcon,
+  },
   { name: "Cuentas", href: "/dashboard/accounts", icon: UsersIcon },
   { name: "Informes", href: "/dashboard/analytics", icon: ReportsIcon },
 ];
@@ -80,7 +84,7 @@ export function DashboardSidebar({
         className={`fixed lg:sticky top-3.5 left-3.5 z-50 h-[calc(100vh-1.75rem)] flex flex-col justify-between bg-white dark:bg-[#232a3e] border border-gray-100 dark:border-[#2d374e] rounded-[28px] shadow-sm transition-all duration-300 select-none ${
           isCollapsed ? "w-20 px-2 py-5" : "w-64 p-5"
         } ${
-          mobileOpen ? "translate-x-0" : "-translate-x-[110%] lg:translate-x-0"
+          mobileOpen ? "translate-x-0" : "translate-x-[110%] lg:translate-x-0"
         }`}
       >
         {/* Parte Superior: Logo & Línea Separadora */}
