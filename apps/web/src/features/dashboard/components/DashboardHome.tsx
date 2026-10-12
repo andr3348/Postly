@@ -177,7 +177,7 @@ function HomeContent() {
                 Insights Estratégicos con IA
               </h2>
               <span className="text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 px-2.5 py-1 rounded-full">
-                Sugerencias activas
+                Vista previa
               </span>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
