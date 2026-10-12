@@ -34,9 +34,10 @@ export async function register(input: RegisterInput): Promise<{ user: AuthUser }
   }
 }
 
-export async function getMe(): Promise<{ userId: string; email: string; role: 'ADMIN' | 'MARKETING' }> {
+export async function getMe(): Promise<AuthUser> {
   try {
-    return await apiJson<{ userId: string; email: string; role: 'ADMIN' | 'MARKETING' }>('/auth/me');
+    // GET /auth/me devuelve el perfil (SafeUser: id, email, name, role).
+    return await apiJson<AuthUser>('/auth/me');
   } catch (error) {
     throw toSpanish(error, 'Sesión inválida o expirada');
   }

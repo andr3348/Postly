@@ -90,14 +90,7 @@ export function useSessionUser(): AuthUser | null {
       getMe()
         .then((me) => {
           if (!isMounted) return;
-          // Si me tiene email y role, lo normalizamos
-          const syncedUser: AuthUser = {
-            id: me.userId,
-            email: me.email,
-            name: me.email.split("@")[0] ?? "Usuario",
-            role: me.role,
-          };
-          saveSessionUser(syncedUser);
+          saveSessionUser({ id: me.id, email: me.email, name: me.name, role: me.role });
         })
         .catch(() => {
           // Si el token es inválido o no hay cookie, no hacer nada
