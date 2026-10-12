@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { register } from "@/features/auth/api";
 import { registerSchema } from "@/features/auth/schemas";
+import { saveSessionUser } from "@/features/auth/session";
 
 export function RegisterForm() {
   const [name, setName] = useState("");
@@ -26,7 +27,8 @@ export function RegisterForm() {
     }
 
     try {
-      await register(parsed.data);
+      const { user } = await register(parsed.data);
+      saveSessionUser(user);
       router.push("/dashboard");
       router.refresh();
     } catch (err: unknown) {

@@ -1,28 +1,10 @@
 "use client";
 
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode } from "react";
+import { useTheme } from "@/shared/context/ThemeContext";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-
-  useEffect(() => {
-    // Check saved theme or system preference
-    const savedTheme = localStorage.getItem("postly-theme");
-    if (savedTheme === "dark" || savedTheme === "light") {
-      setTheme(savedTheme);
-      document.documentElement.classList.toggle("dark", savedTheme === "dark");
-    } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      setTheme("dark");
-      document.documentElement.classList.add("dark");
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const nextTheme = theme === "light" ? "dark" : "light";
-    setTheme(nextTheme);
-    localStorage.setItem("postly-theme", nextTheme);
-    document.documentElement.classList.toggle("dark", nextTheme === "dark");
-  };
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-[#e9edf2] dark:bg-[#151922] p-4 font-sans transition-colors duration-300">

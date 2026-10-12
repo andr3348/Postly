@@ -1,0 +1,112 @@
+"use client";
+
+import { useEffect, useMemo, useSyncExternalStore } from "react";
+import type { AuthUser } from "./schemas";
+import { getMe } from "./api";
+
+/**
+ * Sesión de usuario en el cliente (solo lectura).
+ *
+ * Se alimenta de:
+ * 1. Lo retornado por POST /auth/login y /auth/register ({ user }).
+ * 2. GET /auth/me (sonda protegida del backend) si se recarga la página o se navega directamente.
+ *
+ * Se persiste en localStorage para evitar parpadeos y se mantiene sincronizado.
+ */
+const STORAGE_KEY = "postly-user";
+
+const listeners = new Set<() => void>();
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function getSnapshot(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function getServerSnapshot(): string | null {
+  return null;
+}
+
+function notify(): void {
+  for (const listener of listeners) listener();
+}
+
+/** Guarda el usuario devuelto por `POST /auth/login`, `/auth/register` o `GET /auth/me`. */
+export function saveSessionUser(user: AuthUser): void {
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    } catch {
+      // Sin almacenamiento disponible.
+    }
+  }
+  notify();
+}
+
+/** Limpia la sesión local (al cerrar sesión). */
+export function clearSessionUser(): void {
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Sin almacenamiento disponible.
+    }
+  }
+  notify();
+}
+
+function parseUser(raw: string | null): AuthUser | null {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Suscribe un componente al usuario de la sesión.
+ * Si no está en memoria/localStorage, consulta automáticamente GET /auth/me.
+ */
+export function useSessionUser(): AuthUser | null {
+  const raw = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const user = useMemo(() => parseUser(raw), [raw]);
+
+  useEffect(() => {
+    // Si no tenemos usuario en localStorage pero el navegador tiene cookies de sesión,
+    // sincronizar consultando GET /auth/me
+    if (!user) {
+      let isMounted = true;
+      getMe()
+        .then((me) => {
+          if (!isMounted) return;
+          // Si me tiene email y role, lo normalizamos
+          const syncedUser: AuthUser = {
+            id: me.userId,
+            email: me.email,
+            name: me.email.split("@")[0] ?? "Usuario",
+            role: me.role,
+          };
+          saveSessionUser(syncedUser);
+        })
+        .catch(() => {
+          // Si el token es inválido o no hay cookie, no hacer nada
+        });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [user]);
+
+  return user;
+}
