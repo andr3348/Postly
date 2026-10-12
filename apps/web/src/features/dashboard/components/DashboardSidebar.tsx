@@ -151,7 +151,7 @@ export function DashboardSidebar({
             <div className="flex flex-col items-center gap-2">
               {/* Perfil */}
               <Link
-                href="/dashboard/perfil"
+                href="/dashboard/profile"
                 title={
                   user ? `${user.name} · ${ROLE_LABEL[user.role]}` : "Perfil"
                 }
@@ -207,7 +207,7 @@ export function DashboardSidebar({
               {/* Fila 1: Perfil y Logout */}
               <div className="flex items-center justify-between px-2 py-1">
                 <Link
-                  href="/dashboard/perfil"
+                  href="/dashboard/profile"
                   className="flex items-center gap-2.5 min-w-0 rounded-lg -mx-1.5 px-1.5 py-1 hover:bg-gray-100 dark:hover:bg-[#2d374e] transition-colors"
                 >
                   <span className="w-8 h-8 rounded-full bg-[#083A3D] dark:bg-[#394560] text-white flex items-center justify-center text-xs font-semibold shrink-0">
