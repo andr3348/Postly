@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DashboardNavbar } from "./DashboardNavbar";
+import { BrandProvider } from "@/features/brands/BrandContext";
 
 interface DashboardShellProps {
   children: ReactNode;
@@ -23,15 +24,15 @@ export function DashboardShell({ children }: DashboardShellProps) {
       />
 
       {/* Área Principal de Contenido */}
-      <div className="flex-1 flex flex-col min-w-0 gap-3.5">
-        {/* Barra Superior */}
-        <DashboardNavbar onOpenMobileMenu={() => setMobileMenuOpen(true)} />
+      <BrandProvider>
+        <div className="flex-1 flex flex-col min-w-0 gap-3.5">
+          {/* Barra Superior */}
+          <DashboardNavbar onOpenMobileMenu={() => setMobileMenuOpen(true)} />
 
-        {/* Contenido Inyectado */}
-        <main className="flex-1">
-          {children}
-        </main>
-      </div>
+          {/* Contenido Inyectado */}
+          <main className="flex-1">{children}</main>
+        </div>
+      </BrandProvider>
     </div>
   );
 }
