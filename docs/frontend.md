@@ -66,7 +66,7 @@ El frontend delega por completo la seguridad y emisión de JWT al backend (tal c
 | Login institucional                | `/login`                        | Completado    | `POST /auth/login` — Set-Cookie + `{ user }`                                                      |
 | Dashboard home (Shell + Resumen)   | `/dashboard`                    | Completado    | `GET /analytics/summary` — KPIs y canales reales; `not-found.tsx` global para rutas sin vista |
 | Perfil de usuario                  | `/dashboard/profile`            | Completado UI | `GET /auth/me` — nombre y rol desde sesión activa                                                  |
-| Marcas                             | `/dashboard/brands`             | Planificado   | CRUD `/brands` + **brand switcher** (la marca actual condiciona todo; va en contexto, no en URL)   |
+| Marcas                             | `/dashboard/brands`             | Completado    | CRUD `/brands` + contexto global (`BrandProvider`, persistido) que consume el switcher |
 | Publicaciones (bandeja por estado) | `/dashboard/publications?status=` | Planificado   | `GET /publications?brandId=&status=`                                                               |
 | Crear publicación                  | `/dashboard/publications/new`   | Planificado   | `POST /publications` + `POST /:id/targets`                                                         |
 | Detalle + flujo                    | `/dashboard/publications/:id`   | Planificado   | `PATCH`, `submit`, `approve`/`reject` (solo ADMIN según `/me`), targets, historial de métricas     |

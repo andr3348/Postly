@@ -1,22 +1,13 @@
 "use client";
 
 import { Suspense, use, useState } from "react";
-import { listBrands } from "@/features/brands/api";
+import { getBrandsCached, invalidateBrands } from "@/features/brands/api";
 import type { Brand } from "@/features/brands/api";
+import { useBrand } from "@/features/brands/BrandContext";
 
 /** Promesa cacheada por montaje: `use()` la suspende hasta resolver. */
-let brandsPromise: Promise<{ brands: Brand[] }> | null = null;
-
 function getBrands(): Promise<{ brands: Brand[] }> {
-  if (brandsPromise === null) {
-    brandsPromise = listBrands();
-  }
-  return brandsPromise;
-}
-
-/** Invalida el caché (p. ej. tras crear una marca en su vista). */
-export function invalidateBrands(): void {
-  brandsPromise = null;
+  return getBrandsCached(0);
 }
 
 /**
@@ -39,7 +30,7 @@ export function BrandSwitcher() {
 
 function BrandSwitcherInner() {
   const { brands } = use(getBrands());
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { selectedId, select } = useBrand();
   const [isOpen, setIsOpen] = useState(false);
 
   const selected = brands.find((brand) => brand.id === selectedId) ?? brands[0] ?? null;
@@ -82,7 +73,7 @@ function BrandSwitcherInner() {
               key={brand.id}
               type="button"
               onClick={() => {
-                setSelectedId(brand.id);
+                select(brand.id);
                 setIsOpen(false);
               }}
               className={`w-full text-left px-3.5 py-2 text-xs sm:text-sm transition-colors cursor-pointer flex items-center justify-between ${
