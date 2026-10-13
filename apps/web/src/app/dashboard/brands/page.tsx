@@ -1,5 +1,5 @@
-import { BrandsManager } from "@/features/brands/components/BrandsManager";
+import { BrandsManagerLoader } from "@/features/brands/components/BrandsManagerLoader";
 
 export default function BrandsPage() {
-  return <BrandsManager />;
+  return <BrandsManagerLoader />;
 }
