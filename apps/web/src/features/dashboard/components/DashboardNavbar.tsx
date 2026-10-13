@@ -1,13 +1,34 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import {
   AnalyticsIcon,
   PlanningIcon,
   MenuIcon,
 } from "@/shared/components/icons/DashboardIcons";
-import { BrandSwitcher } from "@/features/brands/components/BrandSwitcher";
+
+/**
+ * Isla de datos solo-cliente: suspende con `use()` sobre axios (`/api`,
+ * URL relativa válida solo en el navegador). Renderizarla en el servidor
+ * revienta el SSR con "Invalid URL" y degrada toda la página a
+ * client-rendering, así que se excluye del SSR.
+ */
+const BrandSwitcher = dynamic(
+  () =>
+    import("@/features/brands/components/BrandSwitcher").then(
+      (module) => module.BrandSwitcher,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="px-3 py-1.5 rounded-xl border border-gray-200 dark:border-slate-600 text-xs sm:text-sm text-gray-400">
+        Cargando…
+      </div>
+    ),
+  },
+);
 
 interface DashboardNavbarProps {
   onOpenMobileMenu?: () => void;
