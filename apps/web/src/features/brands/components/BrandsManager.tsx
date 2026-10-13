@@ -77,7 +77,7 @@ function ManagerInner({ version, onChanged }: { version: number; onChanged: () =
           <button
             type="button"
             onClick={() => setShowCreate(true)}
-            className="bg-[#151717] text-white text-sm font-medium rounded-[10px] px-5 h-[42px] cursor-pointer hover:bg-[#252727] transition-colors duration-200"
+            className="bg-[#151717] text-white text-sm font-medium rounded-[10px] px-5 h-[42px] cursor-pointer hover:bg-[#252727] dark:bg-white dark:text-[#151717] dark:hover:bg-gray-200 transition-colors duration-200"
           >
             Nueva marca
           </button>
