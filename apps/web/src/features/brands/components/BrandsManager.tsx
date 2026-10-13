@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, use, useState } from "react";
+import { Suspense, use, useCallback, useState } from "react";
 import {
   createBrand,
   deleteBrand,
@@ -12,6 +12,7 @@ import {
 import type { BrandFormInput } from "@/features/brands/schemas";
 import { useBrand } from "@/features/brands/BrandContext";
 import { BrandForm } from "@/features/brands/components/BrandForm";
+import { Modal } from "@/shared/components/Modal";
 
 export function BrandsManager() {
   const [version, setVersion] = useState(0);
@@ -43,6 +44,9 @@ function ManagerInner({ version, onChanged }: { version: number; onChanged: () =
   const [errorMsg, setErrorMsg] = useState("");
 
   const currentId = selectedId ?? brands[0]?.id ?? null;
+
+  /** Estable para no re-suscribir el efecto del modal en cada render. */
+  const closeCreate = useCallback(() => setShowCreate(false), []);
 
   const handleCreate = async (data: BrandFormInput) => {
     await createBrand(data);
@@ -88,18 +92,13 @@ function ManagerInner({ version, onChanged }: { version: number; onChanged: () =
         <p className="text-sm text-red-500 font-medium">{errorMsg}</p>
       )}
 
-      {showCreate && (
-        <div className="bg-white dark:bg-[#232a3e] border border-gray-100 dark:border-[#2d374e] rounded-[22px] p-6 shadow-xs">
-          <h2 className="text-base font-semibold text-[#083A3D] dark:text-white mb-4">
-            Nueva marca
-          </h2>
-          <BrandForm
-            submitLabel="Crear marca"
-            onSubmit={handleCreate}
-            onCancel={() => setShowCreate(false)}
-          />
-        </div>
-      )}
+      <Modal title="Nueva marca" open={showCreate} onClose={closeCreate}>
+        <BrandForm
+          submitLabel="Crear marca"
+          onSubmit={handleCreate}
+          onCancel={closeCreate}
+        />
+      </Modal>
 
       {brands.length === 0 && !showCreate ? (
         <div className="bg-white dark:bg-[#232a3e] border border-gray-100 dark:border-[#2d374e] rounded-[22px] p-8 shadow-xs text-center">
