@@ -12,6 +12,7 @@ import {
 import type { BrandFormInput } from "@/features/brands/schemas";
 import { useBrand } from "@/features/brands/BrandContext";
 import { BrandForm } from "@/features/brands/components/BrandForm";
+import { BrandLogo } from "@/features/brands/components/BrandLogo";
 import { Modal } from "@/shared/components/Modal";
 
 export function BrandsManager() {
@@ -138,15 +139,21 @@ function ManagerInner({ version, onChanged }: { version: number; onChanged: () =
               key={brand.id}
               className="bg-white dark:bg-[#232a3e] border border-gray-100 dark:border-[#2d374e] rounded-[22px] p-6 shadow-xs flex flex-col gap-3"
             >
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="text-base font-semibold text-[#083A3D] dark:text-white truncate">
-                    {brand.name}
-                  </h2>
-                  {brand.id === currentId && (
-                    <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 px-2.5 py-1 rounded-full shrink-0">
-                      Actual
-                    </span>
-                  )}
+                <div className="flex items-center gap-3">
+                  <BrandLogo name={brand.name} logoUrl={brand.logoUrl} />
+                  <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                    <h2
+                      title={brand.name}
+                      className="text-base font-semibold text-[#083A3D] dark:text-white truncate"
+                    >
+                      {brand.name}
+                    </h2>
+                    {brand.id === currentId && (
+                      <span className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 px-2.5 py-1 rounded-full shrink-0">
+                        Actual
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {brand.aiTone}
