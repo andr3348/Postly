@@ -47,6 +47,12 @@ function ManagerInner({ version, onChanged }: { version: number; onChanged: () =
 
   /** Estable para no re-suscribir el efecto del modal en cada render. */
   const closeCreate = useCallback(() => setShowCreate(false), []);
+  const closeEdit = useCallback(() => setEditingId(null), []);
+
+  const editingBrand =
+    editingId === null
+      ? null
+      : (brands.find((brand) => brand.id === editingId) ?? null);
 
   const handleCreate = async (data: BrandFormInput) => {
     await createBrand(data);
@@ -100,6 +106,25 @@ function ManagerInner({ version, onChanged }: { version: number; onChanged: () =
         />
       </Modal>
 
+      <Modal title="Editar marca" open={editingBrand !== null} onClose={closeEdit}>
+        {editingBrand !== null && (
+          <BrandForm
+            initial={{
+              name: editingBrand.name,
+              logoUrl: editingBrand.logoUrl,
+              websiteUrl: editingBrand.websiteUrl,
+              aiTone: editingBrand.aiTone,
+              aiBrandVoice: editingBrand.aiBrandVoice,
+              aiTargetAudience: editingBrand.aiTargetAudience,
+              defaultHashtags: editingBrand.defaultHashtags,
+            }}
+            submitLabel="Guardar cambios"
+            onSubmit={(data) => handleUpdate(editingBrand.id, data)}
+            onCancel={closeEdit}
+          />
+        )}
+      </Modal>
+
       {brands.length === 0 && !showCreate ? (
         <div className="bg-white dark:bg-[#232a3e] border border-gray-100 dark:border-[#2d374e] rounded-[22px] p-8 shadow-xs text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -108,35 +133,11 @@ function ManagerInner({ version, onChanged }: { version: number; onChanged: () =
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
-          {brands.map((brand) =>
-            editingId === brand.id ? (
-              <div
-                key={brand.id}
-                className="bg-white dark:bg-[#232a3e] border border-gray-100 dark:border-[#2d374e] rounded-[22px] p-6 shadow-xs"
-              >
-                <h2 className="text-base font-semibold text-[#083A3D] dark:text-white mb-4">
-                  Editar marca
-                </h2>
-                <BrandForm
-                  initial={{
-                    name: brand.name,
-                    logoUrl: brand.logoUrl,
-                    websiteUrl: brand.websiteUrl,
-                    aiTone: brand.aiTone,
-                    aiBrandVoice: brand.aiBrandVoice,
-                    aiTargetAudience: brand.aiTargetAudience,
-                    defaultHashtags: brand.defaultHashtags,
-                  }}
-                  submitLabel="Guardar cambios"
-                  onSubmit={(data) => handleUpdate(brand.id, data)}
-                  onCancel={() => setEditingId(null)}
-                />
-              </div>
-            ) : (
-              <article
-                key={brand.id}
-                className="bg-white dark:bg-[#232a3e] border border-gray-100 dark:border-[#2d374e] rounded-[22px] p-6 shadow-xs flex flex-col gap-3"
-              >
+          {brands.map((brand) => (
+            <article
+              key={brand.id}
+              className="bg-white dark:bg-[#232a3e] border border-gray-100 dark:border-[#2d374e] rounded-[22px] p-6 shadow-xs flex flex-col gap-3"
+            >
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="text-base font-semibold text-[#083A3D] dark:text-white truncate">
                     {brand.name}
@@ -204,8 +205,7 @@ function ManagerInner({ version, onChanged }: { version: number; onChanged: () =
                   )}
                 </div>
               </article>
-            ),
-          )}
+          ))}
         </div>
       )}
     </div>
