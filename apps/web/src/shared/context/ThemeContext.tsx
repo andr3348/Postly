@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 
 type Theme = "light" | "dark";
 
@@ -11,29 +17,75 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-function initialTheme(): Theme {
-  if (typeof window === "undefined") return "light";
-  const saved = window.localStorage.getItem("postly-theme");
-  if (saved === "dark" || saved === "light") return saved;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+const STORAGE_KEY = "postly-theme";
+
+/** Lee el tema real del navegador (solo se llama en cliente). */
+function readTheme(): Theme {
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (saved === "dark" || saved === "light") return saved;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  } catch {
+    // Modo privado sin localStorage: respeta el render del servidor.
+    return "light";
+  }
+}
+
+// Mini-store externo: única fuente de verdad tras hidratar.
+let cached: Theme | null = null;
+const listeners = new Set<() => void>();
+
+function getSnapshot(): Theme {
+  if (cached === null) cached = readTheme();
+  return cached;
+}
+
+/**
+ * El servidor siempre pinta "light". Si el cliente resuelve "dark",
+ * React re-renderiza este subárbol en cliente por diseño del hook
+ * (sin error de hidratación: para eso existe getServerSnapshot).
+ */
+function getServerSnapshot(): Theme {
+  return "light";
+}
+
+function subscribe(onChange: () => void): () => void {
+  listeners.add(onChange);
+  const invalidate = () => {
+    cached = null;
+    onChange();
+  };
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === null || event.key === STORAGE_KEY) invalidate();
+  };
+  const media = window.matchMedia("(prefers-color-scheme: dark)");
+  window.addEventListener("storage", onStorage);
+  media.addEventListener("change", invalidate);
+  return () => {
+    listeners.delete(onChange);
+    window.removeEventListener("storage", onStorage);
+    media.removeEventListener("change", invalidate);
+  };
+}
+
+function publish(next: Theme): void {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, next);
+  } catch {
+    // Sin almacenamiento: el tema vive solo en memoria en esta sesión.
+  }
+  document.documentElement.classList.toggle("dark", next === "dark");
+  cached = next;
+  listeners.forEach((notify) => notify());
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Inicializador perezoso: lee el tema sin renders en cascada.
-  // Protegido para prerender en servidor (sin `window` ahí).
-  const [theme, setTheme] = useState<Theme>(initialTheme);
-
-  useEffect(() => {
-    // Solo sincroniza el DOM externo; sin setState dentro del efecto.
-    document.documentElement.classList.toggle("dark", theme === "dark");
+  const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const toggleTheme = useCallback(() => {
+    publish(theme === "light" ? "dark" : "light");
   }, [theme]);
-
-  const toggleTheme = () => {
-    const next = theme === "light" ? "dark" : "light";
-    setTheme(next);
-    localStorage.setItem("postly-theme", next);
-    document.documentElement.classList.toggle("dark", next === "dark");
-  };
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
