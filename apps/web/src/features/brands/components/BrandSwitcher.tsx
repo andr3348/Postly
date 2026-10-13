@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, use, useState } from "react";
-import { getBrandsCached, invalidateBrands } from "@/features/brands/api";
+import { getBrandsCached } from "@/features/brands/api";
 import type { Brand } from "@/features/brands/api";
 import { useBrand } from "@/features/brands/BrandContext";
 
@@ -33,11 +33,14 @@ function BrandSwitcherInner() {
   const { selectedId, select } = useBrand();
   const [isOpen, setIsOpen] = useState(false);
 
-  const selected = brands.find((brand) => brand.id === selectedId) ?? brands[0] ?? null;
+  const selected =
+    brands.find((brand) => brand.id === selectedId) ?? brands[0] ?? null;
 
   if (selected === null) {
     return (
-      <span className="text-xs sm:text-sm text-gray-400 px-3 py-1.5">Sin marcas</span>
+      <span className="text-xs sm:text-sm text-gray-400 px-3 py-1.5">
+        Sin marcas
+      </span>
     );
   }
 
@@ -48,9 +51,7 @@ function BrandSwitcherInner() {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-slate-600 bg-transparent hover:border-gray-400 dark:hover:border-slate-400 text-xs sm:text-sm font-medium text-gray-800 dark:text-gray-200 cursor-pointer transition-colors"
       >
-        <span className="truncate max-w-[110px] sm:max-w-[140px]">
-          {selected.name}
-        </span>
+        <span className="truncate max-w-27.5 sm:max-w-35">{selected.name}</span>
         <svg
           viewBox="0 0 24 24"
           className="w-3.5 h-3.5 text-gray-400 shrink-0"
