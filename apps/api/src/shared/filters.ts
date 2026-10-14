@@ -13,6 +13,7 @@ import {
   ConnectedAccountNotFoundError,
   EmailAlreadyTakenError,
   ForbiddenError,
+  InvalidAccountCredentialsError,
   InvalidCredentialsError,
   InvalidPublicationTransitionError,
   InvalidRefreshTokenError,
@@ -43,6 +44,7 @@ import {
   InvalidPublicationTransitionError,
   ForbiddenError,
   MissingConnectedAccountError,
+  InvalidAccountCredentialsError,
 )
 export class DomainExceptionFilter implements ExceptionFilter {
   catch(exception: Error, _host: ArgumentsHost): void {
@@ -64,7 +66,8 @@ export class DomainExceptionFilter implements ExceptionFilter {
       exception instanceof InvalidPublicationTransitionError ||
       exception instanceof PublicationWithoutTargetsError ||
       exception instanceof TargetNotPublishedError ||
-      exception instanceof MissingConnectedAccountError
+      exception instanceof MissingConnectedAccountError ||
+      exception instanceof InvalidAccountCredentialsError
     ) {
       throw new BadRequestException(exception.message);
     }

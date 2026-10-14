@@ -93,3 +93,10 @@ export class ConnectedAccountNotFoundError extends Error {
     this.name = 'ConnectedAccountNotFoundError';
   }
 }
+
+export class InvalidAccountCredentialsError extends Error {
+  constructor(platform: string, detail = 'Token rejected by provider') {
+    super(`Account verification failed for ${platform}: ${detail}`);
+    this.name = 'InvalidAccountCredentialsError';
+  }
+}
