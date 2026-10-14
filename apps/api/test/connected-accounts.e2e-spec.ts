@@ -75,4 +75,36 @@ describe('ConnectedAccounts (e2e)', () => {
     // Plataforma inválida: 400 por schema, no 500.
     await agent.delete(`/api/brands/${brandId}/accounts/MYSPACE`).expect(400);
   });
+
+  it('verify rejects a fake token with 400 without persisting', async () => {
+    const agent = request.agent(app.getHttpServer());
+
+    await agent
+      .post('/api/auth/register')
+      .send({ email, name: 'E2E Acc', password: 'secreto-123' })
+      .expect(201);
+
+    const brand = await agent.post('/api/brands').send({ name: 'Marca E2E' }).expect(201);
+    brandId = brand.body.brand.id as string;
+
+    // Token falso: el proveedor lo rechaza (o no hay red) → 400, no 500.
+    await agent
+      .post(`/api/brands/${brandId}/accounts/verify`)
+      .send({
+        platform: 'FACEBOOK',
+        externalAccountId: '123456',
+        accessToken: 'fake-token-for-e2e-only',
+      })
+      .expect(400);
+
+    // Nada se persistió al verificar.
+    const listed = await agent.get(`/api/brands/${brandId}/accounts`).expect(200);
+    expect(listed.body).toHaveLength(0);
+
+    // Plataforma inválida: 400 por schema.
+    await agent
+      .post(`/api/brands/${brandId}/accounts/verify`)
+      .send({ platform: 'MYSPACE', externalAccountId: '1', accessToken: 'x' })
+      .expect(400);
+  });
 });
