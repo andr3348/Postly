@@ -198,6 +198,7 @@ Gestiona la vinculación de cuentas de redes sociales (Facebook, Instagram, Link
 ```text
 POST   /brands/:brandId/accounts            → conecta/actualiza una cuenta en una plataforma (Upsert, 201)
 GET    /brands/:brandId/accounts            → lista cuentas conectadas sanitizadas (sin tokens, 200)
+POST   /brands/:brandId/accounts/verify     → prueba el token contra la API real sin persistir (200 { valid, displayName }; 400 si el proveedor lo rechaza)
 DELETE /brands/:brandId/accounts/:platform  → desvincula la cuenta (204; 404 si no estaba vinculada)
 ```
 
@@ -209,10 +210,10 @@ de una cuenta suelta; repetir sobre una ya desvinculada es 404.
 
 Capas (`src/modules/connected-accounts/`):
 
-- `domain/` — entidad `ConnectedAccount` (segura) y `ConnectedAccountWithCredentials` (con tokens). Puerto `CONNECTED_ACCOUNTS_REPOSITORY`.
-- `application/` — casos de uso puramente funcionales: `UpsertAccountUseCase`, `GetAccountsUseCase`, `DisconnectAccountUseCase` para consumo externo, y `GetCredentialsUseCase` (expuesto internamente a otros módulos).
-- `infrastructure/` — `PrismaConnectedAccountsRepository` que interactúa con Prisma. En el listado aisla y omite los tokens (`accessToken`, `refreshToken`).
-- `presentation/` — controlador REST delgado, delegando peticiones post-validación (con `connectAccountSchema` Zod) a los casos de uso.
+- `domain/` — entidad `ConnectedAccount` (segura) y `ConnectedAccountWithCredentials` (con tokens). Puertos `CONNECTED_ACCOUNTS_REPOSITORY` y `ACCOUNT_VERIFIER` (símbolos, sin importar `@postly/database`).
+- `application/` — casos de uso puramente funcionales: `UpsertAccountUseCase`, `GetAccountsUseCase`, `DisconnectAccountUseCase`, `VerifyAccountUseCase` (verifica marca + delega al verificador, sin persistir) para consumo externo, y `GetCredentialsUseCase` (expuesto internamente a otros módulos).
+- `infrastructure/` — `PrismaConnectedAccountsRepository` que interactúa con Prisma. En el listado aisla y omite los tokens (`accessToken`, `refreshToken`). `HttpAccountVerifier` (fetch nativo, timeout 8s, sin dependencias nuevas) valida contra las APIs oficiales en solo-lectura.
+- `presentation/` — controlador REST delgado, delegando peticiones post-validación (con `connectAccountSchema` / `verifyAccountSchema` Zod) a los casos de uso.
 
 **Manejo Interno de Credenciales**:
 El caso de uso `GetCredentialsUseCase` está exportado desde `ConnectedAccountsModule` para ser utilizado por `PublicationsModule` en el proceso de dispatch a n8n. Si alguna red no está conectada, el caso de uso lanza un `MissingConnectedAccountError`, que el filtro global traduce a 400 Bad Request. Los tokens no son expuestos en las consultas HTTP públicas.
@@ -224,7 +225,19 @@ Los campos `accessToken` y `refreshToken` se encriptan de forma transparente en 
 - **Formato**: El texto cifrado se almacena con la forma `IV:AuthTag:Ciphertext`.
 - **Lectura**: El caso de uso `GetCredentialsUseCase` obtiene y descifra las credenciales al vuelo para integrarse de forma segura con el webhook de n8n.
 
-**Tests**: 9 unitarios (`test/unit/modules/connected-accounts/`) + flujo e2e (`test/connected-accounts.e2e-spec.ts`: conectar → listar sin secretos → desvincular → 404 → 400).
+**Verificación previa (`VerifyAccountUseCase` + `HttpAccountVerifier`):**
+La UI prueba la conexión antes de guardar para no persistir tokens inválidos.
+Solo-lectura, sin publicar nada; el rechazo del proveedor es
+`InvalidAccountCredentialsError` → 400.
+- **Meta (Facebook/Instagram):** mismo Page access token, IDs distintos —
+  Page ID para Facebook (`?fields=id,name`), IG Professional ID vinculado a
+  esa Page para Instagram (`?fields=id,username`), ambos en `graph.facebook.com/v25.0`.
+- **LinkedIn:** `GET api.linkedin.com/v2/userinfo` (Bearer); valida que el
+  token sea válido. El chequeo de pertenencia a la organización queda
+  pendiente (requiere `r_organization_social`).
+- **TikTok:** `GET open.tiktokapis.com/v2/user/info/` (Bearer).
+
+**Tests**: 12 unitarios (`test/unit/modules/connected-accounts/`) + flujo e2e (`test/connected-accounts.e2e-spec.ts`: conectar → listar sin secretos → desvincular → 404 → 400; verify con token falso → 400 sin persistir).
 
 ## 7. Módulo dispatch (superficie n8n)
 

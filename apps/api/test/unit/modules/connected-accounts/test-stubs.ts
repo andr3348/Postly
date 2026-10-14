@@ -1,6 +1,7 @@
 import type { BrandsRepository } from '../../../../src/modules/brand/domain/ports/brands.repository.js';
 import type { Brand } from '../../../../src/modules/brand/domain/brand.entity.js';
 import type { ConnectedAccountsRepository } from '../../../../src/modules/connected-accounts/domain/ports/connected-accounts.repository.js';
+import type { AccountVerifier } from '../../../../src/modules/connected-accounts/domain/ports/account-verifier.port.js';
 import type { ConnectedAccount } from '../../../../src/modules/connected-accounts/domain/connected-account.entity.js';
 
 const BASE_BRAND: Brand = {
@@ -48,6 +49,15 @@ export function stubConnectedAccountsRepository(
     findAllByBrand: async () => [],
     disconnectAccount: async () => true,
     getCredentialsForDispatch: async () => [],
+    ...overrides,
+  };
+}
+
+export function stubAccountVerifier(
+  overrides: Partial<AccountVerifier> = {},
+): AccountVerifier {
+  return {
+    verify: async () => ({ displayName: 'Alma Quinta' }),
     ...overrides,
   };
 }

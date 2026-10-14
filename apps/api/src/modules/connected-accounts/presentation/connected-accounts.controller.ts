@@ -2,12 +2,14 @@ import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Post } from
 import { UpsertAccountUseCase } from '../application/upsert-account.use-case.js';
 import { GetAccountsUseCase } from '../application/get-accounts.use-case.js';
 import { DisconnectAccountUseCase } from '../application/disconnect-account.use-case.js';
+import { VerifyAccountUseCase } from '../application/verify-account.use-case.js';
 import type { AccountPlatform } from '../domain/connected-account.entity.js';
 import {
   accountPlatformSchema,
   connectAccountSchema,
   type ConnectAccountDto,
 } from './schemas/connect-account.schema.js';
+import { verifyAccountSchema, type VerifyAccountDto } from './schemas/verify-account.schema.js';
 
 /**
  * Controller delgado: valida (Zod), delega al caso de uso y retorna.
@@ -20,6 +22,7 @@ export class ConnectedAccountsController {
     private readonly upsertAccountUseCase: UpsertAccountUseCase,
     private readonly getAccountsUseCase: GetAccountsUseCase,
     private readonly disconnectAccountUseCase: DisconnectAccountUseCase,
+    private readonly verifyAccountUseCase: VerifyAccountUseCase,
   ) {}
 
   @Post()
@@ -28,6 +31,14 @@ export class ConnectedAccountsController {
     @Body({ schema: connectAccountSchema }) dto: ConnectAccountDto,
   ) {
     return this.upsertAccountUseCase.execute({ brandId, ...dto });
+  }
+
+  @Post('verify')
+  async verifyAccount(
+    @Param('brandId') brandId: string,
+    @Body({ schema: verifyAccountSchema }) dto: VerifyAccountDto,
+  ) {
+    return this.verifyAccountUseCase.execute(brandId, dto);
   }
 
   @Get()
