@@ -70,7 +70,7 @@ El frontend delega por completo la seguridad y emisión de JWT al backend (tal c
 | Publicaciones (bandeja por estado) | `/dashboard/publications?status=` | Planificado   | `GET /publications?brandId=&status=`                                                               |
 | Crear publicación                  | `/dashboard/publications/new`   | Planificado   | `POST /publications` + `POST /:id/targets`                                                         |
 | Detalle + flujo                    | `/dashboard/publications/:id`   | Planificado   | `PATCH`, `submit`, `approve`/`reject` (solo ADMIN según `/me`), targets, historial de métricas     |
-| Cuentas conectadas                 | `/dashboard/accounts`           | Planificado   | CRUD anidado `/brands/:id/accounts` + badge `EXPIRED`                                              |
+| Cuentas conectadas                 | `/dashboard/accounts`           | Completado    | CRUD anidado `/brands/:id/accounts` + `POST /verify` (prueba real antes de guardar) + badge `EXPIRED` |
 | Analytics                          | `/dashboard/analytics`          | Planificado   | `summary` + series por destino; Insights IA como placeholder (endpoint LLM planificado)             |
 
 Sin vista: `/dispatch` (superficie máquina de n8n, sin UI).
