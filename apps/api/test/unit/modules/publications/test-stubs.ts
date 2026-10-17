@@ -1,7 +1,6 @@
 import type { Brand } from '../../../../src/modules/brand/domain/brand.entity.js';
 import type { BrandsRepository } from '../../../../src/modules/brand/domain/ports/brands.repository.js';
 import type { Publication } from '../../../../src/modules/publications/domain/publication.entity.js';
-import type { PublicationTarget } from '../../../../src/modules/publications/domain/target.entity.js';
 import type { PublicationsRepository } from '../../../../src/modules/publications/domain/ports/publications.repository.js';
 import type { PublicationTargetsRepository } from '../../../../src/modules/publications/domain/ports/publication-targets.repository.js';
 import type { PublicationMetricsRepository } from '../../../../src/modules/publications/domain/ports/publication-metrics.repository.js';

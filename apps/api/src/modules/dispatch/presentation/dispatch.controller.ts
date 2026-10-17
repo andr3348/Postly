@@ -1,10 +1,7 @@
 import { Body, Controller, HttpCode, HttpStatus, Param, Post, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { Public } from '../../../shared/decorators.js';
-import {
-  ClaimDispatchUseCase,
-  type DispatchClaim,
-} from '../application/claim-dispatch.use-case.js';
+import { ClaimDispatchUseCase } from '../application/claim-dispatch.use-case.js';
 import { ReportTargetUseCase } from '../application/report-target.use-case.js';
 import { N8nApiKeyGuard } from '../infrastructure/n8n-api-key.guard.js';
 import { reportTargetSchema, type ReportTargetDto } from './schemas/dispatch.schema.js';
@@ -26,18 +23,17 @@ export class DispatchController {
   /**
    * Reclama la próxima publicación vencida con credenciales incluidas.
    * 204 sin cuerpo = nada por hacer (n8n espera al siguiente poll).
+   * `@Res()` puro: con passthrough Nest responde el `undefined` de vuelta
+   * y desmonta headers ya enviados (ERR_HTTP_HEADERS_SENT intermitente).
    */
   @Post('claim')
-  @HttpCode(HttpStatus.OK)
-  async claimNext(
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<DispatchClaim | undefined> {
+  async claimNext(@Res() res: Response): Promise<void> {
     const claim = await this.claim.execute();
     if (claim === null) {
       res.status(HttpStatus.NO_CONTENT).send();
-      return undefined;
+      return;
     }
-    return claim;
+    res.status(HttpStatus.OK).json(claim);
   }
 
   @Post('targets/:targetId/report')

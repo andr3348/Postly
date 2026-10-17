@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, use } from "react";
+import Link from "next/link";
 import { getAnalyticsSummary } from "@/features/dashboard/api";
 import type { AnalyticsSummary } from "@/features/dashboard/schemas";
 import {
@@ -181,7 +182,13 @@ function HomeContent() {
               </span>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">
-              Análisis predictivo omnicanal generado para optimizar el alcance
+              Análisis predictivo omnicanal generado para optimizar el alcance ·{" "}
+              <Link
+                href="/dashboard/analytics"
+                className="font-medium text-[#2d79f3] hover:underline"
+              >
+                abrir informes reales
+              </Link>
             </p>
 
             <div className="space-y-3.5">

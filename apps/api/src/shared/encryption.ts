@@ -9,7 +9,8 @@ export function encrypt(text: string, keyHex: string): string {
   if (key.length !== 32) throw new Error('Invalid encryption key length, must be 32 bytes (64 hex characters)');
   
   const iv = randomBytes(IV_LENGTH);
-  const cipher = createCipheriv(ALGORITHM, key, iv);
+  // authTagLength explícito (no confiar en el default de GCM): 16 bytes.
+  const cipher = createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
   
   let encrypted = cipher.update(text, 'utf8', 'hex');
   encrypted += cipher.final('hex');
@@ -27,7 +28,7 @@ export function decrypt(encryptedText: string, keyHex: string): string {
   const authTag = Buffer.from(parts[1], 'hex');
   const encrypted = parts[2];
   
-  const decipher = createDecipheriv(ALGORITHM, key, iv);
+  const decipher = createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
   decipher.setAuthTag(authTag);
   
   let decrypted = decipher.update(encrypted, 'hex', 'utf8');

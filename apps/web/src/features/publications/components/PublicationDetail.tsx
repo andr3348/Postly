@@ -16,6 +16,7 @@ import {
   updateDraft,
   type PublicationTarget,
 } from "@/features/publications/api";
+import { invalidateAnalytics } from "@/features/analytics/api";
 import {
   platformLabel,
   PublicationStatusBadge,
@@ -44,6 +45,8 @@ export function PublicationDetail({ id }: { id: string }) {
 
   const refresh = () => {
     invalidatePublications();
+    // Los agregados de Informes derivan de publicaciones/targets/métricas.
+    invalidateAnalytics();
     setVersion((current) => current + 1);
   };
 

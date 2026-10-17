@@ -1,8 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
-  ForbiddenError,
   InvalidPublicationTransitionError,
-  PublicationNotFoundError,
   PublicationTargetAlreadyAttachedError,
 } from '../../../shared/errors.js';
 import type { PublicationTarget, TargetPlatform } from '../domain/target.entity.js';

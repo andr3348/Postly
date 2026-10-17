@@ -174,6 +174,7 @@ Siguiendo el patrón Clean Architecture ya establecido, el módulo de **Brand** 
 ```text
 POST   /brands         → crea una nueva marca (valida con Zod, 201)
 GET    /brands         → lista completa de marcas ordenadas por fecha descendente
+                        (envuelta: `{ brands }`; el detalle va como `{ brand }`)
 GET    /brands/:id     → obtiene los detalles de la marca (404 si no existe)
 PATCH  /brands/:id     → actualiza parcialmente la información de la marca
 DELETE /brands/:id     → elimina una marca de forma permanente (204)

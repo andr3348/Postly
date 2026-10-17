@@ -54,7 +54,7 @@ El frontend delega por completo la seguridad y emisión de JWT al backend (tal c
 - **Rutas estrictamente en inglés**: `/login`, `/dashboard`, `/dashboard/profile`, `/dashboard/brands`, etc.
 - **Sin `fetch`/axios crudo en componentes**: cada feature expone `api.ts` (llamadas tipadas sobre el cliente central) + `schemas.ts` (Zod cliente espejando límites del backend con `z.email()`/`z.url()` top-level, nunca los métodos deprecados de `z.string()`; el backend siempre revalida).
 - **Eventos de form**: `React.SubmitEvent` (`FormEvent` está deprecado en `@types/react`).
-- **`src/lib/api.ts`**: `apiFetch` (`credentials: include` + refresh-on-401 con un reintento) y `apiJson<T>` (errores → `ApiError` con mensaje). Verificado en vivo: register → cookies → refresh → `/me` 200/401.
+- **`src/lib/api.ts`**: cliente axios (`withCredentials` + baseURL `/api`) con interceptor refresh-on-401 (un reintento) y `apiJson<T>` (errores → `ApiError` con mensaje en español; los componentes llaman vía la capa `api.ts` de cada feature). Verificado en vivo: register → cookies → refresh → `/me` 200/401.
 - **Sin `any` en `catch`**: `unknown` + narrowing (`err instanceof Error`).
 - **Sin selector de rol en register**: el backend lo ignora (siempre MARKETING; el admin nace del seed).
 - **Estilos de tema**: Paleta institucional en modo claro (fondo `#e9edf2`, texto `#083A3D`) y modo oscuro (fondo `#151922`, tarjetas `#232a3e`, texto blanco).
@@ -71,7 +71,7 @@ El frontend delega por completo la seguridad y emisión de JWT al backend (tal c
 | Crear publicación                  | `/dashboard/publications/new`   | Completado    | `POST /publications` (borrador de la marca activa) → redirige al detalle                                            |
 | Detalle + flujo                    | `/dashboard/publications/:id`   | Completado    | `PATCH` (dueño/ADMIN en DRAFT), `submit` (dueño/ADMIN, exige targets), `approve` (ADMIN + agenda) / `reject` (ADMIN), targets add/remove, historial de métricas (+ snapshot manual dueño/ADMIN en canal publicado) |
 | Cuentas conectadas                 | `/dashboard/accounts`           | Completado    | CRUD anidado `/brands/:id/accounts` + `POST /verify` (prueba real antes de guardar) + badge `EXPIRED` |
-| Analytics                          | `/dashboard/analytics`          | Planificado   | `summary` + series por destino; Insights IA como placeholder (endpoint LLM planificado)             |
+| Analytics                          | `/dashboard/analytics`          | Completado    | `GET /analytics/summary` (brandId del switcher) — KPIs, pipeline por estado y barras por canal con Shadcn cards + Recharts; Insights IA sigue placeholder (paso b del §5) |
 
 Sin vista: `/dispatch` (superficie máquina de n8n, sin UI).
 
@@ -88,7 +88,7 @@ Pestaña **Analytics** con dos capas:
 _"Analiza estas métricas de los últimos 15 días en LinkedIn. Identifica qué formatos o temáticas tuvieron mayor engagement y genera 3 recomendaciones concretas para las próximas publicaciones."_
 El dashboard muestra **"Insights Estratégicos por IA"**: resumen ejecutivo en texto claro, p. ej. _"Las publicaciones con tono técnico y casos de estudio obtuvieron un 32% más de alcance orgánico que los anuncios directos. Se sugiere programar el próximo post técnico el martes entre las 9:00 y 11:00 am."_
 
-**Decisión de librería:** Shadcn UI **no es** un motor de gráficos — sus componentes `chart` (`ui.shadcn.com/docs/components/base/chart`) son envoltorios declarativos sobre **Recharts** (hoy Recharts v3). Por tanto el stack es **Shadcn UI (shell: cards, tabs, theming) + Recharts (motor de render, vía primitivas `chart` de Shadcn) + Tailwind**. Se descarta Chart.js: API imperativa y sin integración de primera clase con el theming Shadcn, mientras Recharts es React declarativo y el camino oficialmente documentado por Shadcn. Estado: **planificado** (ni Shadcn ni Recharts están instalados aún en `apps/web`).
+**Decisión de librería:** Shadcn UI **no es** un motor de gráficos — sus componentes `chart` (`ui.shadcn.com/docs/components/base/chart`) son envoltorios declarativos sobre **Recharts** (hoy Recharts v3). Por tanto el stack es **Shadcn UI (shell: cards, tabs, theming) + Recharts (motor de render, vía primitivas `chart` de Shadcn) + Tailwind**. Se descarta Chart.js: API imperativa y sin integración de primera clase con el theming Shadcn, mientras Recharts es React declarativo y el camino oficialmente documentado por Shadcn. Estado: **instalado y en uso** (capa a: KPIs + pipeline por estado + barras impresiones/interacciones por canal en `/dashboard/analytics`; series por destino quedan para la fase fina — el backend aún no publica ese endpoint; capa b: Insights IA sigue placeholder hasta el módulo de generación IA).
 
 ```bash
 pnpm --filter web run dev     # frontend en desarrollo
