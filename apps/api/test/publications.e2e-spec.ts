@@ -16,6 +16,11 @@ describe('Publications (e2e)', () => {
   let brandId: string;
   let publicationId: string;
 
+  // Agenda relativa al reloj del test (fechas absolutas rotan: un día dejan
+  // de ser futuras y el claim de dispatch en paralelo trataría de robarlas).
+  const agenda1 = new Date(Date.now() + 86_400_000).toISOString();
+  const agenda2 = new Date(Date.now() + 7 * 86_400_000).toISOString();
+
   beforeEach(async () => {
     email = `e2e-pub-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}@postly.test`;
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -88,7 +93,7 @@ describe('Publications (e2e)', () => {
     // Marketing no puede aprobar: 403.
     await agent
       .post(`/api/publications/${publicationId}/approve`)
-      .send({ scheduledAt: '2026-10-01T09:00:00.000Z' })
+      .send({ scheduledAt: agenda1 })
       .expect(403);
 
     // Promover a ADMIN directo en BD (el registro siempre crea MARKETING)
@@ -98,7 +103,7 @@ describe('Publications (e2e)', () => {
 
     const approved = await agent
       .post(`/api/publications/${publicationId}/approve`)
-      .send({ scheduledAt: '2026-10-01T09:00:00.000Z' })
+      .send({ scheduledAt: agenda1 })
       .expect(200);
     expect(approved.body).toMatchObject({ status: 'SCHEDULED' });
     expect(approved.body.approvedAt).toEqual(expect.any(String));
@@ -106,7 +111,7 @@ describe('Publications (e2e)', () => {
     // Doble aprobación: 400 por transición inválida.
     await agent
       .post(`/api/publications/${publicationId}/approve`)
-      .send({ scheduledAt: '2026-10-02T09:00:00.000Z' })
+      .send({ scheduledAt: agenda2 })
       .expect(400);
 
     // Publicación inexistente: 404.

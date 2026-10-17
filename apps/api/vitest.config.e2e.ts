@@ -16,5 +16,8 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.e2e-spec.ts'],
+    // Los 6 specs comparten la DB de prueba: en paralelo, el claim de
+    // dispatch puede robar publicaciones SCHEDULED de otro spec (flaky).
+    fileParallelism: false,
   },
 });

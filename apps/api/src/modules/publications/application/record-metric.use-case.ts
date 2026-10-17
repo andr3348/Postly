@@ -15,7 +15,6 @@ import {
   PUBLICATIONS_REPOSITORY,
   type PublicationsRepository,
 } from '../domain/ports/publications.repository.js';
-import { isAdmin, isOwner } from '../domain/publication.entity.js';
 import { loadForUpdate, requireOwnerOrAdmin, findTargetOrThrow } from './flow-helpers.js';
 
 export interface RecordMetricInput {
