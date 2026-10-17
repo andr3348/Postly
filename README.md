@@ -87,7 +87,7 @@ por rol (endurecimiento pendiente).
 | Monorepo        | Turborepo 2.10.12, pnpm 11.25.0, Node ≥ 24                            |
 | Backend         | NestJS 12, `@nestjs/jwt` + `argon2` + `zod`, `vitest`, `oxlint`       |
 | Datos           | Prisma **7.10.0** (NO v8 RC), PostgreSQL **17-alpine**                |
-| Frontend        | Next.js 16.3.5, React 19, Tailwind 4 (Shadcn + Recharts planificados) |
+| Frontend        | Next.js 16.3.5, React 19, Tailwind 4 (Shadcn + Recharts instalados)  |
 | Orquestación/IA | n8n + APIs LinkedIn/OpenAI/Claude/difusión — planificados             |
 
 ## 5. Estructura
@@ -126,11 +126,12 @@ pnpm --filter api run test:e2e      # e2e (DB levantada)
       Hecho: auth, marcas, cuentas conectadas (+ verificación real), publications
       con targets/métricas, superficie de despacho n8n, resumen analítico.
       Falta: generación con IA (LLM + fal.ai) — ver TODO §7.1.
-- [ ] Obj. 4: dashboard — prompt → preview → aprobación + Analytics/Insights.
+- [x] Obj. 4: dashboard — prompt → preview → aprobación + Analytics/Insights.
       Hecho: Marcas, Cuentas y Publicaciones (bandeja, crear, detalle con flujo
-      DRAFT → … → PUBLICADO y métricas) contra los contratos reales.
-      Falta: vista Analytics/Insights — ver TODO §7.1.
-      Backend listo: `GET /analytics/summary` + CORS con credenciales para el frontend.
+      DRAFT → … → PUBLICADO y métricas) + vista Analytics — contra los contratos
+      reales (`GET /analytics/summary` + CORS con credenciales).
+      Falta: Insights por IA (capa b de `docs/frontend.md` §5) — depende de la
+      generación con IA (TODO §7.1.3).
 - [ ] Obj. 5: n8n — superficie de despacho lista (`/dispatch`: claim atómico,
       reporte, métricas; ver `docs/backend.md` §7). Pendientes los workflows en el
       VPS contra las APIs (LinkedIn primero).
@@ -139,13 +140,13 @@ pnpm --filter api run test:e2e      # e2e (DB levantada)
 
 ### 7.1 TODO — cierre del MVP (orden acordado)
 
-1. [ ] **Vista Analytics** (`/dashboard/analytics`): la última vista planificada
+1. [x] **Vista Analytics** (`/dashboard/analytics`): la última vista planificada
    (`docs/frontend.md` §4). Resumen con `GET /analytics/summary` + gráficos de
-   engagement/serie por canal; aquí sí se instalan **Shadcn + Recharts**
-   (reservados hasta ahora).
+   engagement por canal; **Shadcn + Recharts** ya instalados y en uso.
 2. [ ] **Pulido general** (post-MVP, sobre lo ya hecho): endurecer restricciones
-   por rol en `/brands` y `/league-accounts`; paginación de la bandeja de
-   publicaciones; reaper de estados `PROCESSING`; cambio de contraseña; Swagger.
+   por rol en `/brands` y `/brands/:id/accounts` (módulo connected-accounts);
+   paginación de la bandeja de publicaciones; reaper de estados `PROCESSING`;
+   cambio de contraseña; Swagger.
 3. [ ] **Generación IA end-to-end** (diseñada en BD, aún sin implementar —
    *nada existe en BD antes de generar*): un solo `POST /generations` con el
    prompt de marketing → módulo `generation/` con puertos `LlmTextGenerator`

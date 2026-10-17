@@ -54,7 +54,7 @@ El frontend delega por completo la seguridad y emisión de JWT al backend (tal c
 - **Rutas estrictamente en inglés**: `/login`, `/dashboard`, `/dashboard/profile`, `/dashboard/brands`, etc.
 - **Sin `fetch`/axios crudo en componentes**: cada feature expone `api.ts` (llamadas tipadas sobre el cliente central) + `schemas.ts` (Zod cliente espejando límites del backend con `z.email()`/`z.url()` top-level, nunca los métodos deprecados de `z.string()`; el backend siempre revalida).
 - **Eventos de form**: `React.SubmitEvent` (`FormEvent` está deprecado en `@types/react`).
-- **`src/lib/api.ts`**: `apiFetch` (`credentials: include` + refresh-on-401 con un reintento) y `apiJson<T>` (errores → `ApiError` con mensaje). Verificado en vivo: register → cookies → refresh → `/me` 200/401.
+- **`src/lib/api.ts`**: cliente axios (`withCredentials` + baseURL `/api`) con interceptor refresh-on-401 (un reintento) y `apiJson<T>` (errores → `ApiError` con mensaje en español; los componentes llaman vía la capa `api.ts` de cada feature). Verificado en vivo: register → cookies → refresh → `/me` 200/401.
 - **Sin `any` en `catch`**: `unknown` + narrowing (`err instanceof Error`).
 - **Sin selector de rol en register**: el backend lo ignora (siempre MARKETING; el admin nace del seed).
 - **Estilos de tema**: Paleta institucional en modo claro (fondo `#e9edf2`, texto `#083A3D`) y modo oscuro (fondo `#151922`, tarjetas `#232a3e`, texto blanco).
