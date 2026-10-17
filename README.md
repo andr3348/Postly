@@ -123,14 +123,39 @@ pnpm --filter api run test:e2e      # e2e (DB levantada)
 - [x] Obj. 2: monorepo + esquema relacional **definido, migrado y verificado**.
       Falta: diagramas UML (casos de uso, clases, despliegue, secuencia).
 - [ ] Obj. 3: backend — campañas, persistencia, LLMs/difusión.
-      Auth lista (patrón Clean Architecture a replicar).
+      Hecho: auth, marcas, cuentas conectadas (+ verificación real), publications
+      con targets/métricas, superficie de despacho n8n, resumen analítico.
+      Falta: generación con IA (LLM + fal.ai) — ver TODO §7.1.
 - [ ] Obj. 4: dashboard — prompt → preview → aprobación + Analytics/Insights.
+      Hecho: Marcas, Cuentas y Publicaciones (bandeja, crear, detalle con flujo
+      DRAFT → … → PUBLICADO y métricas) contra los contratos reales.
+      Falta: vista Analytics/Insights — ver TODO §7.1.
       Backend listo: `GET /analytics/summary` + CORS con credenciales para el frontend.
 - [ ] Obj. 5: n8n — superficie de despacho lista (`/dispatch`: claim atómico,
       reporte, métricas; ver `docs/backend.md` §7). Pendientes los workflows en el
       VPS contra las APIs (LinkedIn primero).
 - [ ] Obj. 6: pruebas unitarias/integración/rendimiento.
 - [ ] Obj. 7: medición 45 min → 3–5 min y cálculo B/C.
+
+### 7.1 TODO — cierre del MVP (orden acordado)
+
+1. [ ] **Vista Analytics** (`/dashboard/analytics`): la última vista planificada
+   (`docs/frontend.md` §4). Resumen con `GET /analytics/summary` + gráficos de
+   engagement/serie por canal; aquí sí se instalan **Shadcn + Recharts**
+   (reservados hasta ahora).
+2. [ ] **Pulido general** (post-MVP, sobre lo ya hecho): endurecer restricciones
+   por rol en `/brands` y `/league-accounts`; paginación de la bandeja de
+   publicaciones; reaper de estados `PROCESSING`; cambio de contraseña; Swagger.
+3. [ ] **Generación IA end-to-end** (diseñada en BD, aún sin implementar —
+   *nada existe en BD antes de generar*): un solo `POST /generations` con el
+   prompt de marketing → módulo `generation/` con puertos `LlmTextGenerator`
+   (texto, default doc: Gemini) + `MediaGenerator` (fal.ai: imagen FLUX /
+   video Kling) → se persiste el DRAFT **pre-llenado** (copy, mediaUrl,
+   `systemPrompt` desde `Brand.aiTone/aiBrandVoice/aiTargetAudience`,
+   `modelText`/`modelMedia`/`tokensUsed`) y el usuario revisa/edita en el
+   detalle. Asset final copiado a **R2** (decisión Cloudflare: cero egress).
+   Botón "✨ Generar con IA" en `/dashboard/publications/new`; el form manual
+   queda como fallback y n8n sigue siendo solo despacho.
 
 ## 8. Tesis — datos para capítulos V y VI
 

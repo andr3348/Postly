@@ -7,7 +7,6 @@ import {
   getBrandsCached,
   invalidateBrands,
   updateBrand,
-  type Brand,
 } from "@/features/brands/api";
 import type { BrandFormInput } from "@/features/brands/schemas";
 import { useBrand } from "@/features/brands/BrandContext";

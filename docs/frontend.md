@@ -67,9 +67,9 @@ El frontend delega por completo la seguridad y emisión de JWT al backend (tal c
 | Dashboard home (Shell + Resumen)   | `/dashboard`                    | Completado    | `GET /analytics/summary` — KPIs y canales reales; `not-found.tsx` global para rutas sin vista |
 | Perfil de usuario                  | `/dashboard/profile`            | Completado UI | `GET /auth/me` — nombre y rol desde sesión activa                                                  |
 | Marcas                             | `/dashboard/brands`             | Completado    | CRUD `/brands` + contexto global (`BrandProvider`, persistido) que consume el switcher |
-| Publicaciones (bandeja por estado) | `/dashboard/publications?status=` | Planificado   | `GET /publications?brandId=&status=`                                                               |
-| Crear publicación                  | `/dashboard/publications/new`   | Planificado   | `POST /publications` + `POST /:id/targets`                                                         |
-| Detalle + flujo                    | `/dashboard/publications/:id`   | Planificado   | `PATCH`, `submit`, `approve`/`reject` (solo ADMIN según `/me`), targets, historial de métricas     |
+| Publicaciones (bandeja por estado) | `/dashboard/publications?status=` | Completado | `GET /publications?brandId=&status=` + chips `?status=` sincronizados con la URL                                   |
+| Crear publicación                  | `/dashboard/publications/new`   | Completado    | `POST /publications` (borrador de la marca activa) → redirige al detalle                                            |
+| Detalle + flujo                    | `/dashboard/publications/:id`   | Completado    | `PATCH` (dueño/ADMIN en DRAFT), `submit` (dueño/ADMIN, exige targets), `approve` (ADMIN + agenda) / `reject` (ADMIN), targets add/remove, historial de métricas (+ snapshot manual dueño/ADMIN en canal publicado) |
 | Cuentas conectadas                 | `/dashboard/accounts`           | Completado    | CRUD anidado `/brands/:id/accounts` + `POST /verify` (prueba real antes de guardar) + badge `EXPIRED` |
 | Analytics                          | `/dashboard/analytics`          | Planificado   | `summary` + series por destino; Insights IA como placeholder (endpoint LLM planificado)             |
 
