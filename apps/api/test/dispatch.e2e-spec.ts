@@ -90,19 +90,19 @@ describe('Dispatch (e2e)', () => {
       .expect(200);
 
     // Sin API key: 401 (aunque la ruta sea @Public para el guard JWT).
-    await request(app.getHttpServer()).post('/api/dispatch/claim').expect(401);
+    await request(app.getHttpServer()).post('/api/v1/dispatch/claim').expect(401);
 
-    const claim = await n8n('post', '/api/dispatch/claim').expect(200);
+    const claim = await n8n('post', '/api/v1/dispatch/claim').expect(200);
     expect(claim.body.publication).toMatchObject({ id: publicationId, status: 'PROCESSING' });
     expect(claim.body.targets).toHaveLength(1);
     expect(claim.body.targets[0].credentials.accessToken).toBe('live-token-e2e');
 
     // Nada más vencido: 204 sin cuerpo.
-    const empty = await n8n('post', '/api/dispatch/claim').expect(204);
+    const empty = await n8n('post', '/api/v1/dispatch/claim').expect(204);
     expect(empty.body).toEqual({});
 
     const targetId = claim.body.targets[0].target.id as string;
-    const reported = await n8n('post', `/api/dispatch/targets/${targetId}/report`)
+    const reported = await n8n('post', `/api/v1/dispatch/targets/${targetId}/report`)
       .send({
         status: 'SUCCESS',
         externalPostId: 'urn:li:share:e2e',

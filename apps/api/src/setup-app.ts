@@ -1,11 +1,14 @@
 import cookieParser from 'cookie-parser';
-import type { INestApplication } from '@nestjs/common';
+import { VersioningType, type INestApplication } from '@nestjs/common';
 
 /**
  * Configuración compartida entre `main.ts` y los tests e2e
- * (que no pasan por `main.ts`): middlewares Express globales.
+ * (que no pasan por `main.ts`): middlewares Express y versionado.
  */
 export function setupApp(app: INestApplication): void {
+  // Versionado por URI solo para controllers que declaren `version`
+  // (hoy: dispatch → /api/v1/dispatch/*). El resto del API sigue en /api.
+  app.enableVersioning({ type: VersioningType.URI });
   // Cookies HttpOnly = transporte de los JWT (ver modules/auth).
   app.use(cookieParser());
   // Sin esto el dashboard (Next.js, otro origen) no puede autenticarse:

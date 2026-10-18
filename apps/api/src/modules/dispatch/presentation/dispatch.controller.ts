@@ -7,13 +7,14 @@ import { N8nApiKeyGuard } from '../infrastructure/n8n-api-key.guard.js';
 import { reportTargetSchema, type ReportTargetDto } from './schemas/dispatch.schema.js';
 
 /**
- * Superficie máquina-a-máquina para n8n (NO dashboard humano).
+ * Superficie máquina-a-máquina para n8n (NO dashboard humano), versionada
+ * como `/api/v1/dispatch` (URI versioning; el resto del API va sin versión).
  * `@Public()` solo omite el guard JWT de usuarios; la auth real es
  * `N8nApiKeyGuard` (header `x-api-key`). Sin TLS en producción, ni esto basta.
  */
 @Public()
 @UseGuards(N8nApiKeyGuard)
-@Controller('dispatch')
+@Controller({ path: 'dispatch', version: '1' })
 export class DispatchController {
   constructor(
     private readonly claim: ClaimDispatchUseCase,

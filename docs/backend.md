@@ -248,12 +248,17 @@ de Publications y credenciales de ConnectedAccounts. Sin estas rutas, lo
 programado jamás saldría de `SCHEDULED` (nada mueve ese estado).
 
 ```text
-POST /dispatch/claim               → próxima vencida + credenciales, marcada
-                                     PROCESSING (200; 204 sin cuerpo si no hay)
-POST /dispatch/targets/:id/report  → status + externalIds/error (+ metrics
-                                     opcional); recalcula PUBLISHED/PARTIAL/
-                                     FAILED cuando no quedan PENDING (200)
+POST /api/v1/dispatch/claim               → próxima vencida + credenciales,
+                                            marcada PROCESSING (200; 204 sin
+                                            cuerpo si no hay)
+POST /api/v1/dispatch/targets/:id/report  → status + externalIds/error (+
+                                            metrics opcional); recalcula
+                                            PUBLISHED/PARTIAL/FAILED cuando no
+                                            quedan PENDING (200)
 ```
+
+Superficie versionada por URI (`VersioningType.URI` de Nest): solo dispatch
+lleva `v1`; el API del dashboard sigue sin versión.
 
 Auth máquina-a-máquina: `N8nApiKeyGuard` (header `x-api-key`, comparación
 `timingSafeEqual` sobre hashes SHA-256, fail-fast sin la env). Las rutas son

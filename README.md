@@ -60,13 +60,13 @@ MARKETING                          ADMIN                              n8n (x-api
    |                                 |   --> DRAFT (re-trabajo)          |
    |                                 |                                   |
    |                                 |                                   |-- poll:
-   |                                 |                                   |   POST /dispatch/claim
+   |                                 |                                   |   POST /api/v1/dispatch/claim
    |                                 |                                   |   (atómico; 204 si nada;
    |                                 |                                   |    400 sin credenciales)
    |                                 |                                   |-- publica en cada red
    |                                 |                                   |   (token descifrado)
    |                                 |                                   |-- reporta:
-   |                                 |                                   |   POST .../targets/:id/report
+   |                                 |                                   |   POST /api/v1/dispatch/targets/:id/report
    |                                 |                                   |   --> SUCCESS/FAILED + métricas
    |                                 |                                   |   auto: PUBLISHED/PARTIAL/FAILED
    |                                 |                                   |
