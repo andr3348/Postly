@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react';
 import { apiJson } from '@/lib/api';
 
 export interface Brand {
@@ -28,19 +29,42 @@ export async function listBrands(): Promise<{ brands: Brand[] }> {
   return apiJson<{ brands: Brand[] }>('/brands');
 }
 
-/** Caché versionado para `use()` en componentes Suspense. */
-let cache: { version: number; promise: Promise<{ brands: Brand[] }> } | null = null;
+/**
+ * Caché de lectura para `use()` en componentes Suspense. Tras cualquier
+ * mutación se invalida; `useBrandsVersion` re-sincroniza a los consumidores
+ * persistentes (el switcher del navbar vive en el layout y no se remonta).
+ */
+let cache: Promise<{ brands: Brand[] }> | null = null;
+let brandsVersion = 0;
+const listeners = new Set<() => void>();
 
-export function getBrandsCached(version: number): Promise<{ brands: Brand[] }> {
-  if (cache === null || cache.version !== version) {
-    cache = { version, promise: listBrands() };
-  }
-  return cache.promise;
+export function getBrandsCached(): Promise<{ brands: Brand[] }> {
+  cache ??= listBrands();
+  return cache;
 }
 
-/** Invalida el caché (tras crear/editar/eliminar). */
+/** Suscripción estable (React exige identidad constante para no re-suscribir). */
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function getVersion(): number {
+  return brandsVersion;
+}
+
+/** Versión global de la caché: cambia en cada invalidación. */
+export function useBrandsVersion(): number {
+  return useSyncExternalStore(subscribe, getVersion, getVersion);
+}
+
+/** Invalida el caché (tras crear/editar/eliminar) y re-sincroniza consumidores. */
 export function invalidateBrands(): void {
   cache = null;
+  brandsVersion += 1;
+  for (const listener of listeners) listener();
 }
 
 export async function createBrand(payload: BrandPayload): Promise<{ brand: Brand }> {

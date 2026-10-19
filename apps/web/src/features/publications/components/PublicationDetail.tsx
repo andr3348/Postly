@@ -71,7 +71,7 @@ interface DetailProps {
 
 function DetailInner({ id, version, onChanged }: DetailProps) {
   const publication = use(getPublicationCached(id, version));
-  const { brands } = use(getBrandsCached(0));
+  const { brands } = use(getBrandsCached());
   const user = useSessionUser();
 
   const [editing, setEditing] = useState(false);

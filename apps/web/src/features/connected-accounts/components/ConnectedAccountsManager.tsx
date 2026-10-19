@@ -59,7 +59,7 @@ function ManagerInner({
   version: number;
   onChanged: (brandId: string) => void;
 }) {
-  const { brands } = use(getBrandsCached(0));
+  const { brands } = use(getBrandsCached());
   const { selectedId } = useBrand();
   const current = brands.find((brand) => brand.id === selectedId) ?? brands[0] ?? null;
 

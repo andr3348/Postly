@@ -40,7 +40,7 @@ export function PublicationsTray() {
 }
 
 function TrayInner({ version }: { version: number }) {
-  const { brands } = use(getBrandsCached(0));
+  const { brands } = use(getBrandsCached());
   const { selectedId } = useBrand();
   const current = brands.find((brand) => brand.id === selectedId) ?? brands[0] ?? null;
 
