@@ -71,6 +71,7 @@ interface DetailProps {
 
 function DetailInner({ id, version, onChanged }: DetailProps) {
   const publication = use(getPublicationCached(id, version));
+  const targets = use(getTargetsCached(id, version));
   const { brands } = use(getBrandsCached());
   const user = useSessionUser();
 
@@ -87,6 +88,7 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
     (publication.status === "DRAFT" || publication.status === "PENDING_APPROVAL") &&
     (isOwner || isAdminUser);
   const canSubmit = publication.status === "DRAFT" && (isOwner || isAdminUser);
+  const hasTargets = targets.length > 0;
   const canReview = publication.status === "PENDING_APPROVAL" && isAdminUser;
   const brandName = brands.find((b) => b.id === publication.brandId)?.name ?? publication.brandId;
 
@@ -144,7 +146,7 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
             {canSubmit && (
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || !hasTargets}
                 onClick={() => void runFlow(() => submitPublication(id))}
                 className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer bg-[#151717] text-white hover:bg-[#252727] disabled:opacity-50 transition-colors"
               >
@@ -199,8 +201,9 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
 
         {canSubmit && (
           <p className="text-[11px] text-gray-500 dark:text-gray-400">
-            Enviar exige al menos un canal destino. Se envía a revisión (PENDING_APPROVAL)
-            para que un ADMIN la programe.
+            {hasTargets
+              ? "Se envía a revisión (PENDING_APPROVAL) para que un ADMIN la programe."
+              : "Agrega al menos un canal en «Canales destino» para poder enviar a aprobación."}
           </p>
         )}
         {publication.status === "PENDING_APPROVAL" && (
