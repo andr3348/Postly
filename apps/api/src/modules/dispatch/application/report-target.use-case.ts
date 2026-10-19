@@ -1,7 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PublicationNotFoundError, PublicationTargetNotFoundError } from '../../../shared/errors.js';
 import type { MetricSnapshot } from '../../publications/domain/metric.entity.js';
-import type { Publication } from '../../publications/domain/publication.entity.js';
+import {
+  resolveTerminalStatus,
+  type Publication,
+} from '../../publications/domain/publication.entity.js';
 import type { TargetStatus } from '../../publications/domain/target.entity.js';
 import {
   PUBLICATION_METRICS_REPOSITORY,
@@ -64,11 +67,7 @@ export class ReportTargetUseCase {
       const publication = await this.requirePublication(target.publicationId);
       return { publication, terminal: false };
     }
-    const finalStatus = statuses.every((status) => status === 'SUCCESS')
-      ? 'PUBLISHED'
-      : statuses.every((status) => status === 'FAILED')
-        ? 'FAILED'
-        : 'PARTIAL';
+    const finalStatus = resolveTerminalStatus(statuses);
     const publication = await this.publications.update(target.publicationId, {
       status: finalStatus,
     });

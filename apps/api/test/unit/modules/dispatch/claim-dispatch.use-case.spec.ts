@@ -1,5 +1,6 @@
 import { MissingConnectedAccountError } from '../../../../src/shared/errors.js';
 import { ClaimDispatchUseCase } from '../../../../src/modules/dispatch/application/claim-dispatch.use-case.js';
+import { FailStaleClaimsUseCase } from '../../../../src/modules/dispatch/application/fail-stale-claims.use-case.js';
 import {
   BASE_CREDENTIALS,
   BASE_PUBLICATION,
@@ -34,7 +35,12 @@ describe('ClaimDispatchUseCase', () => {
               throw options.failCredentials;
             },
     });
-    return new ClaimDispatchUseCase(publications, targets, credentials);
+    return new ClaimDispatchUseCase(
+      publications,
+      targets,
+      credentials,
+      new FailStaleClaimsUseCase(publications, targets),
+    );
   }
 
   it('claims the next due publication with credentials', async () => {
@@ -74,7 +80,12 @@ describe('ClaimDispatchUseCase', () => {
         throw new MissingConnectedAccountError('brand-1', ['LINKEDIN']);
       },
     });
-    const useCase = new ClaimDispatchUseCase(publications, targets, credentials);
+    const useCase = new ClaimDispatchUseCase(
+      publications,
+      targets,
+      credentials,
+      new FailStaleClaimsUseCase(publications, targets),
+    );
 
     await expect(useCase.execute(new Date())).rejects.toBeInstanceOf(
       MissingConnectedAccountError,
@@ -101,6 +112,7 @@ describe('ClaimDispatchUseCase', () => {
       publications,
       targets,
       stubDispatchCredentials(),
+      new FailStaleClaimsUseCase(publications, targets),
     );
 
     const claim = await useCase.execute(new Date());

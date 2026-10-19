@@ -14,6 +14,7 @@ import {
   DISPATCH_CREDENTIALS,
   type DispatchCredentials,
 } from '../domain/ports/dispatch-credentials.port.js';
+import { FailStaleClaimsUseCase } from './fail-stale-claims.use-case.js';
 
 export interface TargetDispatch {
   readonly target: PublicationTarget;
@@ -32,6 +33,9 @@ const CLAIM_BATCH_SIZE = 10;
  * necesario (contenido + destinos PENDING + credenciales descifradas) y la
  * marca PROCESSING en la misma pasada. `null` = nada por hacer.
  *
+ * Antes de servir cierra leases vencidos (`FailStaleClaimsUseCase`): una
+ * pieza que n8n abandonó termina FAILED visible, nunca atrapada en PROCESSING.
+ *
  * Sin credenciales para algún canal no se reclama (400): mejor fallar
  * visible que envenenar la cola con un despacho imposible. Si otro worker
  * la tomó primero (`markProcessing` falso), se intenta con la siguiente.
@@ -42,9 +46,12 @@ export class ClaimDispatchUseCase {
     @Inject(PUBLICATIONS_REPOSITORY) private readonly publications: PublicationsRepository,
     @Inject(PUBLICATION_TARGETS_REPOSITORY) private readonly targets: PublicationTargetsRepository,
     @Inject(DISPATCH_CREDENTIALS) private readonly credentials: DispatchCredentials,
+    private readonly failStale: FailStaleClaimsUseCase,
   ) {}
 
   async execute(now: Date = new Date()): Promise<DispatchClaim | null> {
+    // Barrido perezoso: n8n caído tras reclamar no debe atascar la cola.
+    await this.failStale.execute(now);
     const due = await this.publications.findDueDispatch(CLAIM_BATCH_SIZE, now);
     for (const publication of due) {
       const all = await this.targets.findByPublication(publication.id);

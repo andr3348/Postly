@@ -84,6 +84,15 @@ export class PrismaPublicationsRepository implements PublicationsRepository {
     });
     return claimed.count > 0;
   }
+
+  async findStaleProcessing(olderThan: Date, limit: number): Promise<Publication[]> {
+    const rows = await this.prisma.client.publication.findMany({
+      where: { status: 'PROCESSING', dispatchedAt: { lt: olderThan } },
+      orderBy: { dispatchedAt: 'asc' },
+      take: limit,
+    });
+    return rows.map(toDomainPublication);
+  }
 }
 
 interface PublicationRow {

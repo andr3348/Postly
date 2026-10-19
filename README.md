@@ -63,6 +63,7 @@ MARKETING                          ADMIN                              n8n (x-api
    |                                 |                                   |   POST /api/v1/dispatch/claim
    |                                 |                                   |   (atómico; si nada:
    |                                 |                                   |    publication: null;
+   |                                 |                                   |    lease vencido -> FAILED;
    |                                 |                                   |    400 sin credenciales)
    |                                 |                                   |-- publica en cada red
    |                                 |                                   |   (token descifrado)

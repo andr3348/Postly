@@ -23,6 +23,7 @@ export class DispatchController {
 
   /**
    * Reclama la próxima publicación vencida con credenciales incluidas.
+   * Antes cierra leases vencidos (n8n que reclamó y nunca reportó → FAILED).
    * Siempre 200 con cuerpo: sin nada vencido devuelve
    * `{ publication: null, targets: [] }` (nunca 204) para que n8n distinga
    * "sin trabajo" con una señal explícita y no con un cuerpo ausente.
