@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConnectedAccountsModule } from '../connected-accounts/connected-accounts.module.js';
 import { PublicationsModule } from '../publications/publications.module.js';
 import { ClaimDispatchUseCase } from './application/claim-dispatch.use-case.js';
-import { FailStaleClaimsUseCase } from './application/fail-stale-claims.use-case.js';
+import { ExpireStaleClaimsUseCase } from './application/expire-stale-claims.use-case.js';
 import { ReportTargetUseCase } from './application/report-target.use-case.js';
 import { DISPATCH_CREDENTIALS } from './domain/ports/dispatch-credentials.port.js';
 import { CredentialsViaAccountsModule } from './infrastructure/credentials-via-accounts.adapter.js';
@@ -18,7 +18,7 @@ import { DispatchController } from './presentation/dispatch.controller.js';
   controllers: [DispatchController],
   providers: [
     ClaimDispatchUseCase,
-    FailStaleClaimsUseCase,
+    ExpireStaleClaimsUseCase,
     ReportTargetUseCase,
     N8nApiKeyGuard,
     { provide: DISPATCH_CREDENTIALS, useClass: CredentialsViaAccountsModule },

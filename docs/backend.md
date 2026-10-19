@@ -273,10 +273,13 @@ explícita de "sin trabajo"; sin credenciales para algún canal no se reclama
 (400 visible, la pieza queda SCHEDULED para reintento); el reporte con métricas
 las registra en la misma llamada.
 
-Lease del reclamo: si n8n reclama y no reporta en 15 min (proceso caído), el
-siguiente claim cierra la pieza colgada sin reintento — destinos sin reportar
-→ FAILED ("despacho vencido…") y la publicación → FAILED/PARTIAL según lo ya
-reportado. No se reencola a propósito: duplicar un post es peor que perderlo.
+Lease del reclamo: si n8n reclama y no reporta en 15 min, el siguiente claim
+expira la pieza según lo reportado. Sin ningún reporte (murió antes de
+publicar, p. ej. antes del IF): vuelve a SCHEDULED y el mismo claim la
+re-entrega — reintento automático con ventana de duplicado mínima. Con algo
+ya reportado (murió a mitad): destinos sin reportar → FAILED ("despacho
+vencido…"), publicación → FAILED/PARTIAL y sin reintento — duplicar un post
+es peor que perderlo.
 
 ## 8. Módulo analytics (solo lectura)
 

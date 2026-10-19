@@ -1,6 +1,6 @@
 import { MissingConnectedAccountError } from '../../../../src/shared/errors.js';
 import { ClaimDispatchUseCase } from '../../../../src/modules/dispatch/application/claim-dispatch.use-case.js';
-import { FailStaleClaimsUseCase } from '../../../../src/modules/dispatch/application/fail-stale-claims.use-case.js';
+import { ExpireStaleClaimsUseCase } from '../../../../src/modules/dispatch/application/expire-stale-claims.use-case.js';
 import {
   BASE_CREDENTIALS,
   BASE_PUBLICATION,
@@ -39,7 +39,7 @@ describe('ClaimDispatchUseCase', () => {
       publications,
       targets,
       credentials,
-      new FailStaleClaimsUseCase(publications, targets),
+      new ExpireStaleClaimsUseCase(publications, targets),
     );
   }
 
@@ -84,7 +84,7 @@ describe('ClaimDispatchUseCase', () => {
       publications,
       targets,
       credentials,
-      new FailStaleClaimsUseCase(publications, targets),
+      new ExpireStaleClaimsUseCase(publications, targets),
     );
 
     await expect(useCase.execute(new Date())).rejects.toBeInstanceOf(
@@ -112,7 +112,7 @@ describe('ClaimDispatchUseCase', () => {
       publications,
       targets,
       stubDispatchCredentials(),
-      new FailStaleClaimsUseCase(publications, targets),
+      new ExpireStaleClaimsUseCase(publications, targets),
     );
 
     const claim = await useCase.execute(new Date());

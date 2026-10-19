@@ -1,4 +1,4 @@
-import { FailStaleClaimsUseCase } from '../../../../src/modules/dispatch/application/fail-stale-claims.use-case.js';
+import { ExpireStaleClaimsUseCase } from '../../../../src/modules/dispatch/application/expire-stale-claims.use-case.js';
 import type { PublicationTarget } from '../../../../src/modules/publications/domain/target.entity.js';
 import {
   BASE_PUBLICATION,
@@ -10,7 +10,7 @@ import {
 /** Espejo del lease del caso de uso (15 min): el corte llega al puerto. */
 const LEASE_TIMEOUT_MS = 15 * 60_000;
 
-describe('FailStaleClaimsUseCase', () => {
+describe('ExpireStaleClaimsUseCase', () => {
   const now = new Date('2026-01-01T01:00:00Z');
   const stale = {
     ...BASE_PUBLICATION,
@@ -25,20 +25,23 @@ describe('FailStaleClaimsUseCase', () => {
       (status, index) => ({ ...BASE_TARGET, id: `target-${index + 1}`, status }),
     );
     const cutoffs: Date[] = [];
-    const updatedPublications: Array<{ id: string; status?: string }> = [];
+    const updatedPublications: Array<{ id: string; status?: string; dispatchedAt?: Date | null }> =
+      [];
+    const targetUpdates: Array<{ id: string; status?: string; errorMessage?: string }> = [];
     const publications = stubPublicationsRepository({
       findStaleProcessing: async (olderThan) => {
         cutoffs.push(olderThan);
         return options.stale ?? [stale];
       },
       update: async (id, data) => {
-        updatedPublications.push({ id, status: data.status });
+        updatedPublications.push({ id, status: data.status, dispatchedAt: data.dispatchedAt });
         return { ...stale, id, ...data };
       },
     });
     const targets = stubPublicationTargetsRepository({
       findByPublication: async () => targetsState,
       updateTarget: async (id, data) => {
+        targetUpdates.push({ id, status: data.status, errorMessage: data.errorMessage });
         const current = targetsState.find((target) => target.id === id) ?? BASE_TARGET;
         const updated = { ...current, ...data };
         targetsState = targetsState.map((target) => (target.id === id ? updated : target));
@@ -46,25 +49,40 @@ describe('FailStaleClaimsUseCase', () => {
       },
     });
     return {
-      useCase: new FailStaleClaimsUseCase(publications, targets),
+      useCase: new ExpireStaleClaimsUseCase(publications, targets),
       cutoffs,
+      targetUpdates,
       updatedPublications,
       targetsState: () => targetsState,
     };
   }
 
-  it('fails unreported targets and closes the publication as FAILED', async () => {
-    const { useCase, cutoffs, updatedPublications, targetsState } = arrange();
+  it('requeues the publication when n8n reported nothing', async () => {
+    const { useCase, cutoffs, targetUpdates, updatedPublications, targetsState } = arrange();
 
     await expect(useCase.execute(now)).resolves.toBe(1);
 
     expect(cutoffs).toEqual([new Date(now.getTime() - LEASE_TIMEOUT_MS)]);
-    expect(targetsState()[0]).toMatchObject({ status: 'FAILED' });
-    expect(targetsState()[0]?.errorMessage).toContain('Despacho vencido');
+    expect(updatedPublications).toEqual([
+      { id: BASE_PUBLICATION.id, status: 'SCHEDULED', dispatchedAt: null },
+    ]);
+    expect(targetUpdates).toEqual([]);
+    expect(targetsState()[0]).toMatchObject({ status: 'PENDING', errorMessage: null });
+  });
+
+  it('closes as FAILED when only failures were reported', async () => {
+    const { useCase, updatedPublications, targetsState } = arrange({
+      targetStatuses: ['FAILED', 'PENDING'],
+    });
+
+    await useCase.execute(now);
+
+    expect(targetsState().map((target) => target.status)).toEqual(['FAILED', 'FAILED']);
+    expect(targetsState()[1]?.errorMessage).toContain('Despacho vencido');
     expect(updatedPublications).toEqual([{ id: BASE_PUBLICATION.id, status: 'FAILED' }]);
   });
 
-  it('keeps already reported targets and closes as PARTIAL', async () => {
+  it('keeps already reported successes and closes as PARTIAL', async () => {
     const { useCase, updatedPublications, targetsState } = arrange({
       targetStatuses: ['SUCCESS', 'PENDING'],
     });

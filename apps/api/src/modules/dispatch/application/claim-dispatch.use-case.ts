@@ -14,7 +14,7 @@ import {
   DISPATCH_CREDENTIALS,
   type DispatchCredentials,
 } from '../domain/ports/dispatch-credentials.port.js';
-import { FailStaleClaimsUseCase } from './fail-stale-claims.use-case.js';
+import { ExpireStaleClaimsUseCase } from './expire-stale-claims.use-case.js';
 
 export interface TargetDispatch {
   readonly target: PublicationTarget;
@@ -33,8 +33,9 @@ const CLAIM_BATCH_SIZE = 10;
  * necesario (contenido + destinos PENDING + credenciales descifradas) y la
  * marca PROCESSING en la misma pasada. `null` = nada por hacer.
  *
- * Antes de servir cierra leases vencidos (`FailStaleClaimsUseCase`): una
- * pieza que n8n abandonó termina FAILED visible, nunca atrapada en PROCESSING.
+ * Antes de servir expira leases vencidos (`ExpireStaleClaimsUseCase`): una
+ * pieza abandonada por n8n se reencola (si nada se reportó) o se cierra
+ * FAILED visible, nunca atrapada en PROCESSING.
  *
  * Sin credenciales para algún canal no se reclama (400): mejor fallar
  * visible que envenenar la cola con un despacho imposible. Si otro worker
@@ -46,12 +47,12 @@ export class ClaimDispatchUseCase {
     @Inject(PUBLICATIONS_REPOSITORY) private readonly publications: PublicationsRepository,
     @Inject(PUBLICATION_TARGETS_REPOSITORY) private readonly targets: PublicationTargetsRepository,
     @Inject(DISPATCH_CREDENTIALS) private readonly credentials: DispatchCredentials,
-    private readonly failStale: FailStaleClaimsUseCase,
+    private readonly expireStale: ExpireStaleClaimsUseCase,
   ) {}
 
   async execute(now: Date = new Date()): Promise<DispatchClaim | null> {
-    // Barrido perezoso: n8n caído tras reclamar no debe atascar la cola.
-    await this.failStale.execute(now);
+    // Barrido perezoso: un lease vencido se reencola (nada reportado) o se cierra.
+    await this.expireStale.execute(now);
     const due = await this.publications.findDueDispatch(CLAIM_BATCH_SIZE, now);
     for (const publication of due) {
       const all = await this.targets.findByPublication(publication.id);
