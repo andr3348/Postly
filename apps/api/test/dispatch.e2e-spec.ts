@@ -97,9 +97,10 @@ describe('Dispatch (e2e)', () => {
     expect(claim.body.targets).toHaveLength(1);
     expect(claim.body.targets[0].credentials.accessToken).toBe('live-token-e2e');
 
-    // Nada más vencido: 204 sin cuerpo.
-    const empty = await n8n('post', '/api/v1/dispatch/claim').expect(204);
-    expect(empty.body).toEqual({});
+    // Nada más vencido: 200 con sobre vacío explícito (n8n distingue por
+    // `publication === null`, nunca por un cuerpo ausente).
+    const empty = await n8n('post', '/api/v1/dispatch/claim').expect(200);
+    expect(empty.body).toEqual({ publication: null, targets: [] });
 
     const targetId = claim.body.targets[0].target.id as string;
     const reported = await n8n('post', `/api/v1/dispatch/targets/${targetId}/report`)

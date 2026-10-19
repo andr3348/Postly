@@ -61,7 +61,8 @@ MARKETING                          ADMIN                              n8n (x-api
    |                                 |                                   |
    |                                 |                                   |-- poll:
    |                                 |                                   |   POST /api/v1/dispatch/claim
-   |                                 |                                   |   (atómico; 204 si nada;
+   |                                 |                                   |   (atómico; si nada:
+   |                                 |                                   |    publication: null;
    |                                 |                                   |    400 sin credenciales)
    |                                 |                                   |-- publica en cada red
    |                                 |                                   |   (token descifrado)

@@ -249,8 +249,9 @@ programado jamás saldría de `SCHEDULED` (nada mueve ese estado).
 
 ```text
 POST /api/v1/dispatch/claim               → próxima vencida + credenciales,
-                                            marcada PROCESSING (200; 204 sin
-                                            cuerpo si no hay)
+                                            marcada PROCESSING (200; siempre
+                                            con cuerpo: si no hay nada,
+                                            { publication: null, targets: [] })
 POST /api/v1/dispatch/targets/:id/report  → status + externalIds/error (+
                                             metrics opcional); recalcula
                                             PUBLISHED/PARTIAL/FAILED cuando no
@@ -266,9 +267,11 @@ Auth máquina-a-máquina: `N8nApiKeyGuard` (header `x-api-key`, comparación
 servicio. Sin TLS en producción, ni esto basta.
 
 Reglas: el reclamo es atómico (`markProcessing` condicional: si otro worker la
-tomó, se intenta con la siguiente); sin credenciales para algún canal no se
-reclama (400 visible, la pieza queda SCHEDULED para reintento); el reporte con
-métricas las registra en la misma llamada.
+tomó, se intenta con la siguiente); sin nada vencido responde 200 con
+`{ publication: null, targets: [] }` (nunca 204): el flujo espera una señal
+explícita de "sin trabajo"; sin credenciales para algún canal no se reclama
+(400 visible, la pieza queda SCHEDULED para reintento); el reporte con métricas
+las registra en la misma llamada.
 
 ## 8. Módulo analytics (solo lectura)
 

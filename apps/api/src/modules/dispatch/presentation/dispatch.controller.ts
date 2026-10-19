@@ -23,7 +23,9 @@ export class DispatchController {
 
   /**
    * Reclama la próxima publicación vencida con credenciales incluidas.
-   * 204 sin cuerpo = nada por hacer (n8n espera al siguiente poll).
+   * Siempre 200 con cuerpo: sin nada vencido devuelve
+   * `{ publication: null, targets: [] }` (nunca 204) para que n8n distinga
+   * "sin trabajo" con una señal explícita y no con un cuerpo ausente.
    * `@Res()` puro: con passthrough Nest responde el `undefined` de vuelta
    * y desmonta headers ya enviados (ERR_HTTP_HEADERS_SENT intermitente).
    */
@@ -31,7 +33,7 @@ export class DispatchController {
   async claimNext(@Res() res: Response): Promise<void> {
     const claim = await this.claim.execute();
     if (claim === null) {
-      res.status(HttpStatus.NO_CONTENT).send();
+      res.status(HttpStatus.OK).json({ publication: null, targets: [] });
       return;
     }
     res.status(HttpStatus.OK).json(claim);
