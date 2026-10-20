@@ -25,6 +25,7 @@ import { ListPublicationsUseCase } from '../application/list-publications.use-ca
 import { AddTargetUseCase } from '../application/add-target.use-case.js';
 import { ListTargetsUseCase } from '../application/list-targets.use-case.js';
 import { RemoveTargetUseCase } from '../application/remove-target.use-case.js';
+import { UpdateTargetFormatUseCase } from '../application/update-target-format.use-case.js';
 import { RecordMetricUseCase } from '../application/record-metric.use-case.js';
 import { ListMetricsUseCase } from '../application/list-metrics.use-case.js';
 import type { TargetPlatform } from '../domain/target.entity.js';
@@ -41,7 +42,9 @@ import {
   type RecordMetricDto,
   targetPlatformSchema,
   updateDraftSchema,
+  updateTargetFormatSchema,
   type UpdateDraftDto,
+  type UpdateTargetFormatDto,
 } from './schemas/publication.schema.js';
 
 /**
@@ -63,6 +66,7 @@ export class PublicationsController {
     private readonly rejectPublication: RejectPublicationUseCase,
     private readonly addTargetUseCase: AddTargetUseCase,
     private readonly listTargetsUseCase: ListTargetsUseCase,
+    private readonly updateTargetFormatUseCase: UpdateTargetFormatUseCase,
     private readonly removeTargetUseCase: RemoveTargetUseCase,
     private readonly recordMetricUseCase: RecordMetricUseCase,
     private readonly listMetricsUseCase: ListMetricsUseCase,
@@ -156,6 +160,22 @@ export class PublicationsController {
     return this.addTargetUseCase.execute({
       publicationId: id,
       platform: body.platform,
+      format: body.format,
+      requester: { id: user.userId, role: user.role },
+    });
+  }
+
+  @Patch(':id/targets/:platform')
+  updateTargetFormat(
+    @Param('id') id: string,
+    @Param('platform', { schema: targetPlatformSchema })
+    platform: TargetPlatform,
+    @Body({ schema: updateTargetFormatSchema }) body: UpdateTargetFormatDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.updateTargetFormatUseCase.execute({
+      publicationId: id,
+      platform,
       format: body.format,
       requester: { id: user.userId, role: user.role },
     });

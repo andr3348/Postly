@@ -83,6 +83,7 @@ export function stubPublicationTargetsRepository(
       platform,
       format,
     }),
+    updateFormat: async (id, format) => ({ ...BASE_TARGET, id, format }),
     remove: async () => true,
     updateTarget: async (id, data) => ({ ...BASE_TARGET, id, ...data }),
     ...overrides,

@@ -32,6 +32,14 @@ export class PrismaPublicationTargetsRepository implements PublicationTargetsRep
     return toDomainTarget(row);
   }
 
+  async updateFormat(id: string, format: TargetFormat): Promise<PublicationTarget> {
+    const row = await this.prisma.client.publicationTarget.update({
+      where: { id },
+      data: { format },
+    });
+    return toDomainTarget(row);
+  }
+
   async remove(publicationId: string, platform: TargetPlatform): Promise<boolean> {
     const deleted = await this.prisma.client.publicationTarget.deleteMany({
       where: { publicationId, platform },

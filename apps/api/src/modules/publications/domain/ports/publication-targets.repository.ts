@@ -26,6 +26,7 @@ export interface PublicationTargetsRepository {
     platform: TargetPlatform,
     format: TargetFormat,
   ): Promise<PublicationTarget>;
+  updateFormat(id: string, format: TargetFormat): Promise<PublicationTarget>;
   remove(publicationId: string, platform: TargetPlatform): Promise<boolean>;
   updateTarget(id: string, data: UpdateTargetData): Promise<PublicationTarget>;
 }

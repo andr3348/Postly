@@ -152,6 +152,91 @@ describe('Publications (e2e)', () => {
     expect(history.body[0]).toMatchObject({ impressions: 1420 });
   });
 
+  it('resolves target formats and allows changing them before scheduling', async () => {
+    const agent = request.agent(app.getHttpServer());
+
+    await agent
+      .post('/api/auth/register')
+      .send({ email, name: 'E2E Formats', password: 'secreto-123' })
+      .expect(201);
+
+    const brand = await agent
+      .post('/api/brands')
+      .send({ name: 'Marca Formatos' })
+      .expect(201);
+    brandId = brand.body.brand.id as string;
+
+    const created = await agent
+      .post('/api/publications')
+      .send({
+        brandId,
+        originalPrompt: 'Post con formatos',
+        copy: 'Copy con formatos',
+        mediaUrl: 'https://postly.test/e2e.mp4',
+        mediaType: 'VIDEO',
+      })
+      .expect(201);
+    publicationId = created.body.id as string;
+
+    // Video en FB/IG: Reel por defecto.
+    const facebook = await agent
+      .post(`/api/publications/${publicationId}/targets`)
+      .send({ platform: 'FACEBOOK' })
+      .expect(201);
+    expect(facebook.body).toMatchObject({ platform: 'FACEBOOK', format: 'REEL' });
+
+    // El cliente puede pedir Feed explícitamente.
+    const instagram = await agent
+      .post(`/api/publications/${publicationId}/targets`)
+      .send({ platform: 'INSTAGRAM', format: 'FEED' })
+      .expect(201);
+    expect(instagram.body).toMatchObject({ platform: 'INSTAGRAM', format: 'FEED' });
+
+    const facebookFeed = await agent
+      .patch(`/api/publications/${publicationId}/targets/FACEBOOK`)
+      .send({ format: 'FEED' })
+      .expect(200);
+    expect(facebookFeed.body).toMatchObject({ platform: 'FACEBOOK', format: 'FEED' });
+
+    await agent
+      .patch(`/api/publications/${publicationId}/targets/INSTAGRAM`)
+      .send({ format: 'REEL' })
+      .expect(200);
+
+    // No se puede convertir a IMAGE mientras quede un Reel adjunto.
+    await agent
+      .patch(`/api/publications/${publicationId}`)
+      .send({ mediaType: 'IMAGE' })
+      .expect(400);
+
+    await agent
+      .patch(`/api/publications/${publicationId}/targets/INSTAGRAM`)
+      .send({ format: 'FEED' })
+      .expect(200);
+
+    await agent
+      .patch(`/api/publications/${publicationId}`)
+      .send({ mediaType: 'IMAGE' })
+      .expect(200);
+
+    // Ya es imagen: ningún canal puede ser Reel.
+    await agent
+      .patch(`/api/publications/${publicationId}/targets/FACEBOOK`)
+      .send({ format: 'REEL' })
+      .expect(400);
+    await agent
+      .post(`/api/publications/${publicationId}/targets`)
+      .send({ platform: 'LINKEDIN', format: 'REEL' })
+      .expect(400);
+    await agent
+      .post(`/api/publications/${publicationId}/targets`)
+      .send({ platform: 'LINKEDIN' })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ platform: 'LINKEDIN', format: 'FEED' });
+      });
+  });
+
   it('publish-now approves with now and wakes n8n (admin only)', async () => {
     const agent = request.agent(app.getHttpServer());
 
