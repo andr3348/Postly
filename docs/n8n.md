@@ -78,7 +78,8 @@ Notas de Meta (Graph API `v25.0`):
 
 Cada rama termina en un nodo de reporte:
 
-- Éxito: `status=SUCCESS` + `externalPostId` (el `id` del post o video).
+- Éxito: `status=SUCCESS` + `externalPostId` (el `id` del post o video) y,
+  cuando se conoce, `externalPostUrl`.
 - Error: `status=FAILED` + `errorMessage` (mensaje de Graph o timeout).
 - El backend recalcula la publicación cuando ya no quedan targets `PENDING`:
   todo éxito → `PUBLISHED`; mezcla → `PARTIAL`; todo fallo → `FAILED`.
@@ -96,3 +97,20 @@ Cada rama termina en un nodo de reporte:
 
 El workflow no guarda secretos en el repositorio: la API key y el secreto del
 webhook viven en las credenciales de n8n y en el `.env` local.
+
+## 6. Diagnóstico
+
+- Las ejecuciones del webhook de producción aparecen en **Executions** con
+  `mode=webhook`; no se ven con "Listen for test event" (esa URL es
+  `/webhook-test/...`).
+- `POST /webhook/publish-now` responde `200 Workflow was started`; el endpoint
+  del API responde `202` aunque el webhook falle (el cron es la garantía).
+- El cron de 5 min aparece como ejecución programada; un claim vacío termina
+  sin publicar y no es un error.
+- Para verificar una publicación: revisar `targets[].target.format` en el claim,
+  el reporte de cada target y el `externalPostId`/permalink en la red.
+- n8n distingue **draft** y versión publicada: tras editar/importar hay que
+  publicar y reiniciar; una edición en el editor no cambia el workflow activo
+  hasta ese paso.
+- Un post de Instagram ya publicado no puede cambiarse a `share_to_feed=true`
+  por API; si se creó como Reel-only, hay que borrarlo y volver a publicarlo.

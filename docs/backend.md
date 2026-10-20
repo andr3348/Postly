@@ -121,7 +121,7 @@ ceremonia. Revisitar cuando una entidad necesite métodos
 ## 4. Módulo publications (human-in-the-loop)
 
 Máquina de estados (transiciones permitidas en `domain/publication.entity.ts`
-via `canTransition`; n8n moverá `SCHEDULED → PROCESSING → PUBLISHED/PARTIAL/FAILED`):
+via `canTransition`; n8n mueve `SCHEDULED → PROCESSING → PUBLISHED/PARTIAL/FAILED`):
 
 ```text
 POST   /publications            → crea DRAFT (verifica la marca: 404 si no existe)
@@ -165,10 +165,17 @@ DELETE /publications/:id/targets/:platform             → quita canal (404 si n
 - `submit` valida los formatos de todos los canales antes de pasar a
   `PENDING_APPROVAL`.
 
+El backend solo valida y persiste la intención; n8n la traduce a endpoints.
+En Instagram ambos formatos se publican como `REELS` con
+`share_to_feed=true` (Meta deprecó el video de feed nativo), así que
+`FEED`/`REEL` no cambia la visibilidad del feed; en Facebook sí cambia el flujo
+(`/videos` vs. `video_reels`). Ver `docs/n8n.md` §3.
+
 Regla: `submit` exige ≥1 canal (`PublicationWithoutTargetsError` → 400). La
 unicidad `[publicationId, platform]` la garantiza la BD; el caso de uso la
 verifica antes para un 409 limpio. n8n actualiza cada target (`status`,
-`externalPostId/Url`, `errorMessage`) y escribe `TargetMetric`.
+`externalPostId/Url`, `errorMessage`, `publishedAt` en éxito) y escribe
+`TargetMetric`.
 
 **Métricas (sin módulo propio):** snapshots por destino, base de los gráficos
 de Analytics. Solo en destinos `SUCCESS` (medir lo no publicado es ruido;
@@ -210,7 +217,7 @@ En caso de buscar o intentar actualizar/eliminar un ID inexistente, el caso de u
 
 ## 6. Módulo connected-accounts (ConnectedAccounts)
 
-Gestiona la vinculación de cuentas de redes sociales (Facebook, Instagram, LinkedIn, TikTok) pertenecientes a una marca (`Brand`). Punto de extensión para el despacho (n8n): hoy ningún consumidor lo usa todavía.
+Gestiona la vinculación de cuentas de redes sociales (Facebook, Instagram, LinkedIn, TikTok) pertenecientes a una marca (`Brand`). Punto de extensión para el despacho (n8n): hoy lo consume el claim de dispatch.
 
 ```text
 POST   /brands/:brandId/accounts            → conecta/actualiza una cuenta en una plataforma (Upsert, 201)
@@ -233,14 +240,14 @@ Capas (`src/modules/connected-accounts/`):
 - `presentation/` — controlador REST delgado, delegando peticiones post-validación (con `connectAccountSchema` / `verifyAccountSchema` Zod) a los casos de uso.
 
 **Manejo Interno de Credenciales**:
-El caso de uso `GetCredentialsUseCase` está exportado desde `ConnectedAccountsModule` para ser utilizado por `PublicationsModule` en el proceso de dispatch a n8n. Si alguna red no está conectada, el caso de uso lanza un `MissingConnectedAccountError`, que el filtro global traduce a 400 Bad Request. Los tokens no son expuestos en las consultas HTTP públicas.
+El caso de uso `GetCredentialsUseCase` está exportado desde `ConnectedAccountsModule` para ser utilizado por `DispatchModule` en el claim de n8n. Si alguna red no está conectada, el caso de uso lanza un `MissingConnectedAccountError`, que el filtro global traduce a 400 Bad Request. Los tokens no son expuestos en las consultas HTTP públicas.
 
 **Cifrado de Credenciales en Reposo**:
 Los campos `accessToken` y `refreshToken` se encriptan de forma transparente en la capa de infraestructura (`PrismaConnectedAccountsRepository`) antes de ser guardados en la base de datos de PostgreSQL, garantizando la seguridad en reposo.
 - **Algoritmo**: `AES-256-GCM` (provisto de forma nativa por el módulo `node:crypto`).
 - **Clave**: Se inyecta mediante la variable de entorno `ENCRYPTION_KEY` administrada por `ConfigService` (64 hex chars; generar con `openssl rand -hex 32`). Si falta, el repositorio falla rápido con `Error` plano (no excepción HTTP). En e2e se fija una de prueba en `vitest.config.e2e.ts`.
 - **Formato**: El texto cifrado se almacena con la forma `IV:AuthTag:Ciphertext`.
-- **Lectura**: El caso de uso `GetCredentialsUseCase` obtiene y descifra las credenciales al vuelo para integrarse de forma segura con el webhook de n8n.
+- **Lectura**: El caso de uso `GetCredentialsUseCase` obtiene y descifra las credenciales al vuelo para entregarlas en el claim de dispatch. El webhook de n8n solo despierta el flujo y no transporta credenciales.
 
 **Verificación previa (`VerifyAccountUseCase` + `HttpAccountVerifier`):**
 La UI prueba la conexión antes de guardar para no persistir tokens inválidos.
@@ -270,11 +277,16 @@ POST /api/v1/dispatch/claim               → próxima vencida + credenciales,
                                             { publication: null, targets: [] };
                                             cada target incluye platform y
                                             format FEED/REEL para ramificar)
-POST /api/v1/dispatch/targets/:id/report  → status + externalIds/error (+
-                                            metrics opcional); recalcula
-                                            PUBLISHED/PARTIAL/FAILED cuando no
-                                            quedan PENDING (200)
+POST /api/v1/dispatch/targets/:id/report  → status + externalPostId/Url,
+                                            errorMessage (+ metrics opcional);
+                                            recalcula PUBLISHED/PARTIAL/FAILED
+                                            cuando no quedan PENDING (200)
 ```
+
+Cada elemento de `targets` llega como `{ target, credentials }`; `target.format`
+es la intención persistida (`FEED | REEL`) y `credentials` incluye
+`externalAccountId`, `accessToken` y el resto de datos ya descifrados. n8n debe
+reportar todos los targets, incluso cuando uno falle.
 
 Superficie versionada por URI (`VersioningType.URI` de Nest): solo dispatch
 lleva `v1`; el API del dashboard sigue sin versión.

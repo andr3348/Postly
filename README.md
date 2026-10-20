@@ -30,7 +30,8 @@ Marketing (Next.js) → prompt → IA texto/imagen/video → preview + aprobaci�
 
 Monorepo Turborepo: backend NestJS (campañas, auth JWT, persistencia, webhooks
 ↔ n8n), dashboard Next.js (prompt → preview → aprobación + Analytics con
-Insights por IA), PostgreSQL + Prisma, n8n autoalojado (planificado).
+Insights por IA), PostgreSQL + Prisma, n8n autoalojado (workflow de
+Facebook/Instagram activo).
 
 ## 3. Flujo de uso (MARKETING, ADMIN, n8n)
 
@@ -86,6 +87,10 @@ El webhook de "publicar ahora" solo despierta a n8n (header `x-webhook-secret`,
 sin body); el worker sigue reclamando con `/dispatch/claim`. Si el webhook falla,
 el cron de n8n (5 min) publica igual: acelera, no reemplaza.
 
+En Instagram ambos formatos (`FEED` y `REEL`) se publican como `REELS` con
+`share_to_feed=true`, así que aparecen en el feed y en la pestaña Reels. En
+Facebook el formato sí elige el flujo (`/videos` o `video_reels`).
+
 **Caso extremo ADMIN** (todo lo de MARKETING, más): aprueba/rechaza/publica
 ahora, gestiona marcas (`/brands`) y cuentas (`/brands/:id/accounts`, incluyendo
 desconectar `EXPIRED`), ve todo sin filtro de autor. Límites honestos de esta
@@ -101,7 +106,7 @@ por rol (endurecimiento pendiente).
 | Backend         | NestJS 12, `@nestjs/jwt` + `argon2` + `zod`, `vitest`, `oxlint`       |
 | Datos           | Prisma **7.10.0** (NO v8 RC), PostgreSQL **17-alpine**                |
 | Frontend        | Next.js 16.3.5, React 19, Tailwind 4 (Shadcn + Recharts instalados)  |
-| Orquestación/IA | n8n + APIs LinkedIn/OpenAI/Claude/difusión — planificados             |
+| Orquestación/IA | n8n (workflow FB/IG activo) + APIs LinkedIn/OpenAI/Claude/difusión — LinkedIn/IA planificados |
 
 ## 5. Estructura
 
@@ -110,7 +115,7 @@ Postly/
 ├── apps/api/          # NestJS — detalle en docs/backend.md
 ├── apps/web/          # Next.js — detalle en docs/frontend.md
 ├── packages/database/ # @postly/database, esquema y conexión — docs/database.md
-├── docs/              # backend.md · frontend.md · database.md
+├── docs/              # backend.md · frontend.md · database.md · n8n.md
 └── compose.yaml       # PG local: postly/postly/postly @ localhost:5433
 ```
 
@@ -145,9 +150,10 @@ pnpm --filter api run test:e2e      # e2e (DB levantada)
       reales (`GET /analytics/summary` + CORS con credenciales).
       Falta: Insights por IA (capa b de `docs/frontend.md` §5) — depende de la
       generación con IA (TODO §7.1.3).
-- [ ] Obj. 5: n8n — superficie de despacho lista (`/dispatch`: claim atómico,
-      reporte, métricas; ver `docs/backend.md` §7). Pendientes los workflows en el
-      VPS contra las APIs (LinkedIn primero).
+- [ ] Obj. 5: n8n — workflow `Post Content` activo para Facebook/Instagram
+      (Feed/Reel, cron de 5 min + `publish-now`), con claim atómico y reporte
+      por target (ver `docs/n8n.md`). Pendientes: LinkedIn/TikTok y despliegue
+      en el VPS.
 - [ ] Obj. 6: pruebas unitarias/integración/rendimiento.
 - [ ] Obj. 7: medición 45 min → 3–5 min y cálculo B/C.
 
