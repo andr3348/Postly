@@ -143,19 +143,32 @@ solo-ADMIN para aprobar/publicar-ahora/rechazar. Errores:
 `ForbiddenError` → 403.
 
 **Destinos omnicanal (sin módulo propio):** la publicación decide *qué*,
-el target *dónde*. Anidados bajo la publicación (dueño o admin, solo antes de
-programar):
+el target *dónde y cómo*. Anidados bajo la publicación (dueño o admin, solo
+antes de programar):
 
 ```text
-GET    /publications/:id/targets              → canales con su estado
-POST   /publications/:id/targets { platform } → adjunta canal (409 si duplica)
-DELETE /publications/:id/targets/:platform    → quita canal (404 si no existe)
+GET    /publications/:id/targets                       → canales con estado y formato
+POST   /publications/:id/targets { platform, format? } → adjunta canal (409 si duplica)
+PATCH  /publications/:id/targets/:platform { format }  → cambia Feed/Reel
+DELETE /publications/:id/targets/:platform             → quita canal (404 si no existe)
 ```
+
+`format` es `FEED | REEL`. Reglas:
+
+- `FEED` es válido para imágenes y videos en cualquier plataforma.
+- `REEL` exige `mediaType=VIDEO` y solo se permite en Facebook/Instagram.
+- Default al adjuntar: video en Facebook/Instagram → `REEL`; el resto → `FEED`.
+- `PATCH` y `POST` rechazan combinaciones inválidas con
+  `InvalidTargetFormatError` → 400.
+- Cambiar la publicación a `IMAGE` con targets `REEL` adjuntos → 400; primero
+  hay que pasarlos a `FEED`.
+- `submit` valida los formatos de todos los canales antes de pasar a
+  `PENDING_APPROVAL`.
 
 Regla: `submit` exige ≥1 canal (`PublicationWithoutTargetsError` → 400). La
 unicidad `[publicationId, platform]` la garantiza la BD; el caso de uso la
-verifica antes para un 409 limpio. A futuro n8n actualizará cada target
-(`status`, `externalPostId/Url`, `errorMessage`) y escribirá `TargetMetric`.**
+verifica antes para un 409 limpio. n8n actualiza cada target (`status`,
+`externalPostId/Url`, `errorMessage`) y escribe `TargetMetric`.
 
 **Métricas (sin módulo propio):** snapshots por destino, base de los gráficos
 de Analytics. Solo en destinos `SUCCESS` (medir lo no publicado es ruido;
@@ -254,7 +267,9 @@ programado jamás saldría de `SCHEDULED` (nada mueve ese estado).
 POST /api/v1/dispatch/claim               → próxima vencida + credenciales,
                                             marcada PROCESSING (200; siempre
                                             con cuerpo: si no hay nada,
-                                            { publication: null, targets: [] })
+                                            { publication: null, targets: [] };
+                                            cada target incluye platform y
+                                            format FEED/REEL para ramificar)
 POST /api/v1/dispatch/targets/:id/report  → status + externalIds/error (+
                                             metrics opcional); recalcula
                                             PUBLISHED/PARTIAL/FAILED cuando no
