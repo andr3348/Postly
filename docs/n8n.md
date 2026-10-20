@@ -53,8 +53,8 @@ Después del claim, el workflow normaliza la respuesta, hace `Split Out` de
 | Facebook Feed video | `FACEBOOK`, `FEED`, `VIDEO` | `POST /{page-id}/videos` (`file_url`, `description`) |
 | Facebook Reel | `FACEBOOK`, `REEL` | `video_reels` start → upload al `upload_url` con header `file_url` → finish (`video_state=PUBLISHED`) |
 | Instagram Feed imagen | `INSTAGRAM`, `FEED`, `IMAGE` | `POST /{ig-id}/media` (`image_url`) → `media_publish` |
-| Instagram Feed video | `INSTAGRAM`, `FEED`, `VIDEO` | `POST /{ig-id}/media` (`media_type=VIDEO`, `video_url`) → polling → `media_publish` |
-| Instagram Reel | `INSTAGRAM`, `REEL` | `POST /{ig-id}/media` (`media_type=REELS`, `share_to_feed=true`) → polling → `media_publish` |
+| Instagram Feed video | `INSTAGRAM`, `FEED`, `VIDEO` | `POST /{ig-id}/media` (`media_type=REELS`, `share_to_feed=true`) → polling → `media_publish` |
+| Instagram Reel | `INSTAGRAM`, `REEL` | `POST /{ig-id}/media` (`media_type=REELS`, `share_to_feed=false`) → polling → `media_publish` |
 
 Notas de Meta (Graph API `v25.0`):
 
@@ -65,6 +65,10 @@ Notas de Meta (Graph API `v25.0`):
 - Instagram exige crear el contenedor, esperar `status_code=FINISHED` y recién
   entonces llamar a `media_publish`. El workflow espera 15 s y reintenta hasta
   20 veces (5 minutos); si expira, reporta el target como `FAILED`.
+- Meta ya no acepta `media_type=VIDEO` para videos de Instagram. Feed y Reel se
+  crean con `media_type=REELS`; la diferencia es `share_to_feed=true` (también
+  aparece en el feed) o `false` (solo pestaña Reels). Los videos de feed deben
+  cumplir las especificaciones de Reels (hasta 15 min; 9:16 recomendado).
 - Facebook procesa el video de forma asíncrona: el reporte `SUCCESS` significa
   que la carga/publicación fue aceptada, no que el procesamiento terminó.
 
