@@ -21,6 +21,11 @@ enum MediaType {
   VIDEO
 }
 
+enum PublicationFormat {
+  FEED // Publicación normal del feed (foto o video)
+  REEL // Reel vertical de Facebook o Instagram
+}
+
 enum PublicationStatus {
   DRAFT // Creado o generado por IA, editable
   PENDING_APPROVAL // Enviado por marketing, esperando visto bueno de admin
@@ -137,8 +142,8 @@ model Publication {
 
   // Contenido final consolidado: DRAFT = ya generado por IA y editable.
   // El prompt pre-generación vive en el frontend, no en BD.
-  copy      String   @db.Text
-  mediaUrl  String   @db.Text
+  copy      String    @db.Text
+  mediaUrl  String    @db.Text
   mediaType MediaType @default(IMAGE)
 
   // Ciclo de vida y agenda
@@ -163,7 +168,8 @@ model PublicationTarget {
   publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
 
   platform Platform
-  status   PlatformStatus @default(PENDING)
+  format   PublicationFormat @default(FEED)
+  status   PlatformStatus    @default(PENDING)
 
   // Resultados reportados por n8n tras llamar a las APIs oficiales
   externalPostId  String? // ID devuelto por Meta Graph / LinkedIn API
