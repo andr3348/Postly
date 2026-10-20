@@ -156,6 +156,7 @@ export class PublicationsController {
     return this.addTargetUseCase.execute({
       publicationId: id,
       platform: body.platform,
+      format: body.format,
       requester: { id: user.userId, role: user.role },
     });
   }

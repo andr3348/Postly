@@ -31,6 +31,7 @@ const BASE_TARGET: PublicationTarget = {
   id: 'target-1',
   publicationId: BASE_PUBLICATION.id,
   platform: 'LINKEDIN',
+  format: 'FEED',
   status: 'PENDING',
   externalPostId: null,
   externalPostUrl: null,
@@ -76,7 +77,12 @@ export function stubPublicationTargetsRepository(
   return {
     findById: async () => null,
     findByPublication: async () => [],
-    add: async (publicationId, platform) => ({ ...BASE_TARGET, publicationId, platform }),
+    add: async (publicationId, platform, format) => ({
+      ...BASE_TARGET,
+      publicationId,
+      platform,
+      format,
+    }),
     remove: async () => true,
     updateTarget: async (id, data) => ({ ...BASE_TARGET, id, ...data }),
     ...overrides,

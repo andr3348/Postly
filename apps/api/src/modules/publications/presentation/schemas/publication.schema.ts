@@ -49,8 +49,11 @@ export const targetPlatformSchema = z.enum([
   'TIKTOK',
 ]);
 
+export const targetFormatSchema = z.enum(['FEED', 'REEL']);
+
 export const addTargetSchema = z.object({
   platform: targetPlatformSchema,
+  format: targetFormatSchema.optional(),
 });
 
 export type AddTargetDto = z.infer<typeof addTargetSchema>;

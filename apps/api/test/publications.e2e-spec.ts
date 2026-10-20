@@ -96,6 +96,7 @@ describe('Publications (e2e)', () => {
 
     const targets = await agent.get(`/api/publications/${publicationId}/targets`).expect(200);
     expect(targets.body).toHaveLength(1);
+    expect(targets.body[0]).toMatchObject({ platform: 'LINKEDIN', format: 'FEED' });
 
     await agent.post(`/api/publications/${publicationId}/submit`).expect(200);
 

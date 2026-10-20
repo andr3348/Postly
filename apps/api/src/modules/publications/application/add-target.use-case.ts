@@ -1,10 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
-  InvalidPublicationTransitionError,
+  InvalidTargetFormatError,
   PublicationTargetAlreadyAttachedError,
 } from '../../../shared/errors.js';
-import type { PublicationTarget, TargetPlatform } from '../domain/target.entity.js';
-import type { Publication, Requester } from '../domain/publication.entity.js';
+import {
+  defaultTargetFormat,
+  isTargetFormatValid,
+  type PublicationTarget,
+  type TargetFormat,
+  type TargetPlatform,
+} from '../domain/target.entity.js';
+import type { Requester } from '../domain/publication.entity.js';
 import {
   PUBLICATION_TARGETS_REPOSITORY,
   type PublicationTargetsRepository,
@@ -13,11 +19,16 @@ import {
   PUBLICATIONS_REPOSITORY,
   type PublicationsRepository,
 } from '../domain/ports/publications.repository.js';
-import { loadForUpdate, requireOwnerOrAdmin } from './flow-helpers.js';
+import {
+  loadForUpdate,
+  requireOwnerOrAdmin,
+  requireTargetsEditable,
+} from './flow-helpers.js';
 
 export interface AddTargetInput {
   readonly publicationId: string;
   readonly platform: TargetPlatform;
+  readonly format?: TargetFormat;
   readonly requester: Requester;
 }
 
@@ -32,17 +43,17 @@ export class AddTargetUseCase {
   async execute(input: AddTargetInput): Promise<PublicationTarget> {
     const publication = await loadForUpdate(this.publications, input.publicationId);
     requireOwnerOrAdmin(publication, input.requester);
-    requireEditable(publication);
+    requireTargetsEditable(publication);
     const existing = await this.targets.findByPublication(input.publicationId);
     if (existing.some((target) => target.platform === input.platform)) {
       throw new PublicationTargetAlreadyAttachedError(input.publicationId, input.platform);
     }
-    return this.targets.add(input.publicationId, input.platform);
-  }
-}
-
-function requireEditable(publication: Publication): void {
-  if (publication.status !== 'DRAFT' && publication.status !== 'PENDING_APPROVAL') {
-    throw new InvalidPublicationTransitionError(publication.status, 'edit targets');
+    const format = input.format ?? defaultTargetFormat(publication.mediaType, input.platform);
+    if (!isTargetFormatValid(publication.mediaType, input.platform, format)) {
+      throw new InvalidTargetFormatError(
+        `${format} is not valid for ${publication.mediaType} content on ${input.platform}`,
+      );
+    }
+    return this.targets.add(input.publicationId, input.platform, format);
   }
 }

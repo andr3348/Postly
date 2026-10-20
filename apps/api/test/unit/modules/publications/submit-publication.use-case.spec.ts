@@ -1,6 +1,7 @@
 import {
   ForbiddenError,
   InvalidPublicationTransitionError,
+  InvalidTargetFormatError,
   PublicationNotFoundError,
   PublicationWithoutTargetsError,
 } from '../../../../src/shared/errors.js';
@@ -19,6 +20,7 @@ const LINKEDIN_TARGET = {
   id: 'target-1',
   publicationId: BASE_PUBLICATION.id,
   platform: 'LINKEDIN' as const,
+  format: 'FEED' as const,
   status: 'PENDING' as const,
   externalPostId: null,
   externalPostUrl: null,
@@ -109,5 +111,23 @@ describe('SubmitPublicationUseCase', () => {
         requester: MARKETING,
       }),
     ).rejects.toBeInstanceOf(PublicationWithoutTargetsError);
+  });
+
+  it('rejects submit when a target format is invalid for the media type', async () => {
+    const publications = stubPublicationsRepository({
+      findById: async () => BASE_PUBLICATION,
+    });
+    const targets = stubPublicationTargetsRepository({
+      findByPublication: async () => [
+        { ...LINKEDIN_TARGET, platform: 'FACEBOOK', format: 'REEL' },
+      ],
+    });
+
+    await expect(
+      new SubmitPublicationUseCase(publications, targets).execute({
+        id: BASE_PUBLICATION.id,
+        requester: MARKETING,
+      }),
+    ).rejects.toBeInstanceOf(InvalidTargetFormatError);
   });
 });

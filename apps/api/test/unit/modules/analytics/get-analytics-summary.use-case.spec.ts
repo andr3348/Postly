@@ -25,6 +25,7 @@ function target(id: string) {
     id,
     publicationId: BASE_PUBLICATION.id,
     platform: 'LINKEDIN' as const,
+    format: 'FEED' as const,
     status: 'SUCCESS' as const,
     externalPostId: null,
     externalPostUrl: null,

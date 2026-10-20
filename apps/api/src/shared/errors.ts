@@ -52,6 +52,13 @@ export class PublicationTargetAlreadyAttachedError extends Error {
   }
 }
 
+export class InvalidTargetFormatError extends Error {
+  constructor(reason: string) {
+    super(`Invalid target format: ${reason}`);
+    this.name = 'InvalidTargetFormatError';
+  }
+}
+
 export class PublicationWithoutTargetsError extends Error {
   constructor(id: string) {
     super(`Publication ${id} has no targets and cannot be submitted`);

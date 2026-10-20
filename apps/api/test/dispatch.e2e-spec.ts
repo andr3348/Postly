@@ -62,6 +62,7 @@ describe('Dispatch (e2e)', () => {
   async function seedClaimablePublication(
     agent: ReturnType<typeof request.agent>,
     platforms: Array<keyof typeof ACCOUNT_SEED> = ['LINKEDIN'],
+    mediaType: 'IMAGE' | 'VIDEO' = 'IMAGE',
   ): Promise<void> {
     await agent
       .post('/api/auth/register')
@@ -85,6 +86,7 @@ describe('Dispatch (e2e)', () => {
         originalPrompt: 'Post n8n',
         copy: 'Copy n8n',
         mediaUrl: 'https://postly.test/n8n.jpg',
+        mediaType,
       })
       .expect(201);
     publicationId = created.body.id as string;
@@ -139,6 +141,22 @@ describe('Dispatch (e2e)', () => {
       .expect(200);
     expect(history.body).toHaveLength(1);
     expect(history.body[0]).toMatchObject({ impressions: 500 });
+  });
+
+  it('claim exposes the target format for video reels', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await seedClaimablePublication(agent, ['FACEBOOK'], 'VIDEO');
+
+    const claim = await n8n('post', '/api/v1/dispatch/claim').expect(200);
+    expect(claim.body.targets[0].target).toMatchObject({
+      platform: 'FACEBOOK',
+      format: 'REEL',
+    });
+
+    const targetId = claim.body.targets[0].target.id as string;
+    await n8n('post', `/api/v1/dispatch/targets/${targetId}/report`)
+      .send({ status: 'SUCCESS', externalPostId: 'fb-reel-e2e' })
+      .expect(200);
   });
 
   it('lease vencido sin reportes: la misma pieza se re-entrega (reintento)', async () => {
