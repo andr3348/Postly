@@ -1,4 +1,8 @@
-import type { PublicationPlatform, PublicationStatus } from "@/features/publications/schemas";
+import type {
+  PublicationFormat,
+  PublicationPlatform,
+  PublicationStatus,
+} from "@/features/publications/schemas";
 
 const STATUS_META: Readonly<
   Record<PublicationStatus, { readonly label: string; readonly className: string }>
@@ -85,3 +89,8 @@ const PLATFORM_META: Readonly<Record<PublicationPlatform, string>> = {
   LINKEDIN: "LinkedIn",
   TIKTOK: "TikTok",
 };
+
+/** Etiqueta legible del formato de un canal. */
+export function formatLabel(format: PublicationFormat): string {
+  return format === "REEL" ? "Reel" : "Feed";
+}

@@ -25,6 +25,10 @@ export const publicationPlatformSchema = z.enum([
 
 export type PublicationPlatform = z.infer<typeof publicationPlatformSchema>;
 
+export const publicationFormatSchema = z.enum(["FEED", "REEL"]);
+
+export type PublicationFormat = z.infer<typeof publicationFormatSchema>;
+
 export const createPublicationFormSchema = z.object({
   brandId: z
     .string()

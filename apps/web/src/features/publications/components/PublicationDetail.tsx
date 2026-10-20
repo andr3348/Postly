@@ -15,17 +15,22 @@ import {
   recordMetric,
   submitPublication,
   updateDraft,
+  updateTargetFormat,
   type PublicationTarget,
 } from "@/features/publications/api";
 import { invalidateAnalytics } from "@/features/analytics/api";
 import {
+  formatLabel,
   platformLabel,
   PublicationStatusBadge,
   TargetStatusBadge,
 } from "@/features/publications/components/StatusBadges";
 import { PublicationForm } from "@/features/publications/components/PublicationForm";
 import {
+  publicationFormatSchema,
   recordMetricFormSchema,
+  type PublicationFormat,
+  type PublicationMedia,
   type PublicationPlatform,
 } from "@/features/publications/schemas";
 import { getBrandsCached } from "@/features/brands/api";
@@ -284,7 +289,13 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
       </section>
 
       {/* Destinos (canales) */}
-      <TargetsSection id={id} version={version} editable={canEditTargets} onChanged={onChanged} />
+      <TargetsSection
+        id={id}
+        version={version}
+        editable={canEditTargets}
+        mediaType={publication.mediaType}
+        onChanged={onChanged}
+      />
 
       {/* Métricas */}
       <MetricsSection id={id} version={version} canRecord={isOwner || isAdminUser} onChanged={onChanged} />
@@ -357,11 +368,13 @@ function TargetsSection({
   id,
   version,
   editable,
+  mediaType,
   onChanged,
 }: {
   id: string;
   version: number;
   editable: boolean;
+  mediaType: PublicationMedia;
   onChanged: () => void;
 }) {
   return (
@@ -372,7 +385,13 @@ function TargetsSection({
         </div>
       }
     >
-      <TargetsInner id={id} version={version} editable={editable} onChanged={onChanged} />
+      <TargetsInner
+        id={id}
+        version={version}
+        editable={editable}
+        mediaType={mediaType}
+        onChanged={onChanged}
+      />
     </Suspense>
   );
 }
@@ -381,11 +400,13 @@ function TargetsInner({
   id,
   version,
   editable,
+  mediaType,
   onChanged,
 }: {
   id: string;
   version: number;
   editable: boolean;
+  mediaType: PublicationMedia;
   onChanged: () => void;
 }) {
   const targets = use(getTargetsCached(id, version));
@@ -420,6 +441,12 @@ function TargetsInner({
             : `${targets.length} canal${targets.length === 1 ? "" : "es"}`}
         </span>
       </div>
+      {mediaType === "VIDEO" && (
+        <p className="text-[11px] text-gray-500 dark:text-gray-400">
+          Los videos de Facebook e Instagram se publican como Reel por defecto; cambia el
+          formato a Feed si necesitas una publicación horizontal.
+        </p>
+      )}
       {errorMsg !== "" && <p className="text-sm text-red-500 font-medium">{errorMsg}</p>}
 
       {targets.length === 0 ? (
@@ -435,10 +462,14 @@ function TargetsInner({
             target={target}
             editable={editable}
             busy={busy}
+            mediaType={mediaType}
             confirming={confirming}
             onConfirm={() => void runTargetChange(() => removeTarget(id, target.platform))}
             onCancel={() => setConfirming(null)}
             onAskRemove={() => setConfirming(target.platform)}
+            onFormatChange={(format) =>
+              void runTargetChange(() => updateTargetFormat(id, target.platform, format))
+            }
           />
         ))}
         {editable &&
@@ -463,22 +494,49 @@ function TargetChip({
   target,
   editable,
   busy,
+  mediaType,
   confirming,
   onConfirm,
   onCancel,
   onAskRemove,
+  onFormatChange,
 }: {
   target: PublicationTarget;
   editable: boolean;
   busy: boolean;
+  mediaType: PublicationMedia;
   confirming: PublicationPlatform | null;
   onConfirm: () => void;
   onCancel: () => void;
   onAskRemove: () => void;
+  onFormatChange: (format: PublicationFormat) => void;
 }) {
+  const canChooseFormat =
+    mediaType === "VIDEO" &&
+    (target.platform === "FACEBOOK" || target.platform === "INSTAGRAM");
+
   return (
-    <span className="flex items-center gap-2 text-xs font-medium rounded-full px-3 py-2 border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-200">
+    <span className="flex flex-wrap items-center gap-2 text-xs font-medium rounded-full px-3 py-2 border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-200">
       {platformLabel(target.platform)}
+      {editable && canChooseFormat ? (
+        <select
+          aria-label={`Formato de ${platformLabel(target.platform)}`}
+          value={target.format}
+          disabled={busy}
+          onChange={(event) => {
+            const parsed = publicationFormatSchema.safeParse(event.target.value);
+            if (parsed.success) onFormatChange(parsed.data);
+          }}
+          className="text-[11px] font-semibold rounded-full px-2 py-0.5 cursor-pointer border border-gray-200 dark:border-slate-600 bg-transparent text-gray-700 dark:text-gray-200 disabled:opacity-50"
+        >
+          <option value="FEED">Feed</option>
+          <option value="REEL">Reel</option>
+        </select>
+      ) : (
+        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-gray-300">
+          {formatLabel(target.format)}
+        </span>
+      )}
       <TargetStatusBadge status={target.status} />
       {editable &&
         (confirming === target.platform ? (
