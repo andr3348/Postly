@@ -58,23 +58,34 @@ MARKETING                          ADMIN                              n8n (x-api
    |                                 |   --> SCHEDULED (+auditoría)      |
    |                                 |-- rechazar: POST /:id/reject      |
    |                                 |   --> DRAFT (re-trabajo)          |
+   |                                 |-- publicar ahora:                 |
+   |                                 |   POST /:id/publish-now           |
+   |                                 |   --> SCHEDULED (now) + webhook   |
+   |                                 |       n8n (x-webhook-secret)      |
    |                                 |                                   |
    |                                 |                                   |-- poll:
-   |                                 |                                   |   POST /dispatch/claim
-   |                                 |                                   |   (atómico; 204 si nada;
+   |                                 |                                   |   POST /api/v1/dispatch/claim
+   |                                 |                                   |   (atómico; si nada:
+   |                                 |                                   |    publication: null;
+   |                                 |                                   |    lease vencido: reencola si
+   |                                 |                                   |    nada se reportó (si no, FAILED);
    |                                 |                                   |    400 sin credenciales)
    |                                 |                                   |-- publica en cada red
    |                                 |                                   |   (token descifrado)
    |                                 |                                   |-- reporta:
-   |                                 |                                   |   POST .../targets/:id/report
+   |                                 |                                   |   POST /api/v1/dispatch/targets/:id/report
    |                                 |                                   |   --> SUCCESS/FAILED + métricas
    |                                 |                                   |   auto: PUBLISHED/PARTIAL/FAILED
    |                                 |                                   |
    |-- GET /analytics/summary (ambos roles: totales, engagement, por plataforma)
 ```
 
-**Caso extremo ADMIN** (todo lo de MARKETING, más): aprueba/rechaza,
-gestiona marcas (`/brands`) y cuentas (`/brands/:id/accounts`, incluyendo
+El webhook de "publicar ahora" solo despierta a n8n (header `x-webhook-secret`,
+sin body); el worker sigue reclamando con `/dispatch/claim`. Si el webhook falla,
+el cron de n8n (5 min) publica igual: acelera, no reemplaza.
+
+**Caso extremo ADMIN** (todo lo de MARKETING, más): aprueba/rechaza/publica
+ahora, gestiona marcas (`/brands`) y cuentas (`/brands/:id/accounts`, incluyendo
 desconectar `EXPIRED`), ve todo sin filtro de autor. Límites honestos de esta
 fase: el registro crea solo `MARKETING` (el admin nace del seed), sin
 invalidación de sesiones (stateless), y brands/accounts aún sin restricción

@@ -124,6 +124,11 @@ export async function approvePublication(
   });
 }
 
+/** Aprueba con fecha actual y despierta a n8n (sin payload). */
+export async function publishNow(id: string): Promise<Publication> {
+  return apiJson<Publication>(`/publications/${id}/publish-now`, { method: "POST" });
+}
+
 export async function rejectPublication(id: string): Promise<Publication> {
   return apiJson<Publication>(`/publications/${id}/reject`, { method: "POST" });
 }

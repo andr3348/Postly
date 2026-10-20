@@ -131,13 +131,16 @@ PATCH  /publications/:id        → edita copy/media solo en DRAFT (dueño o adm
 POST   /publications/:id/submit → DRAFT → PENDING_APPROVAL (dueño o admin)
 POST   /publications/:id/approve→ PENDING_APPROVAL → SCHEDULED, solo ADMIN
                                    (body { scheduledAt }; fija approvedBy/approvedAt)
+POST   /publications/:id/publish-now → PENDING_APPROVAL → SCHEDULED con
+                                   scheduledAt=now y despierta a n8n (202; solo ADMIN)
 POST   /publications/:id/reject → PENDING_APPROVAL → DRAFT, solo ADMIN
 ```
 
 Autorización en los casos de uso (no en guards): el `requester` (`id` + `rol`
 del `@CurrentUser()`) viaja al caso de uso; dueño-or-admin para editar/enviar,
-solo-ADMIN para aprobar/rechazar. Errores: `PublicationNotFoundError` → 404,
-`InvalidPublicationTransitionError` → 400, `ForbiddenError` → 403.
+solo-ADMIN para aprobar/publicar-ahora/rechazar. Errores:
+`PublicationNotFoundError` → 404, `InvalidPublicationTransitionError` → 400,
+`ForbiddenError` → 403.
 
 **Destinos omnicanal (sin módulo propio):** la publicación decide *qué*,
 el target *dónde*. Anidados bajo la publicación (dueño o admin, solo antes de
@@ -248,12 +251,18 @@ de Publications y credenciales de ConnectedAccounts. Sin estas rutas, lo
 programado jamás saldría de `SCHEDULED` (nada mueve ese estado).
 
 ```text
-POST /dispatch/claim               → próxima vencida + credenciales, marcada
-                                     PROCESSING (200; 204 sin cuerpo si no hay)
-POST /dispatch/targets/:id/report  → status + externalIds/error (+ metrics
-                                     opcional); recalcula PUBLISHED/PARTIAL/
-                                     FAILED cuando no quedan PENDING (200)
+POST /api/v1/dispatch/claim               → próxima vencida + credenciales,
+                                            marcada PROCESSING (200; siempre
+                                            con cuerpo: si no hay nada,
+                                            { publication: null, targets: [] })
+POST /api/v1/dispatch/targets/:id/report  → status + externalIds/error (+
+                                            metrics opcional); recalcula
+                                            PUBLISHED/PARTIAL/FAILED cuando no
+                                            quedan PENDING (200)
 ```
+
+Superficie versionada por URI (`VersioningType.URI` de Nest): solo dispatch
+lleva `v1`; el API del dashboard sigue sin versión.
 
 Auth máquina-a-máquina: `N8nApiKeyGuard` (header `x-api-key`, comparación
 `timingSafeEqual` sobre hashes SHA-256, fail-fast sin la env). Las rutas son
@@ -261,9 +270,29 @@ Auth máquina-a-máquina: `N8nApiKeyGuard` (header `x-api-key`, comparación
 servicio. Sin TLS en producción, ni esto basta.
 
 Reglas: el reclamo es atómico (`markProcessing` condicional: si otro worker la
-tomó, se intenta con la siguiente); sin credenciales para algún canal no se
-reclama (400 visible, la pieza queda SCHEDULED para reintento); el reporte con
-métricas las registra en la misma llamada.
+tomó, se intenta con la siguiente); sin nada vencido responde 200 con
+`{ publication: null, targets: [] }` (nunca 204): el flujo espera una señal
+explícita de "sin trabajo"; sin credenciales para algún canal no se reclama
+(400 visible, la pieza queda SCHEDULED para reintento); el reporte con métricas
+las registra en la misma llamada.
+
+Lease del reclamo: si n8n reclama y no reporta en 15 min, el siguiente claim
+expira la pieza según lo reportado. Sin ningún reporte (murió antes de
+publicar, p. ej. antes del IF): vuelve a SCHEDULED y el mismo claim la
+re-entrega — reintento automático con ventana de duplicado mínima. Con algo
+ya reportado (murió a mitad): destinos sin reportar → FAILED ("despacho
+vencido…"), publicación → FAILED/PARTIAL y sin reintento — duplicar un post
+es peor que perderlo.
+
+Disparo inmediato ("publicar ahora"): `POST /api/publications/:id/publish-now`
+(admin, sin body) reutiliza la aprobación con `scheduledAt = now` y hace un
+POST al webhook de n8n (`N8N_DISPATCH_WEBHOOK_URL`, header `x-webhook-secret`
+= `INTERNAL_WEBHOOK_SECRET`, sin body, timeout 5 s) para despertar al worker.
+n8n sigue haciendo el claim normal: el webhook no transporta la publicación
+(evita saltarse el lease y duplicar posts). Si el webhook falla, el endpoint
+igual responde 202: la pieza queda SCHEDULED vencida y el cron la levanta; el
+webhook acelera, el cron es la garantía. El cron (5 min) debe seguir también
+para el barrido perezoso de leases vencidos.
 
 ## 8. Módulo analytics (solo lectura)
 

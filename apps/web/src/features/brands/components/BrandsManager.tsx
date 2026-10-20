@@ -7,6 +7,7 @@ import {
   getBrandsCached,
   invalidateBrands,
   updateBrand,
+  useBrandsVersion,
 } from "@/features/brands/api";
 import type { BrandFormInput } from "@/features/brands/schemas";
 import { useBrand } from "@/features/brands/BrandContext";
@@ -15,12 +16,8 @@ import { BrandLogo } from "@/features/brands/components/BrandLogo";
 import { Modal } from "@/shared/components/Modal";
 
 export function BrandsManager() {
-  const [version, setVersion] = useState(0);
-
-  const refresh = () => {
-    invalidateBrands();
-    setVersion((current) => current + 1);
-  };
+  const version = useBrandsVersion();
+  const refresh = useCallback(() => invalidateBrands(), []);
 
   return (
     <Suspense
@@ -30,13 +27,13 @@ export function BrandsManager() {
         </div>
       }
     >
-      <ManagerInner key={version} version={version} onChanged={refresh} />
+      <ManagerInner key={version} onChanged={refresh} />
     </Suspense>
   );
 }
 
-function ManagerInner({ version, onChanged }: { version: number; onChanged: () => void }) {
-  const { brands } = use(getBrandsCached(version));
+function ManagerInner({ onChanged }: { onChanged: () => void }) {
+  const { brands } = use(getBrandsCached());
   const { selectedId } = useBrand();
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);

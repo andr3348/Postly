@@ -1,3 +1,5 @@
+import type { TargetStatus } from './target.entity.js';
+
 /**
  * Entidad de dominio `Publication`.
  *
@@ -63,4 +65,16 @@ export function isAdmin(requester: Requester): boolean {
 
 export function isOwner(publication: Publication, requester: Requester): boolean {
   return publication.userId === requester.id;
+}
+
+/**
+ * Estado terminal de una publicación a partir del estado de sus destinos
+ * (sin PENDING). Lo aplica el reporte al cerrar el último destino; el
+ * barrido de leases vencidos lo reutiliza para no duplicar la regla.
+ * Sin destinos → FAILED (defensivo: una pieza sin destinos no se publicó).
+ */
+export function resolveTerminalStatus(statuses: readonly TargetStatus[]): PublicationStatus {
+  if (statuses.every((status) => status === 'FAILED')) return 'FAILED';
+  if (statuses.every((status) => status === 'SUCCESS')) return 'PUBLISHED';
+  return 'PARTIAL';
 }

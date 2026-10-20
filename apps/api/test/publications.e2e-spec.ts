@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from './../src/app.module.js';
+import { DISPATCH_NOTIFIER } from './../src/modules/publications/domain/ports/dispatch-notifier.port.js';
 import { PrismaService } from './../src/shared/prisma/prisma.service.js';
 import { setupApp } from './../src/setup-app.js';
 
@@ -21,11 +22,19 @@ describe('Publications (e2e)', () => {
   const agenda1 = new Date(Date.now() + 86_400_000).toISOString();
   const agenda2 = new Date(Date.now() + 7 * 86_400_000).toISOString();
 
+  // El webhook real no se dispara en e2e: se reemplaza el puerto y se espía.
+  const notify = vi.fn();
+
   beforeEach(async () => {
     email = `e2e-pub-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}@postly.test`;
+    notify.mockReset();
+    notify.mockResolvedValue(undefined);
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(DISPATCH_NOTIFIER)
+      .useValue({ notify })
+      .compile();
 
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('api');
@@ -140,5 +149,63 @@ describe('Publications (e2e)', () => {
       .expect(200);
     expect(history.body).toHaveLength(1);
     expect(history.body[0]).toMatchObject({ impressions: 1420 });
+  });
+
+  it('publish-now approves with now and wakes n8n (admin only)', async () => {
+    const agent = request.agent(app.getHttpServer());
+
+    await agent
+      .post('/api/auth/register')
+      .send({ email, name: 'E2E Publish Now', password: 'secreto-123' })
+      .expect(201);
+
+    const brand = await agent
+      .post('/api/brands')
+      .send({ name: 'Marca Publish Now' })
+      .expect(201);
+    brandId = brand.body.brand.id as string;
+
+    const created = await agent
+      .post('/api/publications')
+      .send({
+        brandId,
+        originalPrompt: 'Post inmediato e2e',
+        copy: 'Copy inmediata e2e',
+        mediaUrl: 'https://postly.test/e2e-now.jpg',
+      })
+      .expect(201);
+    publicationId = created.body.id as string;
+
+    await agent
+      .post(`/api/publications/${publicationId}/targets`)
+      .send({ platform: 'LINKEDIN' })
+      .expect(201);
+    await agent.post(`/api/publications/${publicationId}/submit`).expect(200);
+
+    // MARKETING no puede publicar ahora: 403 y no despierta a n8n.
+    await agent.post(`/api/publications/${publicationId}/publish-now`).expect(403);
+    expect(notify).not.toHaveBeenCalled();
+
+    await prisma.client.user.update({ where: { email }, data: { role: 'ADMIN' } });
+    await agent.post('/api/auth/login').send({ email, password: 'secreto-123' }).expect(200);
+
+    const before = Date.now();
+    const published = await agent
+      .post(`/api/publications/${publicationId}/publish-now`)
+      .expect(202);
+
+    expect(published.body).toMatchObject({
+      status: 'SCHEDULED',
+      approvedById: expect.any(String),
+    });
+    expect(published.body.scheduledAt).toEqual(expect.any(String));
+    expect(
+      new Date(published.body.scheduledAt as string).getTime(),
+    ).toBeGreaterThanOrEqual(before - 1000);
+    expect(notify).toHaveBeenCalledTimes(1);
+
+    // Ya está SCHEDULED: una segunda llamada no re-aprueba ni vuelve a despertar.
+    await agent.post(`/api/publications/${publicationId}/publish-now`).expect(400);
+    expect(notify).toHaveBeenCalledTimes(1);
   });
 });

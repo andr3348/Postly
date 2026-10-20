@@ -9,6 +9,10 @@ process.env['JWT_REFRESH_SECRET'] ??= 'e2e-refresh-secret-only-for-tests';
 process.env['ENCRYPTION_KEY'] ??= 'ab'.repeat(32);
 // API key de servicio para n8n; solo pruebas, nunca producción.
 process.env['N8N_API_KEY'] ??= 'e2e-n8n-api-key-only-for-tests';
+// Webhook de n8n: el notifier exige ambas al construirse. El e2e sobreescribe
+// el puerto, pero AppModule igual instancia el adapter real.
+process.env['N8N_DISPATCH_WEBHOOK_URL'] ??= 'http://127.0.0.1:9/webhook/e2e';
+process.env['INTERNAL_WEBHOOK_SECRET'] ??= 'e2e-webhook-secret-only-for-tests';
 
 export default defineConfig({
   plugins: [tsconfigPaths()],

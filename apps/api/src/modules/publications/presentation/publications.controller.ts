@@ -18,6 +18,7 @@ import { CreatePublicationUseCase } from '../application/create-publication.use-
 import { UpdateDraftUseCase } from '../application/update-draft.use-case.js';
 import { SubmitPublicationUseCase } from '../application/submit-publication.use-case.js';
 import { ApprovePublicationUseCase } from '../application/approve-publication.use-case.js';
+import { PublishNowUseCase } from '../application/publish-now.use-case.js';
 import { RejectPublicationUseCase } from '../application/reject-publication.use-case.js';
 import { GetPublicationUseCase } from '../application/get-publication.use-case.js';
 import { ListPublicationsUseCase } from '../application/list-publications.use-case.js';
@@ -58,6 +59,7 @@ export class PublicationsController {
     private readonly updateDraftUseCase: UpdateDraftUseCase,
     private readonly submitPublication: SubmitPublicationUseCase,
     private readonly approvePublication: ApprovePublicationUseCase,
+    private readonly publishNowUseCase: PublishNowUseCase,
     private readonly rejectPublication: RejectPublicationUseCase,
     private readonly addTargetUseCase: AddTargetUseCase,
     private readonly listTargetsUseCase: ListTargetsUseCase,
@@ -117,6 +119,15 @@ export class PublicationsController {
     return this.approvePublication.execute({
       id,
       scheduledAt: new Date(body.scheduledAt),
+      requester: { id: user.userId, role: user.role },
+    });
+  }
+
+  @Post(':id/publish-now')
+  @HttpCode(HttpStatus.ACCEPTED)
+  publishNow(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.publishNowUseCase.execute({
+      id,
       requester: { id: user.userId, role: user.role },
     });
   }

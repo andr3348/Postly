@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
 
 interface BrandContextValue {
   /** Marca actual (null = sin selección: las vistas usan la primera disponible). */
@@ -21,14 +21,14 @@ function initialSelectedId(): string | null {
 export function BrandProvider({ children }: { children: ReactNode }) {
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
 
-  const select = (id: string) => {
+  const select = useCallback((id: string) => {
     setSelectedId(id);
     try {
       window.localStorage.setItem(STORAGE_KEY, id);
     } catch {
       // Sin almacenamiento disponible.
     }
-  };
+  }, []);
 
   return (
     <BrandContext.Provider value={{ selectedId, select }}>

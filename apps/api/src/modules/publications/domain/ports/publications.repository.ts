@@ -47,6 +47,11 @@ export interface PublicationsRepository {
    * `false` = otro worker la tomó (reintentar con la siguiente).
    */
   markProcessing(id: string): Promise<boolean>;
+  /**
+   * Leases vencidos: PROCESSING cuyo `dispatchedAt` quedó detrás del corte
+   * (n8n reclamó y no reportó). El barrido los cierra sin reintento.
+   */
+  findStaleProcessing(olderThan: Date, limit: number): Promise<Publication[]>;
 }
 
 export const PUBLICATIONS_REPOSITORY: unique symbol = Symbol('PublicationsRepository');

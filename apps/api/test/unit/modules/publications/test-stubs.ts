@@ -66,6 +66,7 @@ export function stubPublicationsRepository(
     update: async (id, data) => ({ ...BASE_PUBLICATION, id, ...data }),
     findDueDispatch: async () => [],
     markProcessing: async () => true,
+    findStaleProcessing: async () => [],
     ...overrides,
   };
 }

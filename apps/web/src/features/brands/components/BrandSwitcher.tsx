@@ -1,18 +1,13 @@
 "use client";
 
-import { Suspense, use, useState } from "react";
-import { getBrandsCached } from "@/features/brands/api";
-import type { Brand } from "@/features/brands/api";
+import { Suspense, use, useEffect, useState } from "react";
+import { getBrandsCached, useBrandsVersion } from "@/features/brands/api";
 import { useBrand } from "@/features/brands/BrandContext";
-
-/** Promesa cacheada por montaje: `use()` la suspende hasta resolver. */
-function getBrands(): Promise<{ brands: Brand[] }> {
-  return getBrandsCached(0);
-}
 
 /**
  * Selector de marca con datos reales (`GET /brands`).
- * La selección vive aquí hasta que el contexto global de marca exista.
+ * La selección vive en `BrandContext` (localStorage); aquí se valida contra
+ * la lista real y se auto-repara si el ID guardado ya no existe.
  */
 export function BrandSwitcher() {
   return (
@@ -29,9 +24,23 @@ export function BrandSwitcher() {
 }
 
 function BrandSwitcherInner() {
-  const { brands } = use(getBrands());
+  // Se vuelve a suspender cuando una mutación de marcas invalida la caché.
+  useBrandsVersion();
+  const { brands } = use(getBrandsCached());
   const { selectedId, select } = useBrand();
   const [isOpen, setIsOpen] = useState(false);
+
+  // Auto-repara una selección huérfana (marca borrada/recreada o DB
+  // reseteada): si el ID persistido no existe —o no hay selección— la
+  // primera marca disponible pasa a ser la activa.
+  useEffect(() => {
+    const first = brands[0];
+    if (first === undefined) return;
+    if (selectedId !== null && brands.some((brand) => brand.id === selectedId)) {
+      return;
+    }
+    select(first.id);
+  }, [brands, selectedId, select]);
 
   const selected =
     brands.find((brand) => brand.id === selectedId) ?? brands[0] ?? null;
