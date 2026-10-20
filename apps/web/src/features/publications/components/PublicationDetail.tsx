@@ -443,8 +443,8 @@ function TargetsInner({
       </div>
       {mediaType === "VIDEO" && (
         <p className="text-[11px] text-gray-500 dark:text-gray-400">
-          Los videos de Facebook e Instagram se publican como Reel por defecto; cambia el
-          formato a Feed si necesitas una publicación horizontal.
+          En Instagram ambos formatos se comparten al feed. En Facebook, Feed y Reel
+          usan flujos de publicación distintos.
         </p>
       )}
       {errorMsg !== "" && <p className="text-sm text-red-500 font-medium">{errorMsg}</p>}
