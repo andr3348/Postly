@@ -14,6 +14,7 @@ export interface CreatePublicationInput {
   readonly copy: string;
   readonly mediaUrl: string;
   readonly mediaType?: PublicationMediaType;
+  readonly modelText?: string;
 }
 
 /** Crea la publicación en DRAFT (ya generada por IA y editable). */
@@ -36,6 +37,7 @@ export class CreatePublicationUseCase {
       copy: input.copy,
       mediaUrl: input.mediaUrl,
       mediaType: input.mediaType,
+      modelText: input.modelText,
     });
   }
 }

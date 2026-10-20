@@ -16,6 +16,13 @@ export const createPublicationSchema = z.object({
   copy: z.string().trim().min(1).max(10000),
   mediaUrl: z.url().max(2000),
   mediaType: z.enum(['IMAGE', 'VIDEO']).optional(),
+  modelText: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .regex(/^[a-z0-9._-]+$/i, 'Modelo inválido')
+    .optional(),
 });
 
 export type CreatePublicationDto = z.infer<typeof createPublicationSchema>;

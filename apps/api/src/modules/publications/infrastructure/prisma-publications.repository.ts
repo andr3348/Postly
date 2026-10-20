@@ -45,6 +45,7 @@ export class PrismaPublicationsRepository implements PublicationsRepository {
         copy: data.copy,
         mediaUrl: data.mediaUrl,
         mediaType: data.mediaType ?? 'IMAGE',
+        modelText: data.modelText,
       },
     });
     return toDomainPublication(row);

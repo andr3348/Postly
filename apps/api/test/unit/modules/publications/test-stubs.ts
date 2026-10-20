@@ -26,7 +26,7 @@ const BASE_PUBLICATION: Publication = {
   approvedAt: null,
   originalPrompt: 'prompt',
   systemPrompt: null,
-  modelText: 'gemini-1.5-flash',
+  modelText: 'manual',
   modelMedia: null,
   tokensUsed: null,
   copy: 'copy',

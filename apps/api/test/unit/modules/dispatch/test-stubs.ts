@@ -14,7 +14,7 @@ const BASE_PUBLICATION: Publication = {
   approvedAt: new Date('2026-01-01T00:00:00Z'),
   originalPrompt: 'prompt',
   systemPrompt: null,
-  modelText: 'gemini-1.5-flash',
+  modelText: 'manual',
   modelMedia: null,
   tokensUsed: null,
   copy: 'copy',
