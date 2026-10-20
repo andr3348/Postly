@@ -136,7 +136,7 @@ model Publication {
   // Datos de la IA Generativa (NestJS)
   originalPrompt String  @db.Text
   systemPrompt   String? @db.Text
-  modelText      String  @default("gemini-1.5-flash")
+  modelText      String  @default("manual")
   modelMedia     String?
   tokensUsed     Int?
 

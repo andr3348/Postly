@@ -17,9 +17,14 @@ describe('CreatePublicationUseCase', () => {
       userId: 'user-1',
       copy: 'copy',
       mediaUrl: 'https://postly.test/m.jpg',
+      modelText: 'gemini-3.5-flash-lite',
     });
 
-    expect(publication).toMatchObject({ status: 'DRAFT', brandId: 'brand-1' });
+    expect(publication).toMatchObject({
+      status: 'DRAFT',
+      brandId: 'brand-1',
+      modelText: 'gemini-3.5-flash-lite',
+    });
   });
 
   it('throws BrandNotFoundError for an unknown brand', async () => {

@@ -62,6 +62,7 @@ export interface CreatePublicationPayload {
   readonly copy: string;
   readonly mediaUrl: string;
   readonly mediaType?: PublicationMedia;
+  readonly modelText?: string;
 }
 
 export interface UpdateDraftPayload {

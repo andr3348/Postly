@@ -117,6 +117,11 @@ ceremonia. Revisitar cuando una entidad necesite métodos
    `enableCors({ origin, credentials: true })` el dashboard (otro origen) no
    puede autenticarse con cookies. Orígenes coma-separados en `WEB_ORIGIN`
    (`apps/api/.env`).
+6. **Gemini es solo backend:** `GEMINI_API_KEY`, `GEMINI_TEXT_MODEL`
+   (default `gemini-3.8-flash`) y `GEMINI_TEXT_FALLBACK_MODEL`
+   (`gemini-3.5-flash-lite`) viven en `apps/api/.env`; el navegador nunca los
+   recibe. La generación usa `fetch` nativo, salida JSON estructurada y Zod,
+   sin SDK de Gemini.
 
 ## 4. Módulo publications (human-in-the-loop)
 
@@ -288,8 +293,8 @@ es la intención persistida (`FEED | REEL`) y `credentials` incluye
 `externalAccountId`, `accessToken` y el resto de datos ya descifrados. n8n debe
 reportar todos los targets, incluso cuando uno falle.
 
-Superficie versionada por URI (`VersioningType.URI` de Nest): solo dispatch
-lleva `v1`; el API del dashboard sigue sin versión.
+Superficie versionada por URI (`VersioningType.URI` de Nest): `dispatch` y
+`generations/text` llevan `v1`; el resto del API del dashboard sigue sin versión.
 
 Auth máquina-a-máquina: `N8nApiKeyGuard` (header `x-api-key`, comparación
 `timingSafeEqual` sobre hashes SHA-256, fail-fast sin la env). Las rutas son
@@ -335,11 +340,93 @@ Regla CLAVE: por destino solo cuenta su snapshot más reciente (sumar el
 historial duplicaría impresiones); sin impresiones el engagement es 0
 (nunca división por cero).
 
-## 9. Tests y comandos
+## 9. Módulo generation (Gemini, solo texto)
+
+Genera ideas y copy con el contexto de una marca **sin persistir nada**: no
+crea `Publication`, no escribe en la base de datos (solo lee `Brand`), no toca
+storage, fal.ai ni n8n. La respuesta se usa para prellenar el formulario; el
+flujo normal de creación de borrador sigue intacto.
+
+```text
+POST /api/v1/generations/text
+body: {
+  brandId,
+  mode: IDEAS | COPY | IMPROVE,
+  prompt?, platform?, format?, mediaType?,
+  excludeIdeas?, currentCopy?, feedback?
+}
+response: { model, tokensUsed, ideas[], variants[] }
+```
+
+Reglas de entrada: `prompt` es obligatorio en `IDEAS` y `COPY`;
+`currentCopy` es obligatorio en `IMPROVE`; `excludeIdeas` (máximo 30) se usa
+para que "Más ideas" no repita tarjetas; `brandId` inexistente → 404.
+
+- `IDEAS`: 3 tarjetas con `title`, `angle`, `hook`, `whyItWorks` y
+  `suggestedFormat`.
+- `COPY` / `IMPROVE`: 3 variantes con `copy`, `hashtags`, `cta`,
+  `mediaPrompt` y `altText`.
+- El prompt de sistema se arma con `Brand.name`, `aiTone`, `aiBrandVoice`,
+  `aiTargetAudience` y `defaultHashtags` (`application/build-brand-prompt.ts`);
+  los datos de marca son contexto, no instrucciones. Las instrucciones se
+  escriben en inglés, pero una regla explícita obliga a redactar todos los
+  valores visibles para el usuario en español neutro latinoamericano; las claves
+  JSON permanecen en inglés.
+- Gemini se llama con `responseMimeType=application/json` y un
+  `responseSchema` por modo; la respuesta se valida con Zod y se rechaza si no
+  cumple.
+- El panel conserva el `model` real de cada variante (incluido el fallback); al
+  crear el borrador lo envía como `modelText` en `POST /publications`. Si el
+  texto se escribe manualmente, la BD guarda `"manual"` en vez de atribuirlo a
+  un modelo.
+- Modelo primario `gemini-3.8-flash`; si responde 404/429/5xx o una
+  respuesta inválida reintentable, se reintenta una vez con
+  `gemini-3.5-flash-lite`. `thinkingLevel=low`, timeout 20 s y máximo
+  4096 tokens de salida. La API key viaja en `x-goog-api-key`, nunca en query.
+- Errores estructurados: el filtro responde
+  `{ statusCode, code, provider, model?, message, retryable }` y el frontend usa
+  `retryable` para mostrar u ocultar el botón **Reintentar**. Códigos:
+  - No reintentables: `GEMINI_NOT_CONFIGURED`, `GEMINI_AUTH_FAILED` y
+    `GEMINI_MODEL_NOT_FOUND` (503); `GEMINI_SAFETY_BLOCKED` (422).
+  - Reintentables: `GEMINI_QUOTA_EXCEEDED` (429); `GEMINI_OVERLOADED`,
+    `GEMINI_UNAVAILABLE`, `GEMINI_UNREACHABLE` y `GEMINI_UNKNOWN` (503);
+    `GEMINI_UPSTREAM_ERROR` e `GEMINI_INVALID_RESPONSE` (502); `GEMINI_TIMEOUT`
+    (504).
+  - Validación Zod → 400, marca inexistente → 404, sin sesión → 401.
+  - Los mensajes son seguros para el usuario; el detalle técnico de Gemini se
+    registra en el log del servidor, nunca se devuelve tal cual.
+
+Ejemplo de respuesta:
+
+```json
+{
+  "statusCode": 429,
+  "code": "GEMINI_QUOTA_EXCEEDED",
+  "provider": "GEMINI",
+  "model": "gemini-3.5-flash-lite",
+  "message": "Gemini alcanzó su límite de uso o cuota. Espera unos minutos y vuelve a intentarlo.",
+  "retryable": true
+}
+```
+
+Límite de esta fase: `Publication.mediaUrl` es obligatorio, así que la media se
+sigue agregando manualmente en el formulario. La fase 2 (fal.ai + storage)
+persistirá el `DRAFT` prellenado.
+
+Nota de privacidad: en el free tier de Gemini, Google puede usar el contenido
+enviado para mejorar sus productos. Para demos/tests usar datos sintéticos y no
+pegar información confidencial de la empresa.
+
+## 10. Tests y comandos
 
 - Unitarios en `test/unit/` como espejo de `src/` (nunca `.spec` junto al código);
   casos de uso con puertos stub tipados, sin DB. E2E en `test/*.e2e-spec.ts`
   (requieren `docker compose up -d`; secretos de prueba en `vitest.config.e2e.ts`).
+- Generación de texto: 19 unitarios en `test/unit/modules/generation/` (prompt,
+  parser, caso de uso y adaptador Gemini con `fetch` mockeado) + e2e en
+  `test/generation.e2e-spec.ts` (stub del puerto LLM: auth, `v1`, validación Zod,
+  errores reintentables/no reintentables y verificación de que no se crean
+  publicaciones).
 
 ```bash
 pnpm --filter api run start:dev     # backend en watch

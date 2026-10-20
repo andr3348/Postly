@@ -49,7 +49,8 @@ User  1 ──N Publication (como aprobador)
   trazabilidad de IA. Guarda `originalPrompt`
   (lo que escribió marketing), `systemPrompt` (plantilla de tono por canal,
   derivable de `Brand.aiTone`/`aiBrandVoice`),
-  `modelText` (default `"gemini-1.5-flash"`) / `modelMedia`, `tokensUsed` (base del cálculo
+  `modelText` (`"manual"` si no intervino IA; si no, el modelo real que devolvió
+  Gemini, incluido el fallback) / `modelMedia`, `tokensUsed` (base del cálculo
   B/C), `copy` + `mediaUrl` (**obligatorios**: DRAFT = ya generado por IA y
   editable; el prompt pre-generación vive en el frontend, no en BD) + `mediaType` (`IMAGE` | `VIDEO`),
   estado (`DRAFT → PENDING_APPROVAL → SCHEDULED → PROCESSING → PUBLISHED`, con

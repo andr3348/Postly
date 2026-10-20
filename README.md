@@ -106,7 +106,7 @@ por rol (endurecimiento pendiente).
 | Backend         | NestJS 12, `@nestjs/jwt` + `argon2` + `zod`, `vitest`, `oxlint`       |
 | Datos           | Prisma **7.10.0** (NO v8 RC), PostgreSQL **17-alpine**                |
 | Frontend        | Next.js 16.3.5, React 19, Tailwind 4 (Shadcn + Recharts instalados)  |
-| Orquestación/IA | n8n (workflow FB/IG activo) + APIs LinkedIn/OpenAI/Claude/difusión — LinkedIn/IA planificados |
+| Orquestación/IA | n8n (workflow FB/IG activo) + Gemini texto (IDEAS/COPY/IMPROVE) + fal.ai/almacenamiento en fase 2 — LinkedIn/TikTok planificados |
 
 ## 5. Estructura
 
@@ -130,6 +130,9 @@ docker compose up -d
 export JWT_ACCESS_SECRET="$(openssl rand -hex 32)"
 export JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
 
+# IA de texto (opcional para levantar; requerida para el panel Gemini):
+# agregar GEMINI_API_KEY en apps/api/.env (ver apps/api/.env.example)
+
 pnpm dev                            # api + web
 pnpm check-types && pnpm lint       # verificación
 pnpm --filter api run test:e2e      # e2e (DB levantada)
@@ -142,14 +145,15 @@ pnpm --filter api run test:e2e      # e2e (DB levantada)
       Falta: diagramas UML (casos de uso, clases, despliegue, secuencia).
 - [ ] Obj. 3: backend — campañas, persistencia, LLMs/difusión.
       Hecho: auth, marcas, cuentas conectadas (+ verificación real), publications
-      con targets/métricas, superficie de despacho n8n, resumen analítico.
-      Falta: generación con IA (LLM + fal.ai) — ver TODO §7.1.
+      con targets/métricas, superficie de despacho n8n, resumen analítico y
+      generación de texto con Gemini (`POST /api/v1/generations/text`).
+      Falta: generación de media (fal.ai) + almacenamiento y persistencia del
+      DRAFT prellenado — ver TODO §7.1.
 - [x] Obj. 4: dashboard — prompt → preview → aprobación + Analytics/Insights.
-      Hecho: Marcas, Cuentas y Publicaciones (bandeja, crear, detalle con flujo
-      DRAFT → … → PUBLICADO y métricas) + vista Analytics — contra los contratos
-      reales (`GET /analytics/summary` + CORS con credenciales).
-      Falta: Insights por IA (capa b de `docs/frontend.md` §5) — depende de la
-      generación con IA (TODO §7.1.3).
+      Hecho: Marcas, Cuentas y Publicaciones (bandeja, crear con asistente IA,
+      detalle con flujo DRAFT → … → PUBLICADO y métricas) + vista Analytics —
+      contra los contratos reales (`GET /analytics/summary` + CORS con credenciales).
+      Falta: Insights por IA (capa b de `docs/frontend.md` §5).
 - [ ] Obj. 5: n8n — workflow `Post Content` activo para Facebook/Instagram
       (Feed/Reel, cron de 5 min + `publish-now`), con claim atómico y reporte
       por target (ver `docs/n8n.md`). Pendientes: LinkedIn/TikTok y despliegue
@@ -166,16 +170,20 @@ pnpm --filter api run test:e2e      # e2e (DB levantada)
    por rol en `/brands` y `/brands/:id/accounts` (módulo connected-accounts);
    paginación de la bandeja de publicaciones; reaper de estados `PROCESSING`;
    cambio de contraseña; Swagger.
-3. [ ] **Generación IA end-to-end** (diseñada en BD, aún sin implementar —
-   *nada existe en BD antes de generar*): un solo `POST /generations` con el
-   prompt de marketing → módulo `generation/` con puertos `LlmTextGenerator`
-   (texto, default doc: Gemini) + `MediaGenerator` (fal.ai: imagen FLUX /
-   video Kling) → se persiste el DRAFT **pre-llenado** (copy, mediaUrl,
-   `systemPrompt` desde `Brand.aiTone/aiBrandVoice/aiTargetAudience`,
-   `modelText`/`modelMedia`/`tokensUsed`) y el usuario revisa/edita en el
-   detalle. Asset final copiado a **R2** (decisión Cloudflare: cero egress).
-   Botón "✨ Generar con IA" en `/dashboard/publications/new`; el form manual
-   queda como fallback y n8n sigue siendo solo despacho.
+3. [x] **Generación de texto con Gemini (MVP)** — `POST /api/v1/generations/text`
+   (`IDEAS | COPY | IMPROVE`) con contexto de `Brand`, JSON estructurado, Zod y
+   fallback `gemini-3.8-flash` → `gemini-3.5-flash-lite`. Panel en
+   `/dashboard/publications/new` con "Más ideas" acumulativo, "Desarrollar" y
+   "Usar este texto"; la generación no persiste, pero al crear el `DRAFT` se
+   audita el `modelText` real (incluido el fallback). Los errores de Gemini se
+   explican por causa y solo ofrecen **Reintentar** cuando son reintentables. La
+   media sigue manual.
+   [ ] **Fase 2 — media + DRAFT prellenado:** `MediaGenerator` (fal.ai: imagen
+   FLUX / video Kling), storage (`MediaStorage`: Cloudinary en desarrollo;
+   producción a definir — Supabase Pro/S3), se persiste el `DRAFT` con copy,
+   `mediaUrl`, `modelMedia`/`tokensUsed` y el usuario revisa/edita antes de
+   programar. El form manual queda como fallback y n8n sigue siendo solo
+   despacho.
 
 ## 8. Tesis — datos para capítulos V y VI
 

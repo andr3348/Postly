@@ -10,12 +10,25 @@ import {
   type UpdateDraftFormInput,
 } from "@/features/publications/schemas";
 
+export interface PublicationFormFill {
+  /** Texto que reemplaza el campo de copy (incluye hashtags si aplica). */
+  readonly copy: string;
+  /** Brief con el que se generó, para dejarlo como contexto. */
+  readonly originalPrompt?: string;
+  /** Modelo real que generó el texto; no se muestra, solo se audita al guardar. */
+  readonly modelText?: string;
+  /** Cambia en cada uso para que el formulario aplique el nuevo texto. */
+  readonly nonce: number;
+}
+
 interface PublicationFormProps {
   /** `create` parsea con `createPublicationFormSchema`; `edit` con `updateDraftFormSchema`. */
   readonly mode: "create" | "edit";
   /** Solo se usa al crear: va en el parse y falla si está vacío. */
   readonly brandId?: string;
   readonly initial?: Partial<Pick<CreatePublicationFormInput, "originalPrompt" | "copy" | "mediaUrl" | "mediaType">>;
+  /** Prellenado externo (por ejemplo, desde el asistente IA). */
+  readonly fill?: PublicationFormFill;
   readonly submitLabel: string;
   /** El caller hace la mutación (y la invalidación del caché). */
   readonly onSubmit: (data: CreatePublicationFormInput | UpdateDraftFormInput) => Promise<unknown>;
@@ -26,6 +39,7 @@ interface PublicationFormProps {
 export function PublicationForm({
   mode,
   initial,
+  fill,
   submitLabel,
   onSubmit,
   onCancel,
@@ -38,6 +52,19 @@ export function PublicationForm({
   const [mediaType, setMediaType] = useState<PublicationMedia>(initial?.mediaType ?? "IMAGE");
   const [errorMsg, setErrorMsg] = useState("");
   const [saving, setSaving] = useState(false);
+  const [modelText, setModelText] = useState<string | undefined>(undefined);
+  const [appliedFillNonce, setAppliedFillNonce] = useState<number | undefined>(undefined);
+
+  // Ajuste de estado al cambiar una prop (patrón de React, sin useEffect):
+  // solo reemplaza copy y contexto; mediaUrl y mediaType no se tocan.
+  if (fill !== undefined && fill.nonce !== appliedFillNonce) {
+    setAppliedFillNonce(fill.nonce);
+    setCopy(fill.copy);
+    setModelText(fill.modelText);
+    if (fill.originalPrompt !== undefined) {
+      setOriginalPrompt(fill.originalPrompt);
+    }
+  }
 
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
@@ -48,6 +75,7 @@ export function PublicationForm({
       copy: copy,
       mediaUrl: emptyToUndefined(mediaUrl),
       mediaType: mediaType,
+      modelText: modelText,
     };
     const parsed =
       mode === "create"

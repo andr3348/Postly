@@ -75,10 +75,35 @@ describe('Publications (e2e)', () => {
         originalPrompt: 'Post e2e',
         copy: 'Copy e2e',
         mediaUrl: 'https://postly.test/e2e.jpg',
+        modelText: 'gemini-3.5-flash-lite',
       })
       .expect(201);
-    expect(created.body).toMatchObject({ status: 'DRAFT', brandId });
+    expect(created.body).toMatchObject({
+      status: 'DRAFT',
+      brandId,
+      modelText: 'gemini-3.5-flash-lite',
+    });
     publicationId = created.body.id as string;
+
+    const stored = await prisma.client.publication.findUnique({
+      where: { id: publicationId },
+      select: { modelText: true },
+    });
+    expect(stored?.modelText).toBe('gemini-3.5-flash-lite');
+
+    // Sin modelo declarado, el default de la BD marca el borrador como manual.
+    const manual = await agent
+      .post('/api/publications')
+      .send({
+        brandId,
+        copy: 'Copy manual',
+        mediaUrl: 'https://postly.test/manual.jpg',
+      })
+      .expect(201);
+    expect(manual.body.modelText).toBe('manual');
+    await prisma.client.publication.delete({
+      where: { id: manual.body.id as string },
+    });
 
     // Sin canales no se puede enviar: 400.
     await agent.post(`/api/publications/${publicationId}/submit`).expect(400);

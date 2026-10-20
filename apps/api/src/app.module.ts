@@ -12,6 +12,7 @@ import { BrandModule } from './modules/brand/brand.module.js';
 import { PublicationsModule } from './modules/publications/publications.module.js';
 import { ConnectedAccountsModule } from './modules/connected-accounts/connected-accounts.module.js';
 import { DispatchModule } from './modules/dispatch/dispatch.module.js';
+import { GenerationModule } from './modules/generation/generation.module.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { DispatchModule } from './modules/dispatch/dispatch.module.js';
     PublicationsModule,
     ConnectedAccountsModule,
     DispatchModule,
+    GenerationModule,
     // Configuración propia de Nest (`ConfigService`): carga `apps/api/.env`
     // sin `dotenv` directo. Global para no importar en cada módulo.
     ConfigModule.forRoot({ isGlobal: true, envFilePath: resolveApiEnvFilePath(), cache: true }),
