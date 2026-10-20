@@ -8,7 +8,7 @@
 >
 > Este README resume el proyecto y cómo ponerlo en marcha. El detalle vive en
 > [`docs/`](docs/): [`backend.md`](docs/backend.md) · [`frontend.md`](docs/frontend.md)
-> · [`database.md`](docs/database.md). Si algo contradice a esos docs, los docs mandan.
+> · [`database.md`](docs/database.md) · [`n8n.md`](docs/n8n.md). Si algo contradice a esos docs, los docs mandan.
 
 ## 1. El problema
 
@@ -46,6 +46,7 @@ MARKETING                          ADMIN                              n8n (x-api
    |-- crear: POST /publications     |                                   |
    |   --> DRAFT (generado, editable)|                                   |
    |-- canales: POST /:id/targets    |                                   |
+   |   (platform + format FEED/REEL) |                                   |
    |   --> (409 si duplica)          |                                   |
    |-- enviar: POST /:id/submit      |                                   |
    |   --> PENDING_APPROVAL          |                                   |
@@ -71,7 +72,8 @@ MARKETING                          ADMIN                              n8n (x-api
    |                                 |                                   |    nada se reportó (si no, FAILED);
    |                                 |                                   |    400 sin credenciales)
    |                                 |                                   |-- publica en cada red
-   |                                 |                                   |   (token descifrado)
+   |                                 |                                   |   (token descifrado; Feed/Reel
+   |                                 |                                   |    según target.format)
    |                                 |                                   |-- reporta:
    |                                 |                                   |   POST /api/v1/dispatch/targets/:id/report
    |                                 |                                   |   --> SUCCESS/FAILED + métricas
