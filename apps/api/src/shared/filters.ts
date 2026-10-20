@@ -8,7 +8,9 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
+  AiGenerationError,
   BrandNotFoundError,
   ConnectedAccountNotFoundError,
   EmailAlreadyTakenError,
@@ -47,9 +49,22 @@ import {
   ForbiddenError,
   MissingConnectedAccountError,
   InvalidAccountCredentialsError,
+  AiGenerationError,
 )
 export class DomainExceptionFilter implements ExceptionFilter {
-  catch(exception: Error, _host: ArgumentsHost): void {
+  catch(exception: Error, host: ArgumentsHost): void {
+    if (exception instanceof AiGenerationError) {
+      const response = host.switchToHttp().getResponse<Response>();
+      response.status(exception.httpStatus).json({
+        statusCode: exception.httpStatus,
+        code: exception.code,
+        provider: exception.provider,
+        ...(exception.model !== null ? { model: exception.model } : {}),
+        message: exception.message,
+        retryable: exception.retryable,
+      });
+      return;
+    }
     if (exception instanceof EmailAlreadyTakenError) {
       throw new ConflictException(exception.message);
     }

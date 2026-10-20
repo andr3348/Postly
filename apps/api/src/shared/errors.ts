@@ -107,3 +107,75 @@ export class InvalidAccountCredentialsError extends Error {
     this.name = 'InvalidAccountCredentialsError';
   }
 }
+
+export type AiGenerationErrorCode =
+  | 'GEMINI_NOT_CONFIGURED'
+  | 'GEMINI_AUTH_FAILED'
+  | 'GEMINI_MODEL_NOT_FOUND'
+  | 'GEMINI_QUOTA_EXCEEDED'
+  | 'GEMINI_OVERLOADED'
+  | 'GEMINI_UNAVAILABLE'
+  | 'GEMINI_TIMEOUT'
+  | 'GEMINI_UNREACHABLE'
+  | 'GEMINI_UPSTREAM_ERROR'
+  | 'GEMINI_SAFETY_BLOCKED'
+  | 'GEMINI_INVALID_RESPONSE'
+  | 'GEMINI_UNKNOWN';
+
+export interface AiGenerationErrorOptions {
+  readonly code: AiGenerationErrorCode;
+  readonly message: string;
+  readonly retryable: boolean;
+  readonly httpStatus?: number;
+  readonly model?: string | null;
+}
+
+/**
+ * Error base de la capa de IA. El filtro HTTP usa estos metadatos para que el
+ * frontend distinga causas y sepa si tiene sentido ofrecer "Reintentar".
+ */
+export class AiGenerationError extends Error {
+  readonly code: AiGenerationErrorCode;
+  readonly httpStatus: number;
+  readonly retryable: boolean;
+  readonly model: string | null;
+  readonly provider = 'GEMINI' as const;
+
+  constructor(
+    options: AiGenerationErrorOptions & { readonly httpStatus: number },
+  ) {
+    super(options.message);
+    this.name = 'AiGenerationError';
+    this.code = options.code;
+    this.httpStatus = options.httpStatus;
+    this.retryable = options.retryable;
+    this.model = options.model ?? null;
+  }
+}
+
+export class AiGenerationUnavailableError extends AiGenerationError {
+  constructor(options: Omit<AiGenerationErrorOptions, 'httpStatus'> & {
+    readonly httpStatus?: number;
+  }) {
+    super({ ...options, httpStatus: options.httpStatus ?? 503 });
+    this.name = 'AiGenerationUnavailableError';
+  }
+}
+
+export class AiGenerationInvalidResponseError extends AiGenerationError {
+  constructor(options: Omit<AiGenerationErrorOptions, 'httpStatus'> & {
+    readonly httpStatus?: number;
+  }) {
+    super({ ...options, httpStatus: options.httpStatus ?? 502 });
+    this.name = 'AiGenerationInvalidResponseError';
+  }
+}
+
+export class AiGenerationRejectedError extends AiGenerationError {
+  constructor(options: Omit<AiGenerationErrorOptions, 'httpStatus'> & {
+    readonly httpStatus?: number;
+  }) {
+    super({ ...options, httpStatus: options.httpStatus ?? 422 });
+    this.name = 'AiGenerationRejectedError';
+  }
+}
