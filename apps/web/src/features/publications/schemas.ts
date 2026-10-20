@@ -45,6 +45,12 @@ export const createPublicationFormSchema = z.object({
     .max(10000, "El texto es demasiado largo"),
   mediaUrl: z.url("URL inválida").max(2000),
   mediaType: publicationMediaSchema.optional(),
+  modelText: z
+    .string()
+    .trim()
+    .max(100, "Modelo inválido")
+    .regex(/^[a-z0-9._-]+$/i, "Modelo inválido")
+    .optional(),
 });
 
 export type CreatePublicationFormInput = z.infer<
