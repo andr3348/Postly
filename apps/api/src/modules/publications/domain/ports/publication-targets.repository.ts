@@ -1,4 +1,9 @@
-import type { PublicationTarget, TargetPlatform, TargetStatus } from '../target.entity.js';
+import type {
+  PublicationTarget,
+  TargetFormat,
+  TargetPlatform,
+  TargetStatus,
+} from '../target.entity.js';
 
 /** Patch parcial de un destino (lo escribe n8n al reportar). */
 export interface UpdateTargetData {
@@ -16,7 +21,12 @@ export interface UpdateTargetData {
 export interface PublicationTargetsRepository {
   findById(id: string): Promise<PublicationTarget | null>;
   findByPublication(publicationId: string): Promise<PublicationTarget[]>;
-  add(publicationId: string, platform: TargetPlatform): Promise<PublicationTarget>;
+  add(
+    publicationId: string,
+    platform: TargetPlatform,
+    format: TargetFormat,
+  ): Promise<PublicationTarget>;
+  updateFormat(id: string, format: TargetFormat): Promise<PublicationTarget>;
   remove(publicationId: string, platform: TargetPlatform): Promise<boolean>;
   updateTarget(id: string, data: UpdateTargetData): Promise<PublicationTarget>;
 }

@@ -12,6 +12,7 @@ import { ListPublicationsUseCase } from './application/list-publications.use-cas
 import { AddTargetUseCase } from './application/add-target.use-case.js';
 import { ListTargetsUseCase } from './application/list-targets.use-case.js';
 import { RemoveTargetUseCase } from './application/remove-target.use-case.js';
+import { UpdateTargetFormatUseCase } from './application/update-target-format.use-case.js';
 import { RecordMetricUseCase } from './application/record-metric.use-case.js';
 import { ListMetricsUseCase } from './application/list-metrics.use-case.js';
 import { DISPATCH_NOTIFIER } from './domain/ports/dispatch-notifier.port.js';
@@ -43,6 +44,7 @@ import { PublicationsController } from './presentation/publications.controller.j
     RejectPublicationUseCase,
     AddTargetUseCase,
     ListTargetsUseCase,
+    UpdateTargetFormatUseCase,
     RemoveTargetUseCase,
     RecordMetricUseCase,
     ListMetricsUseCase,

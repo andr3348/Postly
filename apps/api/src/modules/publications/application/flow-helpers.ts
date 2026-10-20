@@ -1,4 +1,9 @@
-import { ForbiddenError, PublicationNotFoundError, PublicationTargetNotFoundError } from '../../../shared/errors.js';
+import {
+  ForbiddenError,
+  InvalidPublicationTransitionError,
+  PublicationNotFoundError,
+  PublicationTargetNotFoundError,
+} from '../../../shared/errors.js';
 import { isAdmin, isOwner, type Publication, type Requester } from '../domain/publication.entity.js';
 import type { TargetPlatform, PublicationTarget } from '../domain/target.entity.js';
 import type { PublicationsRepository } from '../domain/ports/publications.repository.js';
@@ -25,6 +30,13 @@ export async function loadForUpdate(
 export function requireOwnerOrAdmin(publication: Publication, requester: Requester): void {
   if (!isOwner(publication, requester) && !isAdmin(requester)) {
     throw new ForbiddenError('Only the author or an admin can modify this publication');
+  }
+}
+
+/** Los canales solo se editan antes de programar. */
+export function requireTargetsEditable(publication: Publication): void {
+  if (publication.status !== 'DRAFT' && publication.status !== 'PENDING_APPROVAL') {
+    throw new InvalidPublicationTransitionError(publication.status, 'edit targets');
   }
 }
 

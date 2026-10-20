@@ -3,14 +3,16 @@
 Este documento detalla los pasos y configuraciones implementadas durante la creación del esquema inicial y la población de datos (seed).
 
 ## Esquema de Prisma (`prisma/schema.prisma`)
-Se definieron los modelos core (`User`, `Brand`, `ConnectedAccount`, `Publication`, `PublicationTarget`, `TargetMetric`) y sus respectivos enumeradores (`Role`, `MediaType`, `PublicationStatus`, `Platform`, `PlatformStatus`, `AccountStatus`).
+Se definieron los modelos core (`User`, `Brand`, `ConnectedAccount`, `Publication`, `PublicationTarget`, `TargetMetric`) y sus respectivos enumeradores (`Role`, `MediaType`, `PublicationFormat`, `PublicationStatus`, `Platform`, `PlatformStatus`, `AccountStatus`).
+
+`PublicationTarget.format` almacena `PublicationFormat` (`FEED` | `REEL`). El default de la BD es `FEED` (backfill de filas existentes); al adjuntar un canal, el API usa `REEL` para video de Facebook/Instagram y `FEED` para el resto.
 
 **Consideraciones importantes sobre Prisma 7:**
 - **Driver Adapter:** A partir de Prisma 7, ya no se soporta el atributo `url = env("DATABASE_URL")` directamente dentro del bloque `datasource db` en el `schema.prisma`. La configuración se maneja mediante adaptadores explícitos (en nuestro caso, `PrismaPg`).
 - **Generación de Cliente:** Para mantener la compatibilidad con el resto del monorepo, el cliente de Prisma está configurado para generarse en el directorio local:
   ```prisma
   generator client {
-    provider = "prisma-client-js"
+    provider = "prisma-client"
     output   = "../src/generated/prisma"
   }
   ```

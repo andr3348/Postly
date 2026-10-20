@@ -18,6 +18,7 @@ describe('ListMetricsUseCase', () => {
           id: 'target-1',
           publicationId: BASE_PUBLICATION.id,
           platform: 'LINKEDIN',
+          format: 'FEED',
           status: 'SUCCESS',
           externalPostId: null,
           externalPostUrl: null,

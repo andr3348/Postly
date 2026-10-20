@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../shared/prisma/prisma.service.js';
-import type { PublicationTarget, TargetPlatform, TargetStatus } from '../domain/target.entity.js';
+import type {
+  PublicationTarget,
+  TargetFormat,
+  TargetPlatform,
+  TargetStatus,
+} from '../domain/target.entity.js';
 import type { PublicationTargetsRepository, UpdateTargetData } from '../domain/ports/publication-targets.repository.js';
 
 /** Adaptador Prisma de `PublicationTargetsRepository`. */
@@ -16,9 +21,21 @@ export class PrismaPublicationTargetsRepository implements PublicationTargetsRep
     return rows.map(toDomainTarget);
   }
 
-  async add(publicationId: string, platform: TargetPlatform): Promise<PublicationTarget> {
+  async add(
+    publicationId: string,
+    platform: TargetPlatform,
+    format: TargetFormat,
+  ): Promise<PublicationTarget> {
     const row = await this.prisma.client.publicationTarget.create({
-      data: { publicationId, platform },
+      data: { publicationId, platform, format },
+    });
+    return toDomainTarget(row);
+  }
+
+  async updateFormat(id: string, format: TargetFormat): Promise<PublicationTarget> {
+    const row = await this.prisma.client.publicationTarget.update({
+      where: { id },
+      data: { format },
     });
     return toDomainTarget(row);
   }
@@ -54,6 +71,7 @@ interface TargetRow {
   readonly id: string;
   readonly publicationId: string;
   readonly platform: string;
+  readonly format: string;
   readonly status: string;
   readonly externalPostId: string | null;
   readonly externalPostUrl: string | null;
@@ -68,6 +86,7 @@ function toDomainTarget(row: TargetRow): PublicationTarget {
     id: row.id,
     publicationId: row.publicationId,
     platform: toDomainPlatform(row.platform),
+    format: toDomainFormat(row.format),
     status: toDomainStatus(row.status),
     externalPostId: row.externalPostId,
     externalPostUrl: row.externalPostUrl,
@@ -90,4 +109,11 @@ function toDomainStatus(value: string): TargetStatus {
     return value;
   }
   throw new Error(`[publications] Unknown target status in database: ${value}`);
+}
+
+function toDomainFormat(value: string): TargetFormat {
+  if (value === 'FEED' || value === 'REEL') {
+    return value;
+  }
+  throw new Error(`[publications] Unknown target format in database: ${value}`);
 }

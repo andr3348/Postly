@@ -1,10 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   InvalidPublicationTransitionError,
+  InvalidTargetFormatError,
   PublicationWithoutTargetsError,
 } from '../../../shared/errors.js';
 import type { Publication } from '../domain/publication.entity.js';
 import { canTransition } from '../domain/publication.entity.js';
+import { isTargetFormatValid } from '../domain/target.entity.js';
 import {
   PUBLICATIONS_REPOSITORY,
   type PublicationsRepository,
@@ -32,6 +34,13 @@ export class SubmitPublicationUseCase {
     const targets = await this.targets.findByPublication(input.id);
     if (targets.length === 0) {
       throw new PublicationWithoutTargetsError(input.id);
+    }
+    for (const target of targets) {
+      if (!isTargetFormatValid(publication.mediaType, target.platform, target.format)) {
+        throw new InvalidTargetFormatError(
+          `${target.format} is not valid for ${publication.mediaType} content on ${target.platform}`,
+        );
+      }
     }
     return this.publications.update(input.id, { status: 'PENDING_APPROVAL' });
   }

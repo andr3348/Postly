@@ -1,11 +1,16 @@
 import {
   ForbiddenError,
   InvalidPublicationTransitionError,
+  InvalidTargetFormatError,
   PublicationNotFoundError,
   PublicationTargetAlreadyAttachedError,
 } from '../../../../src/shared/errors.js';
 import { AddTargetUseCase } from '../../../../src/modules/publications/application/add-target.use-case.js';
-import type { TargetPlatform } from '../../../../src/modules/publications/domain/target.entity.js';
+import type { PublicationMediaType } from '../../../../src/modules/publications/domain/publication.entity.js';
+import type {
+  TargetFormat,
+  TargetPlatform,
+} from '../../../../src/modules/publications/domain/target.entity.js';
 import {
   ADMIN,
   BASE_PUBLICATION,
@@ -16,16 +21,22 @@ import {
 } from './test-stubs.js';
 
 describe('AddTargetUseCase', () => {
-  function arrange(status: typeof BASE_PUBLICATION.status, platforms: TargetPlatform[]) {
+  function arrange(
+    status: typeof BASE_PUBLICATION.status,
+    platforms: TargetPlatform[],
+    mediaType: PublicationMediaType = 'IMAGE',
+  ) {
     const publications = stubPublicationsRepository({
-      findById: async () => ({ ...BASE_PUBLICATION, status }),
+      findById: async () => ({ ...BASE_PUBLICATION, status, mediaType }),
     });
+    const targetFormat: TargetFormat = 'FEED';
     const targets = stubPublicationTargetsRepository({
       findByPublication: async () =>
         platforms.map((platform, index) => ({
           id: `target-${index}`,
           publicationId: BASE_PUBLICATION.id,
           platform,
+          format: targetFormat,
           status: 'PENDING' as const,
           externalPostId: null,
           externalPostUrl: null,
@@ -45,7 +56,50 @@ describe('AddTargetUseCase', () => {
       requester: MARKETING,
     });
 
-    expect(target).toMatchObject({ platform: 'LINKEDIN', status: 'PENDING' });
+    expect(target).toMatchObject({ platform: 'LINKEDIN', format: 'FEED', status: 'PENDING' });
+  });
+
+  it('defaults video targets on Facebook/Instagram to REEL', async () => {
+    const target = await arrange('DRAFT', [], 'VIDEO').execute({
+      publicationId: BASE_PUBLICATION.id,
+      platform: 'FACEBOOK',
+      requester: MARKETING,
+    });
+
+    expect(target.format).toBe('REEL');
+  });
+
+  it('accepts an explicit FEED video target', async () => {
+    const target = await arrange('DRAFT', [], 'VIDEO').execute({
+      publicationId: BASE_PUBLICATION.id,
+      platform: 'INSTAGRAM',
+      format: 'FEED',
+      requester: MARKETING,
+    });
+
+    expect(target.format).toBe('FEED');
+  });
+
+  it('rejects REEL on an image publication', async () => {
+    await expect(
+      arrange('DRAFT', []).execute({
+        publicationId: BASE_PUBLICATION.id,
+        platform: 'FACEBOOK',
+        format: 'REEL',
+        requester: MARKETING,
+      }),
+    ).rejects.toBeInstanceOf(InvalidTargetFormatError);
+  });
+
+  it('rejects REEL on a platform without Reels support', async () => {
+    await expect(
+      arrange('DRAFT', [], 'VIDEO').execute({
+        publicationId: BASE_PUBLICATION.id,
+        platform: 'LINKEDIN',
+        format: 'REEL',
+        requester: MARKETING,
+      }),
+    ).rejects.toBeInstanceOf(InvalidTargetFormatError);
   });
 
   it('rejects a duplicated channel with 409 semantics', async () => {

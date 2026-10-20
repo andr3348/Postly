@@ -13,6 +13,7 @@ const SUCCESS_TARGET = {
   id: 'target-1',
   publicationId: BASE_PUBLICATION.id,
   platform: 'LINKEDIN' as const,
+  format: 'FEED' as const,
   status: 'SUCCESS' as const,
   externalPostId: 'urn:li:share:1',
   externalPostUrl: null,

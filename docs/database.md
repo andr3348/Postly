@@ -68,11 +68,17 @@ User  1 ──N Publication (como aprobador)
   Índice `[brandId, status]`.
 - `PublicationTarget` — publicación omnicanal: una fila por plataforma
   (`FACEBOOK` | `INSTAGRAM` | `LINKEDIN` | `TIKTOK`), con estado propio
-  (`PENDING` | `SUCCESS` | `FAILED`), `externalPostId`/`externalPostUrl` de la
-  red, y `errorMessage` para reintentos. Unicidad `[publicationId, platform]`:
-  una misma pieza no se publica dos veces en la misma red. Nuevo `publishedAt`
-  (cuándo confirmó cada red) e índice `[platform, status]` (reintentos de n8n
-  por plataforma).
+  (`PENDING` | `SUCCESS` | `FAILED`), `format` (`PublicationFormat`: `FEED` |
+  `REEL`, default `FEED`), `externalPostId`/`externalPostUrl` de la red, y
+  `errorMessage` para reintentos. El formato vive en el target, no en la
+  publicación: una misma pieza puede ser Facebook Feed + Instagram Reel.
+  Unicidad `[publicationId, platform]`: una misma pieza no se publica dos veces
+  en la misma red. Nuevo `publishedAt` (cuándo confirmó cada red) e índice
+  `[platform, status]` (reintentos de n8n por plataforma). En el API/dominio el
+  tipo se llama `TargetFormat`; el enum de Prisma es `PublicationFormat`.
+  La BD usa `FEED` como default para el backfill; al adjuntar un target, el API
+  aplica `REEL` para video de Facebook/Instagram y `FEED` para el resto.
+  `REEL` exige `VIDEO` y solo es válido en Facebook/Instagram.
 - `TargetMetric` — snapshots de métricas por target (`impressions`, `likes`,
   `comments`, `shares`, `clicks`, `capturedAt`). La tasa de engagement se
   **calcula** (`(likes+comments+shares)/impressions*100`), no se almacena. Alimenta la pestaña
@@ -90,8 +96,8 @@ contexto IA por marca ✓, trazabilidad de
 prompts/modelos/tokens ✓, flujo de estados para n8n (con aprobación
 `PENDING_APPROVAL` y `dispatchedAt`) ✓, tokens OAuth por marca y plataforma
 con ciclo de vida ✓,
-publicación por canal con reintentos (`status` + `errorMessage`) ✓, auditoría de
-aprobación ✓, métricas para Analytics ✓.
+publicación por canal con reintentos (`status` + `errorMessage`) ✓, formato
+Feed/Reel por destino ✓, auditoría de aprobación ✓, métricas para Analytics ✓.
 
 **Decisión (resuelta):** `copy`/`mediaUrl` son **obligatorios** — el enum lo
 confirma: DRAFT = "creado o generado por IA, editable", es decir, la fila solo
@@ -105,6 +111,9 @@ en este entorno). Requirió reset en dev (filas seed vs. `brandId` requerido).
 + `prisma/migrations/20260927170741_draft_content_required/` (`copy`/`mediaUrl`
 a NOT NULL, SQL manual de 2 líneas; requirió backfill de la fila DRAFT seed y
 `migrate resolve --rolled-back` tras el primer intento fallido).
++ `prisma/migrations/20261020144054_add_publication_format_to_targets/`
+  (`PublicationFormat` + `PublicationTarget.format` NOT NULL default `FEED`;
+  los targets existentes quedan `FEED` por el default).
 El seed deja 1 admin (hash argon2id real desde `SEED_ADMIN_*`: único bootstrap
 del rol ADMIN, pues `register` siempre crea MARKETING) + 1 marca + 1 usuario
 marketing (hash real desde `SEED_MARKETING_PASSWORD`) + 1 publicación PUBLISHED

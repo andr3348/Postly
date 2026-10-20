@@ -49,11 +49,20 @@ export const targetPlatformSchema = z.enum([
   'TIKTOK',
 ]);
 
+export const targetFormatSchema = z.enum(['FEED', 'REEL']);
+
 export const addTargetSchema = z.object({
   platform: targetPlatformSchema,
+  format: targetFormatSchema.optional(),
 });
 
 export type AddTargetDto = z.infer<typeof addTargetSchema>;
+
+export const updateTargetFormatSchema = z.object({
+  format: targetFormatSchema,
+});
+
+export type UpdateTargetFormatDto = z.infer<typeof updateTargetFormatSchema>;
 
 const nonNegativeMetric = z.number().int().min(0).max(1_000_000_000).optional();
 

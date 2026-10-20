@@ -69,11 +69,27 @@ El frontend delega por completo la seguridad y emisión de JWT al backend (tal c
 | Marcas                             | `/dashboard/brands`             | Completado    | CRUD `/brands` + contexto global (`BrandProvider`, persistido) que consume el switcher |
 | Publicaciones (bandeja por estado) | `/dashboard/publications?status=` | Completado | `GET /publications?brandId=&status=` + chips `?status=` sincronizados con la URL                                   |
 | Crear publicación                  | `/dashboard/publications/new`   | Completado    | `POST /publications` (borrador de la marca activa) → redirige al detalle                                            |
-| Detalle + flujo                    | `/dashboard/publications/:id`   | Completado    | `PATCH` (dueño/ADMIN en DRAFT), `submit` (dueño/ADMIN, exige targets), `approve` (ADMIN + agenda) / `publish-now` (ADMIN, inmediato) / `reject` (ADMIN), targets add/remove, historial de métricas (+ snapshot manual dueño/ADMIN en canal publicado) |
+| Detalle + flujo                    | `/dashboard/publications/:id`   | Completado    | `PATCH` (dueño/ADMIN en DRAFT), `submit` (dueño/ADMIN, exige targets), `approve` (ADMIN + agenda) / `publish-now` (ADMIN, inmediato) / `reject` (ADMIN), targets add/remove y selector Feed/Reel para video en Facebook/Instagram, historial de métricas (+ snapshot manual dueño/ADMIN en canal publicado) |
 | Cuentas conectadas                 | `/dashboard/accounts`           | Completado    | CRUD anidado `/brands/:id/accounts` + `POST /verify` (prueba real antes de guardar) + badge `EXPIRED` |
 | Analytics                          | `/dashboard/analytics`          | Completado    | `GET /analytics/summary` (brandId del switcher) — KPIs, pipeline por estado y barras por canal con Shadcn cards + Recharts; Insights IA sigue placeholder (paso b del §5) |
 
 Sin vista: `/dispatch` (superficie máquina de n8n, sin UI).
+
+### 4.1 Formatos por destino (Feed/Reel)
+
+- El backend expone `PublicationTarget.format` (`FEED | REEL`). El frontend lo
+  tipa en `schemas.ts` (`publicationFormatSchema`) y lo muestra en
+  `PublicationDetail` junto al estado del canal.
+- `addTarget(id, platform)` no envía `format`: el backend aplica el default
+  (video de Facebook/Instagram → `REEL`; resto → `FEED`).
+  `updateTargetFormat(id, platform, format)` hace
+  `PATCH /publications/:id/targets/:platform` y solo se ofrece en
+  `DRAFT`/`PENDING_APPROVAL` (antes de programar).
+- El selector solo aparece para `VIDEO` en Facebook/Instagram; las imágenes y
+  las demás plataformas muestran el badge de formato sin edición.
+- En Instagram ambos formatos se comparten al feed (`share_to_feed=true`). La
+  distinción `FEED`/`REEL` se conserva para trazabilidad y para elegir el flujo
+  de Facebook; ver `docs/n8n.md` §3.
 
 ## 5. Analytics e Insights por IA (requisito de tesis)
 

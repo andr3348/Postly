@@ -1,5 +1,6 @@
 import { apiJson } from "@/lib/api";
 import type {
+  PublicationFormat,
   PublicationMedia,
   PublicationPlatform,
   PublicationStatus,
@@ -34,6 +35,7 @@ export interface PublicationTarget {
   readonly id: string;
   readonly publicationId: string;
   readonly platform: PublicationPlatform;
+  readonly format: PublicationFormat;
   readonly status: "PENDING" | "SUCCESS" | "FAILED";
   readonly externalPostId: string | null;
   readonly externalPostUrl: string | null;
@@ -140,11 +142,26 @@ export async function listTargets(id: string): Promise<PublicationTarget[]> {
 export async function addTarget(
   id: string,
   platform: PublicationPlatform,
+  format?: PublicationFormat,
 ): Promise<PublicationTarget> {
   return apiJson<PublicationTarget>(`/publications/${id}/targets`, {
     method: "POST",
-    data: { platform },
+    data: { platform, ...(format !== undefined ? { format } : {}) },
   });
+}
+
+export async function updateTargetFormat(
+  id: string,
+  platform: PublicationPlatform,
+  format: PublicationFormat,
+): Promise<PublicationTarget> {
+  return apiJson<PublicationTarget>(
+    `/publications/${id}/targets/${platform}`,
+    {
+      method: "PATCH",
+      data: { format },
+    },
+  );
 }
 
 export async function removeTarget(

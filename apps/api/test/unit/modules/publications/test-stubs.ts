@@ -77,10 +77,24 @@ export function stubPublicationTargetsRepository(
   return {
     findById: async () => null,
     findByPublication: async () => [],
-    add: async (publicationId, platform) => ({
+    add: async (publicationId, platform, format) => ({
       id: 'target-1',
       publicationId,
       platform,
+      format,
+      status: 'PENDING',
+      externalPostId: null,
+      externalPostUrl: null,
+      errorMessage: null,
+      publishedAt: null,
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      updatedAt: new Date('2026-01-01T00:00:00Z'),
+    }),
+    updateFormat: async (id, format) => ({
+      id,
+      publicationId: 'pub-1',
+      platform: 'LINKEDIN',
+      format,
       status: 'PENDING',
       externalPostId: null,
       externalPostUrl: null,
@@ -94,6 +108,7 @@ export function stubPublicationTargetsRepository(
       id,
       publicationId: 'pub-1',
       platform: 'LINKEDIN',
+      format: 'FEED',
       status: 'PENDING',
       externalPostId: null,
       externalPostUrl: null,

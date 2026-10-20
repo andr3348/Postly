@@ -17,6 +17,7 @@ import {
   InvalidCredentialsError,
   InvalidPublicationTransitionError,
   InvalidRefreshTokenError,
+  InvalidTargetFormatError,
   PublicationNotFoundError,
   PublicationTargetAlreadyAttachedError,
   PublicationTargetNotFoundError,
@@ -42,6 +43,7 @@ import {
   PublicationWithoutTargetsError,
   TargetNotPublishedError,
   InvalidPublicationTransitionError,
+  InvalidTargetFormatError,
   ForbiddenError,
   MissingConnectedAccountError,
   InvalidAccountCredentialsError,
@@ -64,6 +66,7 @@ export class DomainExceptionFilter implements ExceptionFilter {
     }
     if (
       exception instanceof InvalidPublicationTransitionError ||
+      exception instanceof InvalidTargetFormatError ||
       exception instanceof PublicationWithoutTargetsError ||
       exception instanceof TargetNotPublishedError ||
       exception instanceof MissingConnectedAccountError ||
