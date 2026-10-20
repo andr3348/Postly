@@ -9,6 +9,7 @@ import {
   getTargetsCached,
   getTargetMetricsCached,
   invalidatePublications,
+  publishNow,
   rejectPublication,
   removeTarget,
   recordMetric,
@@ -78,6 +79,7 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
   const [editing, setEditing] = useState(false);
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
+  const [publishingNow, setPublishingNow] = useState(false);
   const [flowMsg, setFlowMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -155,44 +157,84 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
             )}
             {canReview && (
               <>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    setApproving(true);
-                    setFlowMsg("");
-                  }}
-                  className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
-                >
-                  Aprobar
-                </button>
-                {rejecting ? (
+                {publishingNow ? (
                   <>
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => void runFlow(() => rejectPublication(id), () => setRejecting(false))}
-                      className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                      onClick={() =>
+                        void runFlow(() => publishNow(id), () => setPublishingNow(false))
+                      }
+                      className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
                     >
-                      Confirmar rechazo
+                      {busy ? "Publicando…" : "Confirmar publicación"}
                     </button>
                     <button
                       type="button"
-                      onClick={() => setRejecting(false)}
+                      onClick={() => setPublishingNow(false)}
                       className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-[#2d374e] transition-colors"
                     >
                       Cancelar
                     </button>
                   </>
                 ) : (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setRejecting(true)}
-                    className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                  >
-                    Rechazar
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        setApproving(true);
+                        setPublishingNow(false);
+                        setFlowMsg("");
+                      }}
+                      className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                    >
+                      Aprobar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        setPublishingNow(true);
+                        setRejecting(false);
+                        setFlowMsg("");
+                      }}
+                      className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer bg-[#151717] text-white hover:bg-[#252727] disabled:opacity-50 transition-colors"
+                    >
+                      Publicar ahora
+                    </button>
+                    {rejecting ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void runFlow(() => rejectPublication(id), () => setRejecting(false))}
+                          className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                        >
+                          Confirmar rechazo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRejecting(false)}
+                          className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-[#2d374e] transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => {
+                          setRejecting(true);
+                          setPublishingNow(false);
+                        }}
+                        className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                      >
+                        Rechazar
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -208,9 +250,11 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
         )}
         {publication.status === "PENDING_APPROVAL" && (
           <p className="text-[11px] text-amber-600 dark:text-amber-400">
-            {isAdminUser
-              ? "Admin: puedes aprobar (agendar) o rechazar (devolver a borrador)."
-              : "Pendiente de aprobación por un administrador."}
+            {publishingNow
+              ? "Se usará la fecha actual y se despertará a n8n para publicar de inmediato. No se puede cancelar una vez iniciado el despacho."
+              : isAdminUser
+                ? "Admin: puedes aprobar (agendar), publicar ahora o rechazar (devolver a borrador)."
+                : "Pendiente de aprobación por un administrador."}
           </p>
         )}
         {flowMsg !== "" && <p className="text-sm text-red-500 font-medium">{flowMsg}</p>}
