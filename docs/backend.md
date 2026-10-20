@@ -131,13 +131,16 @@ PATCH  /publications/:id        → edita copy/media solo en DRAFT (dueño o adm
 POST   /publications/:id/submit → DRAFT → PENDING_APPROVAL (dueño o admin)
 POST   /publications/:id/approve→ PENDING_APPROVAL → SCHEDULED, solo ADMIN
                                    (body { scheduledAt }; fija approvedBy/approvedAt)
+POST   /publications/:id/publish-now → PENDING_APPROVAL → SCHEDULED con
+                                   scheduledAt=now y despierta a n8n (202; solo ADMIN)
 POST   /publications/:id/reject → PENDING_APPROVAL → DRAFT, solo ADMIN
 ```
 
 Autorización en los casos de uso (no en guards): el `requester` (`id` + `rol`
 del `@CurrentUser()`) viaja al caso de uso; dueño-or-admin para editar/enviar,
-solo-ADMIN para aprobar/rechazar. Errores: `PublicationNotFoundError` → 404,
-`InvalidPublicationTransitionError` → 400, `ForbiddenError` → 403.
+solo-ADMIN para aprobar/publicar-ahora/rechazar. Errores:
+`PublicationNotFoundError` → 404, `InvalidPublicationTransitionError` → 400,
+`ForbiddenError` → 403.
 
 **Destinos omnicanal (sin módulo propio):** la publicación decide *qué*,
 el target *dónde*. Anidados bajo la publicación (dueño o admin, solo antes de
@@ -280,6 +283,16 @@ re-entrega — reintento automático con ventana de duplicado mínima. Con algo
 ya reportado (murió a mitad): destinos sin reportar → FAILED ("despacho
 vencido…"), publicación → FAILED/PARTIAL y sin reintento — duplicar un post
 es peor que perderlo.
+
+Disparo inmediato ("publicar ahora"): `POST /api/publications/:id/publish-now`
+(admin, sin body) reutiliza la aprobación con `scheduledAt = now` y hace un
+POST al webhook de n8n (`N8N_DISPATCH_WEBHOOK_URL`, header `x-webhook-secret`
+= `INTERNAL_WEBHOOK_SECRET`, sin body, timeout 5 s) para despertar al worker.
+n8n sigue haciendo el claim normal: el webhook no transporta la publicación
+(evita saltarse el lease y duplicar posts). Si el webhook falla, el endpoint
+igual responde 202: la pieza queda SCHEDULED vencida y el cron la levanta; el
+webhook acelera, el cron es la garantía. El cron (5 min) debe seguir también
+para el barrido perezoso de leases vencidos.
 
 ## 8. Módulo analytics (solo lectura)
 

@@ -69,7 +69,7 @@ El frontend delega por completo la seguridad y emisión de JWT al backend (tal c
 | Marcas                             | `/dashboard/brands`             | Completado    | CRUD `/brands` + contexto global (`BrandProvider`, persistido) que consume el switcher |
 | Publicaciones (bandeja por estado) | `/dashboard/publications?status=` | Completado | `GET /publications?brandId=&status=` + chips `?status=` sincronizados con la URL                                   |
 | Crear publicación                  | `/dashboard/publications/new`   | Completado    | `POST /publications` (borrador de la marca activa) → redirige al detalle                                            |
-| Detalle + flujo                    | `/dashboard/publications/:id`   | Completado    | `PATCH` (dueño/ADMIN en DRAFT), `submit` (dueño/ADMIN, exige targets), `approve` (ADMIN + agenda) / `reject` (ADMIN), targets add/remove, historial de métricas (+ snapshot manual dueño/ADMIN en canal publicado) |
+| Detalle + flujo                    | `/dashboard/publications/:id`   | Completado    | `PATCH` (dueño/ADMIN en DRAFT), `submit` (dueño/ADMIN, exige targets), `approve` (ADMIN + agenda) / `publish-now` (ADMIN, inmediato) / `reject` (ADMIN), targets add/remove, historial de métricas (+ snapshot manual dueño/ADMIN en canal publicado) |
 | Cuentas conectadas                 | `/dashboard/accounts`           | Completado    | CRUD anidado `/brands/:id/accounts` + `POST /verify` (prueba real antes de guardar) + badge `EXPIRED` |
 | Analytics                          | `/dashboard/analytics`          | Completado    | `GET /analytics/summary` (brandId del switcher) — KPIs, pipeline por estado y barras por canal con Shadcn cards + Recharts; Insights IA sigue placeholder (paso b del §5) |
 
