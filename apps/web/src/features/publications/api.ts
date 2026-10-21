@@ -27,9 +27,41 @@ export interface Publication {
   readonly status: PublicationStatus;
   readonly scheduledAt: string | null;
   readonly dispatchedAt: string | null;
+  readonly dispatchAttemptId: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
+
+export type TargetFailureKind =
+  | "AUTH"
+  | "PERMISSION"
+  | "RATE_LIMIT"
+  | "TRANSIENT"
+  | "MEDIA"
+  | "CONTENT"
+  | "ACCOUNT"
+  | "PROVIDER_REJECTED"
+  | "UNKNOWN_OUTCOME"
+  | "UNKNOWN";
+
+export interface TargetFailure {
+  readonly kind: TargetFailureKind;
+  readonly stage: "MEDIA_PREPARATION" | "PUBLISH";
+  readonly retryable: boolean;
+  readonly requiresAction: boolean;
+  readonly code: number | null;
+  readonly subcode: number | null;
+  readonly httpStatus: number | null;
+  readonly type: string | null;
+  readonly isTransient: boolean | null;
+  readonly message: string;
+  readonly action: string;
+  readonly providerMessage: string | null;
+  readonly traceId: string | null;
+  readonly retryAfterSeconds: number | null;
+}
+
+export type RetryablePlatform = Extract<PublicationPlatform, "FACEBOOK" | "INSTAGRAM">;
 
 export interface PublicationTarget {
   readonly id: string;
@@ -40,6 +72,8 @@ export interface PublicationTarget {
   readonly externalPostId: string | null;
   readonly externalPostUrl: string | null;
   readonly errorMessage: string | null;
+  readonly failure: TargetFailure | null;
+  readonly retryCount: number;
   readonly publishedAt: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -130,6 +164,17 @@ export async function approvePublication(
 /** Aprueba con fecha actual y despierta a n8n (sin payload). */
 export async function publishNow(id: string): Promise<Publication> {
   return apiJson<Publication>(`/publications/${id}/publish-now`, { method: "POST" });
+}
+
+/** Reintenta solo los canales fallidos indicados (solo ADMIN). */
+export async function retryPublication(
+  id: string,
+  platforms: readonly RetryablePlatform[],
+): Promise<Publication> {
+  return apiJson<Publication>(`/publications/${id}/retry`, {
+    method: "POST",
+    data: { platforms },
+  });
 }
 
 export async function rejectPublication(id: string): Promise<Publication> {
