@@ -34,6 +34,7 @@ export interface UpdatePublicationData {
   readonly approvedById?: string | null;
   readonly approvedAt?: Date | null;
   readonly dispatchedAt?: Date | null;
+  readonly dispatchAttemptId?: string | null;
 }
 
 /**
@@ -48,10 +49,10 @@ export interface PublicationsRepository {
   /** Próximas vencidas para despacho (SCHEDULED + scheduledAt pasado). */
   findDueDispatch(limit: number, now: Date): Promise<Publication[]>;
   /**
-   * Reclamo atómico: pasa a PROCESSING solo si sigue SCHEDULED.
-   * `false` = otro worker la tomó (reintentar con la siguiente).
+   * Reclamo atómico: pasa a PROCESSING solo si sigue SCHEDULED y fija el
+   * intento vigente. `false` = otro worker la tomó (reintentar con la siguiente).
    */
-  markProcessing(id: string): Promise<boolean>;
+  markProcessing(id: string, dispatchAttemptId: string, now: Date): Promise<boolean>;
   /**
    * Leases vencidos: PROCESSING cuyo `dispatchedAt` quedó detrás del corte
    * (n8n reclamó y no reportó). El barrido los cierra sin reintento.

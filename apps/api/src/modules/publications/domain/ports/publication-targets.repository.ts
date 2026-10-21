@@ -1,5 +1,6 @@
 import type {
   PublicationTarget,
+  TargetFailure,
   TargetFormat,
   TargetPlatform,
   TargetStatus,
@@ -8,10 +9,12 @@ import type {
 /** Patch parcial de un destino (lo escribe n8n al reportar). */
 export interface UpdateTargetData {
   readonly status?: TargetStatus;
-  readonly externalPostId?: string;
-  readonly externalPostUrl?: string;
-  readonly errorMessage?: string;
-  readonly publishedAt?: Date;
+  readonly externalPostId?: string | null;
+  readonly externalPostUrl?: string | null;
+  readonly errorMessage?: string | null;
+  readonly failure?: TargetFailure | null;
+  readonly retryCount?: number;
+  readonly publishedAt?: Date | null;
 }
 
 /**

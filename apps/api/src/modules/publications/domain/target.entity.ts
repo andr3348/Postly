@@ -11,6 +11,43 @@ export type TargetStatus = 'PENDING' | 'SUCCESS' | 'FAILED';
 /** Cómo se publica el contenido en un canal: feed normal o Reel vertical. */
 export type TargetFormat = 'FEED' | 'REEL';
 
+/** Etapa de n8n donde ocurrió el fallo. */
+export type FailureStage = 'MEDIA_PREPARATION' | 'PUBLISH';
+
+/**
+ * Familia del fallo. `UNKNOWN_OUTCOME` es el caso peligroso: la llamada pudo
+ * haberse aplicado en la red social y reintentar duplicaría el post.
+ */
+export type FailureKind =
+  | 'AUTH'
+  | 'PERMISSION'
+  | 'RATE_LIMIT'
+  | 'TRANSIENT'
+  | 'MEDIA'
+  | 'CONTENT'
+  | 'ACCOUNT'
+  | 'PROVIDER_REJECTED'
+  | 'UNKNOWN_OUTCOME'
+  | 'UNKNOWN';
+
+/** Explicación persistida de un fallo, lista para mostrarse en el dashboard. */
+export interface TargetFailure {
+  readonly kind: FailureKind;
+  readonly stage: FailureStage;
+  readonly retryable: boolean;
+  readonly requiresAction: boolean;
+  readonly code: number | null;
+  readonly subcode: number | null;
+  readonly httpStatus: number | null;
+  readonly type: string | null;
+  readonly isTransient: boolean | null;
+  readonly message: string;
+  readonly action: string;
+  readonly providerMessage: string | null;
+  readonly traceId: string | null;
+  readonly retryAfterSeconds: number | null;
+}
+
 export interface PublicationTarget {
   readonly id: string;
   readonly publicationId: string;
@@ -20,9 +57,21 @@ export interface PublicationTarget {
   readonly externalPostId: string | null;
   readonly externalPostUrl: string | null;
   readonly errorMessage: string | null;
+  readonly failure: TargetFailure | null;
+  readonly retryCount: number;
   readonly publishedAt: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
+}
+
+/** Solo Facebook e Instagram tienen reintento en esta fase. */
+export type RetryablePlatform = Extract<TargetPlatform, 'FACEBOOK' | 'INSTAGRAM'>;
+
+/** Máximo de reintentos manuales por destino. */
+export const MAX_TARGET_RETRIES = 3;
+
+export function isRetryablePlatform(platform: TargetPlatform): platform is RetryablePlatform {
+  return platform === 'FACEBOOK' || platform === 'INSTAGRAM';
 }
 
 /** Plataformas donde el formato Reel está soportado por el flujo actual. */

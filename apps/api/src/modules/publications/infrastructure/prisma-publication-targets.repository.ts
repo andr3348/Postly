@@ -4,9 +4,9 @@ import type {
   PublicationTarget,
   TargetFormat,
   TargetPlatform,
-  TargetStatus,
 } from '../domain/target.entity.js';
 import type { PublicationTargetsRepository, UpdateTargetData } from '../domain/ports/publication-targets.repository.js';
+import { toDomainTarget, toPrismaFailure } from './prisma-publication-mappers.js';
 
 /** Adaptador Prisma de `PublicationTargetsRepository`. */
 @Injectable()
@@ -60,60 +60,11 @@ export class PrismaPublicationTargetsRepository implements PublicationTargetsRep
         externalPostId: data.externalPostId,
         externalPostUrl: data.externalPostUrl,
         errorMessage: data.errorMessage,
+        failure: toPrismaFailure(data.failure),
+        retryCount: data.retryCount,
         publishedAt: data.publishedAt,
       },
     });
     return toDomainTarget(row);
   }
-}
-
-interface TargetRow {
-  readonly id: string;
-  readonly publicationId: string;
-  readonly platform: string;
-  readonly format: string;
-  readonly status: string;
-  readonly externalPostId: string | null;
-  readonly externalPostUrl: string | null;
-  readonly errorMessage: string | null;
-  readonly publishedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-}
-
-function toDomainTarget(row: TargetRow): PublicationTarget {
-  return {
-    id: row.id,
-    publicationId: row.publicationId,
-    platform: toDomainPlatform(row.platform),
-    format: toDomainFormat(row.format),
-    status: toDomainStatus(row.status),
-    externalPostId: row.externalPostId,
-    externalPostUrl: row.externalPostUrl,
-    errorMessage: row.errorMessage,
-    publishedAt: row.publishedAt,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
-}
-
-function toDomainPlatform(value: string): TargetPlatform {
-  if (value === 'FACEBOOK' || value === 'INSTAGRAM' || value === 'LINKEDIN' || value === 'TIKTOK') {
-    return value;
-  }
-  throw new Error(`[publications] Unknown platform in database: ${value}`);
-}
-
-function toDomainStatus(value: string): TargetStatus {
-  if (value === 'PENDING' || value === 'SUCCESS' || value === 'FAILED') {
-    return value;
-  }
-  throw new Error(`[publications] Unknown target status in database: ${value}`);
-}
-
-function toDomainFormat(value: string): TargetFormat {
-  if (value === 'FEED' || value === 'REEL') {
-    return value;
-  }
-  throw new Error(`[publications] Unknown target format in database: ${value}`);
 }

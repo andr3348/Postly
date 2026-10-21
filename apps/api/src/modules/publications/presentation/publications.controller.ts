@@ -20,6 +20,7 @@ import { SubmitPublicationUseCase } from '../application/submit-publication.use-
 import { ApprovePublicationUseCase } from '../application/approve-publication.use-case.js';
 import { PublishNowUseCase } from '../application/publish-now.use-case.js';
 import { RejectPublicationUseCase } from '../application/reject-publication.use-case.js';
+import { RetryPublicationUseCase } from '../application/retry-publication.use-case.js';
 import { GetPublicationUseCase } from '../application/get-publication.use-case.js';
 import { ListPublicationsUseCase } from '../application/list-publications.use-case.js';
 import { AddTargetUseCase } from '../application/add-target.use-case.js';
@@ -40,6 +41,8 @@ import {
   type ListPublicationsDto,
   recordMetricSchema,
   type RecordMetricDto,
+  retryPublicationSchema,
+  type RetryPublicationDto,
   targetPlatformSchema,
   updateDraftSchema,
   updateTargetFormatSchema,
@@ -64,6 +67,7 @@ export class PublicationsController {
     private readonly approvePublication: ApprovePublicationUseCase,
     private readonly publishNowUseCase: PublishNowUseCase,
     private readonly rejectPublication: RejectPublicationUseCase,
+    private readonly retryPublication: RetryPublicationUseCase,
     private readonly addTargetUseCase: AddTargetUseCase,
     private readonly listTargetsUseCase: ListTargetsUseCase,
     private readonly updateTargetFormatUseCase: UpdateTargetFormatUseCase,
@@ -132,6 +136,20 @@ export class PublicationsController {
   publishNow(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.publishNowUseCase.execute({
       id,
+      requester: { id: user.userId, role: user.role },
+    });
+  }
+
+  @Post(':id/retry')
+  @HttpCode(HttpStatus.ACCEPTED)
+  retry(
+    @Param('id') id: string,
+    @Body({ schema: retryPublicationSchema }) body: RetryPublicationDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.retryPublication.execute({
+      id,
+      platforms: body.platforms,
       requester: { id: user.userId, role: user.role },
     });
   }

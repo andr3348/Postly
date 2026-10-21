@@ -1,30 +1,32 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { PublicationNotFoundError, PublicationTargetNotFoundError } from '../../../shared/errors.js';
+import {
+  InvalidTargetReportError,
+  PublicationNotFoundError,
+  PublicationTargetNotFoundError,
+  StaleDispatchAttemptError,
+  TargetAlreadyReportedError,
+} from '../../../shared/errors.js';
 import type { MetricSnapshot } from '../../publications/domain/metric.entity.js';
+import { resolveTerminalStatus, type Publication } from '../../publications/domain/publication.entity.js';
+import type { FailureStage, TargetStatus } from '../../publications/domain/target.entity.js';
 import {
-  resolveTerminalStatus,
-  type Publication,
-} from '../../publications/domain/publication.entity.js';
-import type { TargetStatus } from '../../publications/domain/target.entity.js';
+  classifyTargetFailure,
+  type ReportProviderError,
+} from '../../publications/domain/target-failure.js';
 import {
-  PUBLICATION_METRICS_REPOSITORY,
-  type PublicationMetricsRepository,
-} from '../../publications/domain/ports/publication-metrics.repository.js';
-import {
-  PUBLICATION_TARGETS_REPOSITORY,
-  type PublicationTargetsRepository,
-} from '../../publications/domain/ports/publication-targets.repository.js';
-import {
-  PUBLICATIONS_REPOSITORY,
-  type PublicationsRepository,
-} from '../../publications/domain/ports/publications.repository.js';
+  PUBLICATION_UNIT_OF_WORK,
+  type PublicationUnitOfWork,
+} from '../../publications/domain/ports/publication-unit-of-work.port.js';
 
 export interface ReportTargetInput {
   readonly targetId: string;
+  readonly dispatchAttemptId: string;
   readonly status: Extract<TargetStatus, 'SUCCESS' | 'FAILED'>;
+  readonly stage?: FailureStage;
   readonly externalPostId?: string;
   readonly externalPostUrl?: string;
   readonly errorMessage?: string;
+  readonly error?: ReportProviderError;
   readonly metrics?: MetricSnapshot;
 }
 
@@ -34,51 +36,99 @@ export interface ReportTargetOutput {
 }
 
 /**
- * Reporte de n8n por destino: actualiza el target, registra métricas
- * opcionales y recalcula la publicación (PUBLISHED / PARTIAL / FAILED
- * cuando no quedan PENDING; si quedan, sigue PROCESSING).
+ * Reporte de n8n por destino. Todo ocurre dentro de una transacción con lock
+ * de la publicación: validar el intento, actualizar el target, guardar
+ * métricas y cerrar la publicación cuando ya no quedan destinos PENDING.
+ *
+ * Un reporte de un intento viejo devuelve 409. Un duplicado del mismo target
+ * con el mismo estado es idempotente (n8n puede reintentar el POST).
  */
 @Injectable()
 export class ReportTargetUseCase {
   constructor(
-    @Inject(PUBLICATIONS_REPOSITORY) private readonly publications: PublicationsRepository,
-    @Inject(PUBLICATION_TARGETS_REPOSITORY) private readonly targets: PublicationTargetsRepository,
-    @Inject(PUBLICATION_METRICS_REPOSITORY) private readonly metrics: PublicationMetricsRepository,
+    @Inject(PUBLICATION_UNIT_OF_WORK) private readonly uow: PublicationUnitOfWork,
   ) {}
 
   async execute(input: ReportTargetInput): Promise<ReportTargetOutput> {
-    const target = await this.targets.findById(input.targetId);
-    if (target === null) {
-      throw new PublicationTargetNotFoundError(input.targetId, input.targetId);
+    const failure =
+      input.status === 'FAILED' ? this.classifyFailure(input) : null;
+    if (input.status === 'SUCCESS' && input.externalPostId === undefined) {
+      throw new InvalidTargetReportError('el éxito requiere externalPostId');
     }
-    await this.targets.updateTarget(target.id, {
-      status: input.status,
-      externalPostId: input.externalPostId,
-      externalPostUrl: input.externalPostUrl,
-      errorMessage: input.errorMessage,
-      publishedAt: input.status === 'SUCCESS' ? new Date() : undefined,
+
+    return this.uow.run(async (tx) => {
+      const initialTarget = await tx.findTarget(input.targetId);
+      if (initialTarget === null) {
+        throw new PublicationTargetNotFoundError(input.targetId, input.targetId);
+      }
+
+      const publication = await tx.lockPublication(initialTarget.publicationId);
+      if (publication === null) {
+        throw new PublicationNotFoundError(initialTarget.publicationId);
+      }
+
+      if (
+        publication.dispatchAttemptId === null ||
+        publication.dispatchAttemptId !== input.dispatchAttemptId
+      ) {
+        throw new StaleDispatchAttemptError();
+      }
+
+      const target = await tx.findTarget(input.targetId);
+      if (target === null) {
+        throw new PublicationTargetNotFoundError(input.targetId, input.targetId);
+      }
+
+      if (target.status !== 'PENDING') {
+        if (target.status === input.status) {
+          return {
+            publication,
+            terminal: publication.status !== 'PROCESSING',
+          };
+        }
+        throw new TargetAlreadyReportedError(target.id);
+      }
+
+      if (publication.status !== 'PROCESSING') {
+        throw new StaleDispatchAttemptError();
+      }
+
+      await tx.updateTarget(target.id, {
+        status: input.status,
+        externalPostId: input.status === 'SUCCESS' ? input.externalPostId : null,
+        externalPostUrl: input.status === 'SUCCESS' ? input.externalPostUrl : null,
+        errorMessage: input.status === 'FAILED' ? input.errorMessage : null,
+        failure,
+        publishedAt: input.status === 'SUCCESS' ? new Date() : null,
+      });
+
+      if (input.metrics !== undefined) {
+        await tx.recordMetric(target.id, input.metrics);
+      }
+
+      const siblings = await tx.findTargets(publication.id);
+      const statuses = siblings.map((sibling) => sibling.status);
+      if (statuses.some((status) => status === 'PENDING')) {
+        return { publication, terminal: false };
+      }
+
+      const updated = await tx.updatePublication(publication.id, {
+        status: resolveTerminalStatus(statuses),
+      });
+      return { publication: updated, terminal: true };
     });
-    if (input.metrics !== undefined) {
-      await this.metrics.record(target.id, input.metrics);
-    }
-    const siblings = await this.targets.findByPublication(target.publicationId);
-    const statuses = siblings.map((sibling) => sibling.status);
-    if (statuses.some((status) => status === 'PENDING')) {
-      const publication = await this.requirePublication(target.publicationId);
-      return { publication, terminal: false };
-    }
-    const finalStatus = resolveTerminalStatus(statuses);
-    const publication = await this.publications.update(target.publicationId, {
-      status: finalStatus,
-    });
-    return { publication, terminal: true };
   }
 
-  private async requirePublication(publicationId: string): Promise<Publication> {
-    const publication = await this.publications.findById(publicationId);
-    if (publication === null) {
-      throw new PublicationNotFoundError(publicationId);
+  private classifyFailure(input: ReportTargetInput) {
+    if (input.stage === undefined || (input.errorMessage === undefined && input.error === undefined)) {
+      throw new InvalidTargetReportError(
+        'el fallo requiere stage y errorMessage o error estructurado',
+      );
     }
-    return publication;
+    return classifyTargetFailure({
+      stage: input.stage,
+      errorMessage: input.errorMessage,
+      error: input.error,
+    });
   }
 }

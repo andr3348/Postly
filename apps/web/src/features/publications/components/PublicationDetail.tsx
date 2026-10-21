@@ -25,6 +25,7 @@ import {
   PublicationStatusBadge,
   TargetStatusBadge,
 } from "@/features/publications/components/StatusBadges";
+import { PublicationFailures } from "@/features/publications/components/PublicationFailures";
 import {
   publicationFormatSchema,
   recordMetricFormSchema,
@@ -291,6 +292,15 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
           <MediaPreview url={publication.mediaUrl} type={publication.mediaType} name={brandName} />
         </div>
       </section>
+
+      {/* Fallos por canal: causa primero y reintento seguro */}
+      <PublicationFailures
+        publicationId={id}
+        status={publication.status}
+        targets={targets}
+        isAdmin={isAdminUser}
+        onChanged={onChanged}
+      />
 
       {/* Destinos (canales) */}
       <TargetsSection

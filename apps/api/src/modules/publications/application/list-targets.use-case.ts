@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PublicationNotFoundError } from '../../../shared/errors.js';
 import type { PublicationTarget } from '../domain/target.entity.js';
+import { resolveTargetFailure } from '../domain/target-failure.js';
 import {
   PUBLICATION_TARGETS_REPOSITORY,
   type PublicationTargetsRepository,
@@ -23,6 +24,11 @@ export class ListTargetsUseCase {
     if (publication === null) {
       throw new PublicationNotFoundError(publicationId);
     }
-    return this.targets.findByPublication(publicationId);
+    return this.targets.findByPublication(publicationId).then((targets) =>
+      targets.map((target) => ({
+        ...target,
+        failure: resolveTargetFailure(target),
+      })),
+    );
   }
 }

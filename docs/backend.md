@@ -140,15 +140,18 @@ POST   /publications/:id/approve→ PENDING_APPROVAL → SCHEDULED, solo ADMIN
                                    approvedBy/approvedAt)
 POST   /publications/:id/publish-now → PENDING_APPROVAL → SCHEDULED con
                                    scheduledAt=now y despierta a n8n (202; solo ADMIN)
+POST   /publications/:id/retry → PARTIAL/FAILED → SCHEDULED solo con los
+                                   targets fallidos elegidos (202; solo ADMIN)
 POST   /publications/:id/reject → PENDING_APPROVAL → DRAFT, solo ADMIN
 ```
 
 Autorización en los casos de uso (no en guards): el `requester` (`id` + `rol`
 del `@CurrentUser()`) viaja al caso de uso; dueño-or-admin para editar/enviar,
-solo-ADMIN para aprobar/publicar-ahora/rechazar. Errores:
+solo-ADMIN para aprobar/publicar-ahora/rechazar/reintentar. Errores:
 `PublicationNotFoundError` → 404, `InvalidPublicationTransitionError` → 400,
 `PublicationWithoutTargetsError` → 400 (submit o aprobar sin canales),
-`ForbiddenError` → 403.
+`ForbiddenError` → 403, `PublicationRetryNotAllowedError` y
+`RetryLimitExceededError` → 409.
 
 `title` es opcional (Text, máximo 200 en la validación Zod; cadena vacía o
 `null` lo limpian). Es encabezado del dashboard: las redes destino no tienen
@@ -188,8 +191,33 @@ En Instagram ambos formatos se publican como `REELS` con
 Regla: `submit` exige ≥1 canal (`PublicationWithoutTargetsError` → 400). La
 unicidad `[publicationId, platform]` la garantiza la BD; el caso de uso la
 verifica antes para un 409 limpio. n8n actualiza cada target (`status`,
-`externalPostId/Url`, `errorMessage`, `publishedAt` en éxito) y escribe
-`TargetMetric`.
+`externalPostId/Url`, `errorMessage`, `failure`, `publishedAt` en éxito) y
+escribe `TargetMetric`.
+
+**Fallos y reintento por destino:** cada `PublicationTarget` guarda `failure`
+(JSON tipado: `kind`, `stage`, `retryable`, `requiresAction`, códigos de Meta,
+mensaje, acción y trace id) y `retryCount`. El clasificador vive en
+`domain/target-failure.ts` y aplica precedencia subcódigo → código →
+HTTP/`is_transient`. Un timeout/5xx en `PUBLISH` sin código del proveedor es
+`UNKNOWN_OUTCOME` y nunca se ofrece reintento; un 4xx desconocido es rechazo
+seguro y sí puede reintentarse. Los fallos históricos sin `failure` se
+clasifican al leer con etapa conservadora `PUBLISH`.
+
+`POST /publications/:id/retry` (ADMIN, body `{ platforms }`, solo
+`FACEBOOK | INSTAGRAM`) revalida bajo lock, exige `PARTIAL/FAILED`, fallo
+`retryable`, menos de 3 intentos y que el target siga `FAILED`. Reinicia solo
+esos targets a `PENDING`, incrementa `retryCount`, deja la publicación
+`SCHEDULED`, limpia `dispatchAttemptId` y conserva `approvedBy/approvedAt` (no
+hay re-aprobación). Después despierta a n8n; si el webhook falla, el cron de 1
+minuto la levanta. Los targets `SUCCESS` no se tocan.
+
+**Transacciones de despacho:** `PublicationUnitOfWork` abre una transacción
+Prisma y bloquea la fila de la publicación (`SELECT ... FOR UPDATE`). Reporte,
+cierre terminal, watchdog y reintento comparten ese lock. Así dos reportes
+concurrentes (Facebook e Instagram) no dejan la publicación atascada en
+`PROCESSING`: el primero ve al otro `PENDING`, el segundo cierra el estado
+terminal. El reporte valida `dispatchAttemptId`; uno viejo → 409
+(`StaleDispatchAttemptError`).
 
 **Métricas (sin módulo propio):** snapshots por destino, base de los gráficos
 de Analytics. Solo en destinos `SUCCESS` (medir lo no publicado es ruido;
@@ -286,16 +314,20 @@ programado jamás saldría de `SCHEDULED` (nada mueve ese estado).
 
 ```text
 POST /api/v1/dispatch/claim               → próxima vencida + credenciales,
-                                            marcada PROCESSING (200; siempre
+                                            marcada PROCESSING con
+                                            dispatchAttemptId (200; siempre
                                             con cuerpo: si no hay nada,
                                             { publication: null, targets: [] };
                                             cada target incluye platform,
-                                            format FEED/REEL y caption lista
-                                            para publicar)
-POST /api/v1/dispatch/targets/:id/report  → status + externalPostId/Url,
-                                            errorMessage (+ metrics opcional);
+                                            format FEED/REEL, caption lista
+                                            para publicar y failure/retryCount)
+POST /api/v1/dispatch/targets/:id/report  → dispatchAttemptId + status + stage
+                                            + externalPostId/Url o errorMessage/
+                                            error (+ metrics opcional);
                                             recalcula PUBLISHED/PARTIAL/FAILED
-                                            cuando no quedan PENDING (200)
+                                            cuando no quedan PENDING (200; 409
+                                            si el intento es viejo o el target
+                                            ya se reportó con otro estado)
 ```
 
 Cada elemento de `targets` llega como `{ target, credentials, caption }`;
@@ -306,7 +338,9 @@ y `caption` es el argumento único de texto que esperan las APIs actuales
 `composeCaption` (`publications/domain/caption.ts`) fusiona `title` + `copy`
 con una línea en blanco y sin título devuelve `copy` intacto — así n8n elige
 la rama y publica, pero no compone texto. n8n debe reportar todos los targets,
-incluso cuando uno falle.
+incluso cuando uno falle. El `dispatchAttemptId` del claim es obligatorio en
+cada reporte: un reporte del intento anterior no puede cerrar ni reabrir la
+publicación.
 
 Superficie versionada por URI (`VersioningType.URI` de Nest): `dispatch` y
 `generations/text` llevan `v1`; el resto del API del dashboard sigue sin versión.
@@ -316,20 +350,20 @@ Auth máquina-a-máquina: `N8nApiKeyGuard` (header `x-api-key`, comparación
 `@Public()` solo para omitir el guard JWT de usuarios — la auth real es la de
 servicio. Sin TLS en producción, ni esto basta.
 
-Reglas: el reclamo es atómico (`markProcessing` condicional: si otro worker la
-tomó, se intenta con la siguiente); sin nada vencido responde 200 con
-`{ publication: null, targets: [] }` (nunca 204): el flujo espera una señal
-explícita de "sin trabajo"; sin credenciales para algún canal no se reclama
-(400 visible, la pieza queda SCHEDULED para reintento); el reporte con métricas
-las registra en la misma llamada.
+Reglas: el reclamo es atómico (`markProcessing` condicional con intento nuevo:
+si otro worker la tomó, se intenta con la siguiente); sin nada vencido responde
+200 con `{ publication: null, targets: [] }` (nunca 204): el flujo espera una
+señal explícita de "sin trabajo"; sin credenciales para algún canal no se
+reclama (400 visible, la pieza queda SCHEDULED para reintento); el reporte con
+métricas las registra en la misma transacción.
 
 Lease del reclamo: si n8n reclama y no reporta en 15 min, el siguiente claim
 expira la pieza según lo reportado. Sin ningún reporte (murió antes de
-publicar, p. ej. antes del IF): vuelve a SCHEDULED y el mismo claim la
-re-entrega — reintento automático con ventana de duplicado mínima. Con algo
-ya reportado (murió a mitad): destinos sin reportar → FAILED ("despacho
-vencido…"), publicación → FAILED/PARTIAL y sin reintento — duplicar un post
-es peor que perderlo.
+publicar, p. ej. antes del IF): vuelve a SCHEDULED, limpia el intento y el mismo
+claim la re-entrega — reintento automático con ventana de duplicado mínima. Con
+algo ya reportado (murió a mitad): destinos sin reportar → FAILED
+(`UNKNOWN_OUTCOME`, "despacho vencido…"), publicación → FAILED/PARTIAL y sin
+reintento — duplicar un post es peor que perderlo.
 
 Disparo inmediato ("publicar ahora"): `POST /api/publications/:id/publish-now`
 (admin, sin body) reutiliza la aprobación con `scheduledAt = now` y hace un
@@ -338,7 +372,7 @@ POST al webhook de n8n (`N8N_DISPATCH_WEBHOOK_URL`, header `x-webhook-secret`
 n8n sigue haciendo el claim normal: el webhook no transporta la publicación
 (evita saltarse el lease y duplicar posts). Si el webhook falla, el endpoint
 igual responde 202: la pieza queda SCHEDULED vencida y el cron la levanta; el
-webhook acelera, el cron es la garantía. El cron (5 min) debe seguir también
+webhook acelera, el cron es la garantía. El cron (1 min) debe seguir también
 para el barrido perezoso de leases vencidos.
 
 ## 8. Módulo analytics (solo lectura)

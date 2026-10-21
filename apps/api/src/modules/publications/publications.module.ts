@@ -7,6 +7,7 @@ import { SubmitPublicationUseCase } from './application/submit-publication.use-c
 import { ApprovePublicationUseCase } from './application/approve-publication.use-case.js';
 import { PublishNowUseCase } from './application/publish-now.use-case.js';
 import { RejectPublicationUseCase } from './application/reject-publication.use-case.js';
+import { RetryPublicationUseCase } from './application/retry-publication.use-case.js';
 import { GetPublicationUseCase } from './application/get-publication.use-case.js';
 import { ListPublicationsUseCase } from './application/list-publications.use-case.js';
 import { AddTargetUseCase } from './application/add-target.use-case.js';
@@ -19,10 +20,12 @@ import { DISPATCH_NOTIFIER } from './domain/ports/dispatch-notifier.port.js';
 import { PUBLICATIONS_REPOSITORY } from './domain/ports/publications.repository.js';
 import { PUBLICATION_METRICS_REPOSITORY } from './domain/ports/publication-metrics.repository.js';
 import { PUBLICATION_TARGETS_REPOSITORY } from './domain/ports/publication-targets.repository.js';
+import { PUBLICATION_UNIT_OF_WORK } from './domain/ports/publication-unit-of-work.port.js';
 import { N8nDispatchWebhookNotifier } from './infrastructure/n8n-dispatch-webhook.notifier.js';
 import { PrismaPublicationsRepository } from './infrastructure/prisma-publications.repository.js';
 import { PrismaPublicationMetricsRepository } from './infrastructure/prisma-publication-metrics.repository.js';
 import { PrismaPublicationTargetsRepository } from './infrastructure/prisma-publication-targets.repository.js';
+import { PrismaPublicationUnitOfWork } from './infrastructure/prisma-publication-unit-of-work.js';
 import { PublicationsController } from './presentation/publications.controller.js';
 
 /**
@@ -42,6 +45,7 @@ import { PublicationsController } from './presentation/publications.controller.j
     ApprovePublicationUseCase,
     PublishNowUseCase,
     RejectPublicationUseCase,
+    RetryPublicationUseCase,
     AddTargetUseCase,
     ListTargetsUseCase,
     UpdateTargetFormatUseCase,
@@ -52,6 +56,7 @@ import { PublicationsController } from './presentation/publications.controller.j
     { provide: PUBLICATIONS_REPOSITORY, useClass: PrismaPublicationsRepository },
     { provide: PUBLICATION_TARGETS_REPOSITORY, useClass: PrismaPublicationTargetsRepository },
     { provide: PUBLICATION_METRICS_REPOSITORY, useClass: PrismaPublicationMetricsRepository },
+    { provide: PUBLICATION_UNIT_OF_WORK, useClass: PrismaPublicationUnitOfWork },
   ],
   // Puertos compartidos con el módulo dispatch (reclamo y reporte n8n) y alta
   // de borradores reusada por el modo agente de generation.
@@ -60,6 +65,7 @@ import { PublicationsController } from './presentation/publications.controller.j
     PUBLICATION_TARGETS_REPOSITORY,
     PUBLICATION_METRICS_REPOSITORY,
     CreatePublicationUseCase,
+    PUBLICATION_UNIT_OF_WORK,
   ],
 })
 export class PublicationsModule {}
