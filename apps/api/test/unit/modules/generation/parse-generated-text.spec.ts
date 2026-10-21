@@ -24,6 +24,7 @@ describe('parseGeneratedText', () => {
       JSON.stringify({
         variants: [
           {
+            title: 'Titular',
             copy: 'Copy listo',
             hashtags: ['#Marketing'],
             cta: 'Agenda tu llamada',
@@ -36,6 +37,7 @@ describe('parseGeneratedText', () => {
 
     expect(result.variants).toHaveLength(1);
     expect(result.variants?.[0]).toMatchObject({
+      title: 'Titular',
       copy: 'Copy listo',
       cta: 'Agenda tu llamada',
     });

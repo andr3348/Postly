@@ -17,6 +17,7 @@ export interface GenerationIdea {
 }
 
 export interface GenerationVariant {
+  readonly title: string;
   readonly copy: string;
   readonly hashtags: string[];
   readonly cta: string;

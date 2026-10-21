@@ -415,13 +415,14 @@ function buildResponseSchema(mode: GenerationMode): Record<string, unknown> {
         items: {
           type: 'OBJECT',
           properties: {
+            title: { type: 'STRING' },
             copy: { type: 'STRING' },
             hashtags: { type: 'ARRAY', items: { type: 'STRING' } },
             cta: { type: 'STRING' },
             mediaPrompt: { type: 'STRING' },
             altText: { type: 'STRING' },
           },
-          required: ['copy', 'hashtags', 'cta', 'mediaPrompt', 'altText'],
+          required: ['title', 'copy', 'hashtags', 'cta', 'mediaPrompt', 'altText'],
         },
       },
     },
