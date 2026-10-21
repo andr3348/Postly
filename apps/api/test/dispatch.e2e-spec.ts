@@ -84,6 +84,7 @@ describe('Dispatch (e2e)', () => {
       .send({
         brandId,
         originalPrompt: 'Post n8n',
+        title: 'Título n8n',
         copy: 'Copy n8n',
         mediaUrl: 'https://postly.test/n8n.jpg',
         mediaType,
@@ -119,6 +120,8 @@ describe('Dispatch (e2e)', () => {
     expect(claim.body.publication).toMatchObject({ id: publicationId, status: 'PROCESSING' });
     expect(claim.body.targets).toHaveLength(1);
     expect(claim.body.targets[0].credentials.accessToken).toBe('live-token-e2e');
+    // Caption lista para publicar: el backend fusiona título + descripción.
+    expect(claim.body.targets[0].caption).toBe('Título n8n\n\nCopy n8n');
 
     // Nada más vencido: 200 con sobre vacío explícito (n8n distingue por
     // `publication === null`, nunca por un cuerpo ausente).

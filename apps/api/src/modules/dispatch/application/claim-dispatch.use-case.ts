@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConnectedAccountWithCredentials } from '../../connected-accounts/domain/connected-account.entity.js';
+import { composeCaption } from '../../publications/domain/caption.js';
 import type { Publication } from '../../publications/domain/publication.entity.js';
 import type { PublicationTarget } from '../../publications/domain/target.entity.js';
 import {
@@ -19,6 +20,8 @@ import { ExpireStaleClaimsUseCase } from './expire-stale-claims.use-case.js';
 export interface TargetDispatch {
   readonly target: PublicationTarget;
   readonly credentials: ConnectedAccountWithCredentials;
+  /** Texto único listo para la API de la red (`caption`/`description`). */
+  readonly caption: string;
 }
 
 export interface DispatchClaim {
@@ -78,6 +81,7 @@ export class ClaimDispatchUseCase {
         targets: pending.map((target) => ({
           target,
           credentials: findCredentials(credentials, target),
+          caption: composeCaption(claimedPublication, target.platform),
         })),
       };
     }

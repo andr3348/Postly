@@ -8,7 +8,7 @@
 ```text
 POST /api/v1/dispatch/claim
   header: x-api-key: <N8N_API_KEY>
-  → 200 { publication, targets: [{ target, credentials }] }
+  → 200 { publication, targets: [{ target, credentials, caption }] }
 
 POST /api/v1/dispatch/targets/:targetId/report
   header: x-api-key: <N8N_API_KEY>
@@ -20,8 +20,13 @@ POST /api/v1/dispatch/targets/:targetId/report
 - El claim marca la publicación como `PROCESSING` con un lease de 15 minutos.
   Si n8n muere, el watchdog del backend la reencola o la marca `FAILED`.
 - Cada target del claim ya trae `target.platform`, `target.format`
-  (`FEED | REEL`), `target.id` y `credentials` descifradas. El workflow **debe
-  reportar todos los targets**, incluso cuando uno falle.
+  (`FEED | REEL`), `target.id`, `credentials` descifradas y `caption`: el
+  texto único que publican las APIs actuales, ya compuesto por el backend
+  (título + línea en blanco + descripción; sin título es `copy` intacto). El
+  workflow **debe reportar todos los targets**, incluso cuando uno falle.
+- `caption` es aditivo: un workflow que aún lea `publication.copy` sigue
+  funcionando; para publicar el título basta usar `target.caption` en las
+  expresiones que arman `caption`/`description`.
 - Las credenciales quedan congeladas en el claim: si se cambia la cuenta o el
   token, hay que volver a reclamar (o esperar al siguiente ciclo).
 
@@ -55,6 +60,10 @@ Después del claim, el workflow normaliza la respuesta, hace `Split Out` de
 | Instagram Feed imagen | `INSTAGRAM`, `FEED`, `IMAGE` | `POST /{ig-id}/media` (`image_url`) → `media_publish` |
 | Instagram Feed video | `INSTAGRAM`, `FEED`, `VIDEO` | `POST /{ig-id}/media` (`media_type=REELS`, `share_to_feed=true`) → polling → `media_publish` |
 | Instagram Reel | `INSTAGRAM`, `REEL` | `POST /{ig-id}/media` (`media_type=REELS`, `share_to_feed=true`) → polling → `media_publish` |
+
+Todas las ramas que aceptan texto publican `target.caption` (título +
+descripción ya fusionados por el backend); la tabla lista el argumento de cada
+API (`caption`/`description`).
 
 Notas de Meta (Graph API `v25.0`):
 

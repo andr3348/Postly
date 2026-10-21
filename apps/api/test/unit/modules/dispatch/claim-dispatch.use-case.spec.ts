@@ -51,6 +51,20 @@ describe('ClaimDispatchUseCase', () => {
     expect(claim?.targets[0]?.credentials.accessToken).toBe('decrypted-access');
   });
 
+  it('composes the caption with title and copy', async () => {
+    const claim = await arrange().execute(new Date());
+
+    expect(claim?.targets[0]?.caption).toBe('Título base\n\ncopy');
+  });
+
+  it('keeps copy as caption without a title (null or blank)', async () => {
+    for (const title of [null, '   ']) {
+      const claim = await arrange({ due: [{ ...BASE_PUBLICATION, title }] }).execute(new Date());
+
+      expect(claim?.targets[0]?.caption).toBe('copy');
+    }
+  });
+
   it('returns null when nothing is due', async () => {
     await expect(arrange({ due: [] }).execute(new Date())).resolves.toBeNull();
   });

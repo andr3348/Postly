@@ -198,7 +198,8 @@ pnpm --filter api run test:e2e      # e2e (DB levantada y migrada)
    pestañas actuales (Ideas/Texto) y el formulario manual se conservan como
    fallback, y n8n sigue siendo solo despacho.
    Base lista: `Publication.title` opcional (migración + UI; en el dashboard
-   `copy` se muestra como «Descripción»), pendiente de prellenar con IA.
+   `copy` se muestra como «Descripción») y `caption` fusionada por target en
+   el claim de n8n; pendiente, prellenar el título con IA.
 
 ## 8. Tesis — datos para capítulos V y VI
 

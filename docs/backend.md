@@ -150,8 +150,10 @@ solo-ADMIN para aprobar/publicar-ahora/rechazar. Errores:
 `ForbiddenError` → 403.
 
 `title` es opcional (Text, máximo 200 en la validación Zod; cadena vacía o
-`null` lo limpian). Es encabezado del dashboard: la caption pública sigue
-siendo `copy` (en la UI se muestra como «Descripción») y n8n lo ignora.
+`null` lo limpian). Es encabezado del dashboard: las redes destino no tienen
+parámetro de título, así que el claim entrega la `caption` de cada target ya
+fusionada con `composeCaption` (título + descripción; ver §7). En la UI `copy`
+se muestra como «Descripción».
 
 **Destinos omnicanal (sin módulo propio):** la publicación decide *qué*,
 el target *dónde y cómo*. Anidados bajo la publicación (dueño o admin, solo
@@ -286,18 +288,24 @@ POST /api/v1/dispatch/claim               → próxima vencida + credenciales,
                                             marcada PROCESSING (200; siempre
                                             con cuerpo: si no hay nada,
                                             { publication: null, targets: [] };
-                                            cada target incluye platform y
-                                            format FEED/REEL para ramificar)
+                                            cada target incluye platform,
+                                            format FEED/REEL y caption lista
+                                            para publicar)
 POST /api/v1/dispatch/targets/:id/report  → status + externalPostId/Url,
                                             errorMessage (+ metrics opcional);
                                             recalcula PUBLISHED/PARTIAL/FAILED
                                             cuando no quedan PENDING (200)
 ```
 
-Cada elemento de `targets` llega como `{ target, credentials }`; `target.format`
-es la intención persistida (`FEED | REEL`) y `credentials` incluye
-`externalAccountId`, `accessToken` y el resto de datos ya descifrados. n8n debe
-reportar todos los targets, incluso cuando uno falle.
+Cada elemento de `targets` llega como `{ target, credentials, caption }`;
+`target.format` es la intención persistida (`FEED | REEL`), `credentials`
+incluye `externalAccountId`, `accessToken` y el resto de datos ya descifrados,
+y `caption` es el argumento único de texto que esperan las APIs actuales
+(`caption` de foto en Facebook/Instagram, `description` de video en Facebook):
+`composeCaption` (`publications/domain/caption.ts`) fusiona `title` + `copy`
+con una línea en blanco y sin título devuelve `copy` intacto — así n8n elige
+la rama y publica, pero no compone texto. n8n debe reportar todos los targets,
+incluso cuando uno falle.
 
 Superficie versionada por URI (`VersioningType.URI` de Nest): `dispatch` y
 `generations/text` llevan `v1`; el resto del API del dashboard sigue sin versión.
