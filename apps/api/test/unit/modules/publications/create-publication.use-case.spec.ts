@@ -19,6 +19,8 @@ describe('CreatePublicationUseCase', () => {
       copy: 'copy',
       mediaUrl: 'https://postly.test/m.jpg',
       modelText: 'gemini-3.5-flash-lite',
+      modelMedia: 'fal-ai/flux/schnell',
+      tokensUsed: 456,
     });
 
     expect(publication).toMatchObject({
@@ -26,6 +28,8 @@ describe('CreatePublicationUseCase', () => {
       brandId: 'brand-1',
       title: 'Título nuevo',
       modelText: 'gemini-3.5-flash-lite',
+      modelMedia: 'fal-ai/flux/schnell',
+      tokensUsed: 456,
     });
   });
 

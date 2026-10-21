@@ -16,6 +16,8 @@ export interface CreatePublicationInput {
   readonly mediaUrl: string;
   readonly mediaType?: PublicationMediaType;
   readonly modelText?: string;
+  readonly modelMedia?: string;
+  readonly tokensUsed?: number | null;
 }
 
 /** Crea la publicación en DRAFT (ya generada por IA y editable). */
@@ -40,6 +42,8 @@ export class CreatePublicationUseCase {
       mediaUrl: input.mediaUrl,
       mediaType: input.mediaType,
       modelText: input.modelText,
+      modelMedia: input.modelMedia,
+      tokensUsed: input.tokensUsed,
     });
   }
 }

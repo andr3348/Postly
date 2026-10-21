@@ -19,6 +19,8 @@ export interface CreatePublicationData {
   readonly mediaUrl: string;
   readonly mediaType?: PublicationMediaType;
   readonly modelText?: string;
+  readonly modelMedia?: string;
+  readonly tokensUsed?: number | null;
 }
 
 export interface UpdatePublicationData {
