@@ -1,16 +1,26 @@
 import {
   ForbiddenError,
   InvalidPublicationTransitionError,
+  PublicationWithoutTargetsError,
 } from '../../../../src/shared/errors.js';
 import { ApprovePublicationUseCase } from '../../../../src/modules/publications/application/approve-publication.use-case.js';
 import {
   ADMIN,
   BASE_PUBLICATION,
+  BASE_TARGET,
   MARKETING,
   stubPublicationsRepository,
+  stubPublicationTargetsRepository,
 } from './test-stubs.js';
 
 const PENDING = { ...BASE_PUBLICATION, status: 'PENDING_APPROVAL' as const };
+
+/** Destinos mínimos para aprobar: el caso de uso exige ≥1 canal. */
+function stubTargets() {
+  return stubPublicationTargetsRepository({
+    findByPublication: async () => [BASE_TARGET],
+  });
+}
 
 describe('ApprovePublicationUseCase', () => {
   const scheduledAt = new Date('2026-10-01T09:00:00Z');
@@ -20,7 +30,7 @@ describe('ApprovePublicationUseCase', () => {
       findById: async () => PENDING,
     });
 
-    const publication = await new ApprovePublicationUseCase(publications).execute({
+    const publication = await new ApprovePublicationUseCase(publications, stubTargets()).execute({
       id: PENDING.id,
       scheduledAt,
       requester: ADMIN,
@@ -40,7 +50,7 @@ describe('ApprovePublicationUseCase', () => {
     });
 
     await expect(
-      new ApprovePublicationUseCase(publications).execute({
+      new ApprovePublicationUseCase(publications, stubTargets()).execute({
         id: PENDING.id,
         scheduledAt,
         requester: MARKETING,
@@ -54,11 +64,26 @@ describe('ApprovePublicationUseCase', () => {
     });
 
     await expect(
-      new ApprovePublicationUseCase(publications).execute({
+      new ApprovePublicationUseCase(publications, stubTargets()).execute({
         id: BASE_PUBLICATION.id,
         scheduledAt,
         requester: ADMIN,
       }),
     ).rejects.toBeInstanceOf(InvalidPublicationTransitionError);
+  });
+
+  it('rejects approving a publication without targets', async () => {
+    const publications = stubPublicationsRepository({
+      findById: async () => PENDING,
+    });
+    const targets = stubPublicationTargetsRepository(); // findByPublication → []
+
+    await expect(
+      new ApprovePublicationUseCase(publications, targets).execute({
+        id: PENDING.id,
+        scheduledAt,
+        requester: ADMIN,
+      }),
+    ).rejects.toBeInstanceOf(PublicationWithoutTargetsError);
   });
 });

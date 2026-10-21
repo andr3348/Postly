@@ -1,6 +1,7 @@
 import {
   ForbiddenError,
   InvalidPublicationTransitionError,
+  PublicationWithoutTargetsError,
 } from '../../../../src/shared/errors.js';
 import { ApprovePublicationUseCase } from '../../../../src/modules/publications/application/approve-publication.use-case.js';
 import { PublishNowUseCase } from '../../../../src/modules/publications/application/publish-now.use-case.js';
@@ -8,11 +9,20 @@ import type { PublicationsRepository } from '../../../../src/modules/publication
 import {
   ADMIN,
   BASE_PUBLICATION,
+  BASE_TARGET,
   MARKETING,
   stubPublicationsRepository,
+  stubPublicationTargetsRepository,
 } from './test-stubs.js';
 
 const PENDING = { ...BASE_PUBLICATION, status: 'PENDING_APPROVAL' as const };
+
+/** Destinos mínimos para aprobar: el caso de uso exige ≥1 canal. */
+function stubTargets() {
+  return stubPublicationTargetsRepository({
+    findByPublication: async () => [BASE_TARGET],
+  });
+}
 
 function buildUseCase(
   publications: PublicationsRepository = stubPublicationsRepository({
@@ -21,7 +31,7 @@ function buildUseCase(
 ) {
   const notifier = { notify: vi.fn(async () => {}) };
   const useCase = new PublishNowUseCase(
-    new ApprovePublicationUseCase(publications),
+    new ApprovePublicationUseCase(publications, stubTargets()),
     notifier,
   );
   return { useCase, notifier };
@@ -67,6 +77,23 @@ describe('PublishNowUseCase', () => {
     expect(notifier.notify).not.toHaveBeenCalled();
   });
 
+  it('rejects publishing now without targets and does not wake n8n', async () => {
+    const notifier = { notify: vi.fn(async () => {}) };
+    const useCase = new PublishNowUseCase(
+      new ApprovePublicationUseCase(
+        stubPublicationsRepository({ findById: async () => PENDING }),
+        stubPublicationTargetsRepository(), // findByPublication → []
+      ),
+      notifier,
+    );
+
+    await expect(
+      useCase.execute({ id: PENDING.id, requester: ADMIN }),
+    ).rejects.toBeInstanceOf(PublicationWithoutTargetsError);
+
+    expect(notifier.notify).not.toHaveBeenCalled();
+  });
+
   it('returns the publication when the webhook fails (cron fallback)', async () => {
     const notifier = {
       notify: vi.fn(async () => {
@@ -76,6 +103,7 @@ describe('PublishNowUseCase', () => {
     const useCase = new PublishNowUseCase(
       new ApprovePublicationUseCase(
         stubPublicationsRepository({ findById: async () => PENDING }),
+        stubTargets(),
       ),
       notifier,
     );

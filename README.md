@@ -124,18 +124,29 @@ Postly/
 ```bash
 pnpm install
 cp packages/database/.env.example packages/database/.env
+cp apps/api/.env.example apps/api/.env
 docker compose up -d
 
-# Secretos JWT del api (requeridos; ver docs/backend.md)
-export JWT_ACCESS_SECRET="$(openssl rand -hex 32)"
-export JWT_REFRESH_SECRET="$(openssl rand -hex 32)"
+# Cliente Prisma + dist de @postly/database (el api los resuelve en runtime):
+pnpm --filter database run build
+# Migraciones al PostgreSQL local + seed (admin, marca y publicación demo):
+pnpm --filter database exec prisma migrate deploy
+pnpm --filter database exec prisma db seed
 
+# Completar secretos reales en apps/api/.env (openssl rand -hex 32):
+#   JWT_ACCESS_SECRET · JWT_REFRESH_SECRET · ENCRYPTION_KEY · N8N_API_KEY
+# N8N_DISPATCH_WEBHOOK_URL / INTERNAL_WEBHOOK_SECRET pueden quedar como
+# placeholder en dev: el api arranca y, sin n8n, `publish-now` cae al claim
+# del cron.
 # IA de texto (opcional para levantar; requerida para el panel Gemini):
-# agregar GEMINI_API_KEY en apps/api/.env (ver apps/api/.env.example)
+#   GEMINI_API_KEY (ver apps/api/.env.example)
 
 pnpm dev                            # api + web
 pnpm check-types && pnpm lint       # verificación
-pnpm --filter api run test:e2e      # e2e (DB levantada)
+pnpm --filter api run test:e2e      # e2e (DB levantada y migrada)
+
+# Tras un pull con migraciones nuevas:
+#   pnpm --filter database exec prisma migrate deploy && pnpm --filter database run build
 ```
 
 ## 7. Roadmap (objetivos específicos)
@@ -155,9 +166,9 @@ pnpm --filter api run test:e2e      # e2e (DB levantada)
       contra los contratos reales (`GET /analytics/summary` + CORS con credenciales).
       Falta: Insights por IA (capa b de `docs/frontend.md` §5).
 - [ ] Obj. 5: n8n — workflow `Post Content` activo para Facebook/Instagram
-      (Feed/Reel, cron de 5 min + `publish-now`), con claim atómico y reporte
-      por target (ver `docs/n8n.md`). Pendientes: LinkedIn/TikTok y despliegue
-      en el VPS.
+      (Feed/Reel, cron de 5 min + `publish-now`), con claim atómico, lease de
+      15 min que reencola o cierra despachos abandonados y reporte por target
+      (ver `docs/n8n.md`). Pendientes: LinkedIn/TikTok y despliegue en el VPS.
 - [ ] Obj. 6: pruebas unitarias/integración/rendimiento.
 - [ ] Obj. 7: medición 45 min → 3–5 min y cálculo B/C.
 
@@ -168,8 +179,8 @@ pnpm --filter api run test:e2e      # e2e (DB levantada)
    engagement por canal; **Shadcn + Recharts** ya instalados y en uso.
 2. [ ] **Pulido general** (post-MVP, sobre lo ya hecho): endurecer restricciones
    por rol en `/brands` y `/brands/:id/accounts` (módulo connected-accounts);
-   paginación de la bandeja de publicaciones; reaper de estados `PROCESSING`;
-   cambio de contraseña; Swagger.
+   paginación de la bandeja de publicaciones; cambio de contraseña; Swagger;
+   deuda menor: unificar el lockfile duplicado (`apps/web/pnpm-lock.yaml`).
 3. [x] **Generación de texto con Gemini (MVP)** — `POST /api/v1/generations/text`
    (`IDEAS | COPY | IMPROVE`) con contexto de `Brand`, JSON estructurado, Zod y
    fallback `gemini-3.8-flash` → `gemini-3.5-flash-lite`. Panel en
