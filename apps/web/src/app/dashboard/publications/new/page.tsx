@@ -25,6 +25,7 @@ export default function NewPublicationPage() {
   const [fill, setFill] = useState<PublicationFormFill>();
 
   const handleUseText = (data: {
+    title: string;
     copy: string;
     originalPrompt: string;
     modelText: string;
@@ -41,6 +42,12 @@ export default function NewPublicationPage() {
     });
   };
 
+  // El agente ya creó el DRAFT en el backend: se navega a editarlo.
+  const handleAgentDraft = (publicationId: string): void => {
+    invalidatePublications();
+    router.push(`/dashboard/publications/${publicationId}/edit`);
+  };
+
   const handleCreate = async (
     data: CreatePublicationFormInput | UpdateDraftFormInput,
   ): Promise<void> => {
@@ -54,6 +61,7 @@ export default function NewPublicationPage() {
     const created = await createPublication({
       brandId: selectedId,
       originalPrompt: data.originalPrompt,
+      title: data.title,
       copy: data.copy,
       mediaUrl: data.mediaUrl,
       mediaType: data.mediaType,
@@ -81,6 +89,7 @@ export default function NewPublicationPage() {
           key={selectedId ?? "no-brand"}
           brandId={selectedId}
           onUseText={handleUseText}
+          onAgentDraft={handleAgentDraft}
         />
         <div
           id="publication-form"

@@ -142,6 +142,7 @@ model Publication {
 
   // Contenido final consolidado: DRAFT = ya generado por IA y editable.
   // El prompt pre-generación vive en el frontend, no en BD.
+  title     String?   @db.Text
   copy      String    @db.Text
   mediaUrl  String    @db.Text
   mediaType MediaType @default(IMAGE)

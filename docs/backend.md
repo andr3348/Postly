@@ -121,7 +121,8 @@ ceremonia. Revisitar cuando una entidad necesite métodos
    (default `gemini-3.8-flash`) y `GEMINI_TEXT_FALLBACK_MODEL`
    (`gemini-3.5-flash-lite`) viven en `apps/api/.env`; el navegador nunca los
    recibe. La generación usa `fetch` nativo, salida JSON estructurada y Zod,
-   sin SDK de Gemini.
+   sin SDK de Gemini. Con el modo agente, `FAL_*` y `R2_*` también viven solo
+   en el backend (`fetch` para fal.ai y `@aws-sdk/client-s3` para R2).
 
 ## 4. Módulo publications (human-in-the-loop)
 
@@ -132,7 +133,7 @@ via `canTransition`; n8n mueve `SCHEDULED → PROCESSING → PUBLISHED/PARTIAL/F
 POST   /publications            → crea DRAFT (verifica la marca: 404 si no existe)
 GET    /publications?brandId=&status= → bandeja (usa índice [brandId, status])
 GET    /publications/:id        → detalle (404 si no existe)
-PATCH  /publications/:id        → edita copy/media solo en DRAFT (dueño o admin)
+PATCH  /publications/:id        → edita title/copy/media solo en DRAFT (dueño o admin)
 POST   /publications/:id/submit → DRAFT → PENDING_APPROVAL (dueño o admin)
 POST   /publications/:id/approve→ PENDING_APPROVAL → SCHEDULED, solo ADMIN
                                    (body { scheduledAt }; exige ≥1 canal; fija
@@ -148,6 +149,12 @@ solo-ADMIN para aprobar/publicar-ahora/rechazar. Errores:
 `PublicationNotFoundError` → 404, `InvalidPublicationTransitionError` → 400,
 `PublicationWithoutTargetsError` → 400 (submit o aprobar sin canales),
 `ForbiddenError` → 403.
+
+`title` es opcional (Text, máximo 200 en la validación Zod; cadena vacía o
+`null` lo limpian). Es encabezado del dashboard: las redes destino no tienen
+parámetro de título, así que el claim entrega la `caption` de cada target ya
+fusionada con `composeCaption` (título + descripción; ver §7). En la UI `copy`
+se muestra como «Descripción».
 
 **Destinos omnicanal (sin módulo propio):** la publicación decide *qué*,
 el target *dónde y cómo*. Anidados bajo la publicación (dueño o admin, solo
@@ -282,18 +289,24 @@ POST /api/v1/dispatch/claim               → próxima vencida + credenciales,
                                             marcada PROCESSING (200; siempre
                                             con cuerpo: si no hay nada,
                                             { publication: null, targets: [] };
-                                            cada target incluye platform y
-                                            format FEED/REEL para ramificar)
+                                            cada target incluye platform,
+                                            format FEED/REEL y caption lista
+                                            para publicar)
 POST /api/v1/dispatch/targets/:id/report  → status + externalPostId/Url,
                                             errorMessage (+ metrics opcional);
                                             recalcula PUBLISHED/PARTIAL/FAILED
                                             cuando no quedan PENDING (200)
 ```
 
-Cada elemento de `targets` llega como `{ target, credentials }`; `target.format`
-es la intención persistida (`FEED | REEL`) y `credentials` incluye
-`externalAccountId`, `accessToken` y el resto de datos ya descifrados. n8n debe
-reportar todos los targets, incluso cuando uno falle.
+Cada elemento de `targets` llega como `{ target, credentials, caption }`;
+`target.format` es la intención persistida (`FEED | REEL`), `credentials`
+incluye `externalAccountId`, `accessToken` y el resto de datos ya descifrados,
+y `caption` es el argumento único de texto que esperan las APIs actuales
+(`caption` de foto en Facebook/Instagram, `description` de video en Facebook):
+`composeCaption` (`publications/domain/caption.ts`) fusiona `title` + `copy`
+con una línea en blanco y sin título devuelve `copy` intacto — así n8n elige
+la rama y publica, pero no compone texto. n8n debe reportar todos los targets,
+incluso cuando uno falle.
 
 Superficie versionada por URI (`VersioningType.URI` de Nest): `dispatch` y
 `generations/text` llevan `v1`; el resto del API del dashboard sigue sin versión.
@@ -342,12 +355,14 @@ Regla CLAVE: por destino solo cuenta su snapshot más reciente (sumar el
 historial duplicaría impresiones); sin impresiones el engagement es 0
 (nunca división por cero).
 
-## 9. Módulo generation (Gemini, solo texto)
+## 9. Módulo generation (Gemini + modo agente fal.ai/R2)
 
-Genera ideas y copy con el contexto de una marca **sin persistir nada**: no
-crea `Publication`, no escribe en la base de datos (solo lee `Brand`), no toca
-storage, fal.ai ni n8n. La respuesta se usa para prellenar el formulario; el
-flujo normal de creación de borrador sigue intacto.
+Tiene dos superficies: `text` genera ideas y copy con el contexto de una marca
+**sin persistir nada** (no crea `Publication`, solo lee `Brand`; la respuesta
+prellena el formulario) y `agent` orquesta texto → media → almacenamiento
+propio → borrador persistido.
+
+### 9.1 Texto (stateless)
 
 ```text
 POST /api/v1/generations/text
@@ -366,8 +381,9 @@ para que "Más ideas" no repita tarjetas; `brandId` inexistente → 404.
 
 - `IDEAS`: 3 tarjetas con `title`, `angle`, `hook`, `whyItWorks` y
   `suggestedFormat`.
-- `COPY` / `IMPROVE`: 3 variantes con `copy`, `hashtags`, `cta`,
-  `mediaPrompt` y `altText`.
+- `COPY` / `IMPROVE`: 3 variantes con `title`, `copy`, `hashtags`, `cta`,
+  `mediaPrompt` y `altText`. El `title` (≤200) prellena el título del borrador
+  y es el que usa el modo agente.
 - El prompt de sistema se arma con `Brand.name`, `aiTone`, `aiBrandVoice`,
   `aiTargetAudience` y `defaultHashtags` (`application/build-brand-prompt.ts`);
   los datos de marca son contexto, no instrucciones. Las instrucciones se
@@ -411,10 +427,75 @@ Ejemplo de respuesta:
 }
 ```
 
-Límite de esta fase: `Publication.mediaUrl` es obligatorio, así que la media se
-sigue agregando manualmente en el formulario. La fase 2 (modo agente: fal.ai +
-**Cloudflare R2** como `MediaStorage`) prellenará el `DRAFT` con la media
-generada.
+### 9.2 Modo agente (fal.ai + Cloudflare R2)
+
+Un solo request del frontend resuelve todo el flujo; la orquestación vive en el
+backend (no en n8n) y termina con el borrador ya guardado:
+
+```text
+POST /api/v1/generations/agent
+body: { brandId, prompt, platform, format, mediaType? }
+response 201: Publication (DRAFT)   // mismo formato que POST /publications
+```
+
+Reglas de entrada: `prompt`, `platform` y `format` son obligatorios; `REEL`
+solo aplica a Facebook/Instagram (Zod → 400); `mediaType` default
+`REEL → VIDEO`, `FEED → IMAGE` (el selector del panel puede forzar `VIDEO` en
+`FEED`).
+
+Etapas dentro del mismo request:
+
+1. **Texto**: reusa `GenerateTextUseCase` en modo `COPY` (misma marca,
+   contexto y validación Zod). Se toma la variante 0 con su `title`,
+   `tokensUsed` y `model`.
+2. **Media**: `MediaGenerator` (`FalMediaGenerator`) llama a la API de cola de
+   fal.ai (`queue.fal.run`): encola, consulta el estado con
+   `FAL_POLL_INTERVAL_MS` hasta `COMPLETED` y recién ahí lee el resultado. El
+   prompt es el `mediaPrompt` de la variante (o el copy si viene vacío);
+   `REEL` → video `9:16`, `FEED` → imagen `1:1`. Defaults:
+   `FAL_IMAGE_MODEL=fal-ai/flux/schnell` y `FAL_VIDEO_MODEL` (Kling
+   text-to-video).
+3. **Storage**: `MediaStorage` (`R2MediaStorage`) descarga la URL temporal de
+   fal.ai y la sube a R2 con `@aws-sdk/client-s3` bajo
+   `publications/{uuid}.{ext}`, devolviendo la URL pública
+   (`R2_PUBLIC_BASE_URL`) que queda en `Publication.mediaUrl`.
+4. **Alta**: `CreatePublicationUseCase` crea el `DRAFT` con `title`, copy +
+   hashtags (misma regla que el panel: texto, línea en blanco, hashtags
+   normalizados con `#`), `mediaUrl`, `mediaType`, `modelText`, `modelMedia`
+   (id real del modelo de fal) y `tokensUsed`.
+
+El borrador lo crea el backend dentro del mismo request (auto-guardado
+server-side) para que un refresh o cierre de pestaña no pierda la media ya
+generada y cobrada. El frontend navega a la edición del borrador creado.
+
+Variables de entorno (solo backend, nunca llegan al navegador):
+
+- fal.ai: `FAL_KEY`, `FAL_IMAGE_MODEL`, `FAL_VIDEO_MODEL`,
+  `FAL_POLL_INTERVAL_MS` (2000) y `FAL_TIMEOUT_MS` (240000).
+- R2: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
+  `R2_BUCKET` y `R2_PUBLIC_BASE_URL` (bucket público de solo lectura).
+
+Sin credenciales no se llama a la red y responde 503 estructurado:
+`FAL_NOT_CONFIGURED` (falta `FAL_KEY`) o `R2_NOT_CONFIGURED` (faltan `R2_*`),
+en ambos casos sin crear nada y con `retryable: false`.
+
+Códigos propios del agente (mismo formato que los de Gemini):
+
+- fal.ai: no reintentables `FAL_NOT_CONFIGURED`, `FAL_AUTH_FAILED` y
+  `FAL_MODEL_NOT_FOUND` (503), `FAL_REJECTED` (422, job fallido: contenido no
+  permitido). Reintentables: `FAL_QUOTA_EXCEEDED` (429); `FAL_OVERLOADED`,
+  `FAL_UNREACHABLE` y `FAL_UNKNOWN` (503); `FAL_UPSTREAM_ERROR` y
+  `FAL_INVALID_RESPONSE` (502); `FAL_TIMEOUT` (504).
+- Storage: `MEDIA_DOWNLOAD_FAILED` (provider `FAL`, reintentable),
+  `R2_UPLOAD_FAILED` (reintentable) y `R2_NOT_CONFIGURED` (no reintentable),
+  todos 503.
+
+Límites conocidos: el video tarda minutos (la cola evita sockets abiertos); si
+el servidor se reinicia a mitad de la generación, el job de fal queda huérfano
+(mejora pendiente: persistir el `request_id`); el modo agente siempre crea un
+borrador nuevo (regenerar media sobre un borrador existente queda fuera de
+alcance). Los payloads por defecto (FLUX/Kling) son best-effort y se ajustan al
+probar con una `FAL_KEY` real.
 
 Nota de privacidad: en el free tier de Gemini, Google puede usar el contenido
 enviado para mejorar sus productos. Para demos/tests usar datos sintéticos y no
@@ -425,11 +506,12 @@ pegar información confidencial de la empresa.
 - Unitarios en `test/unit/` como espejo de `src/` (nunca `.spec` junto al código);
   casos de uso con puertos stub tipados, sin DB. E2E en `test/*.e2e-spec.ts`
   (requieren `docker compose up -d`; secretos de prueba en `vitest.config.e2e.ts`).
-- Generación de texto: 19 unitarios en `test/unit/modules/generation/` (prompt,
-  parser, caso de uso y adaptador Gemini con `fetch` mockeado) + e2e en
-  `test/generation.e2e-spec.ts` (stub del puerto LLM: auth, `v1`, validación Zod,
-  errores reintentables/no reintentables y verificación de que no se crean
-  publicaciones).
+- Generación: 38 unitarios en `test/unit/modules/generation/` (prompt, parser,
+  casos de uso de texto y del agente, copy + hashtags, adaptadores fal.ai y R2
+  con `fetch` y cliente S3 mockeados) + e2e en
+  `test/generation.e2e-spec.ts` (stubs de LLM, media y storage: auth, `v1`,
+  validación Zod, errores reintentables/no reintentables, que `text` no crea
+  publicaciones y que `agent` crea el DRAFT con auditoría).
 
 ```bash
 pnpm --filter api run start:dev     # backend en watch

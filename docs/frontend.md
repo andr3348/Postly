@@ -72,8 +72,9 @@ El frontend delega por completo la seguridad y emisión de JWT al backend (tal c
 | Perfil de usuario                  | `/dashboard/profile`            | Completado UI | `GET /auth/me` — nombre y rol desde sesión activa                                                  |
 | Marcas                             | `/dashboard/brands`             | Completado    | CRUD `/brands` + contexto global (`BrandProvider`, persistido) que consume el switcher |
 | Publicaciones (bandeja por estado) | `/dashboard/publications?status=` | Completado | `GET /publications?brandId=&status=` + chips `?status=` sincronizados con la URL                                   |
-| Crear publicación                  | `/dashboard/publications/new`   | Completado    | `POST /publications` (borrador de la marca activa) → redirige al detalle + `POST /api/v1/generations/text` desde el panel IA (prellenado, sin persistencia) |
-| Detalle + flujo                    | `/dashboard/publications/:id`   | Completado    | `PATCH` (dueño/ADMIN en DRAFT), `submit` (dueño/ADMIN, exige targets), `approve` (ADMIN + agenda) / `publish-now` (ADMIN, inmediato) / `reject` (ADMIN), targets add/remove y selector Feed/Reel para video en Facebook/Instagram, historial de métricas (+ snapshot manual dueño/ADMIN en canal publicado) |
+| Crear publicación                  | `/dashboard/publications/new`   | Completado    | `POST /publications` (borrador de la marca activa: título opcional, descripción y media) → redirige al detalle; panel IA con `POST /api/v1/generations/text` (stateless) o `POST /api/v1/generations/agent` (texto + media + DRAFT) |
+| Editar borrador                    | `/dashboard/publications/:id/edit` | Completado | `GET /publications/:id` + `PATCH /publications/:id` (dueño/ADMIN en `DRAFT`) — misma vista que crear; el panel IA oculta Agente |
+| Detalle + flujo                    | `/dashboard/publications/:id`   | Completado    | `PATCH` (dueño/ADMIN en DRAFT desde el editor unificado), `submit` (dueño/ADMIN, exige targets), `approve` (ADMIN + agenda) / `publish-now` (ADMIN, inmediato) / `reject` (ADMIN), targets add/remove y selector Feed/Reel para video en Facebook/Instagram, historial de métricas (+ snapshot manual dueño/ADMIN en canal publicado) |
 | Cuentas conectadas                 | `/dashboard/accounts`           | Completado    | CRUD anidado `/brands/:id/accounts` + `POST /verify` (prueba real antes de guardar) + badge `EXPIRED` |
 | Analytics                          | `/dashboard/analytics`          | Completado    | `GET /analytics/summary` (brandId del switcher) — KPIs, pipeline por estado y barras por canal con Shadcn cards + Recharts; Insights IA sigue placeholder (paso b del §5) |
 
@@ -95,37 +96,69 @@ Sin vista: `/dispatch` (superficie máquina de n8n, sin UI).
   distinción `FEED`/`REEL` se conserva para trazabilidad y para elegir el flujo
   de Facebook; ver `docs/n8n.md` §3.
 
-### 4.2 Asistente IA de texto (Gemini)
+### 4.2 Asistente IA (Gemini + modo agente fal.ai)
 
-En `/dashboard/publications/new`, en la misma vista que el formulario manual
-(arriba en pantallas pequeñas), vive `AiAssistantPanel`:
+En `/dashboard/publications/new` (y en el editor unificado) el panel
+`AiAssistantPanel` vive en la misma vista que el formulario manual, arriba en
+pantallas pequeñas:
 
+- **Pestañas Agente | Texto | Ideas.** Al crear, **Agente** es la opción por
+  defecto; en edición se oculta (`hideAgent`) porque crearía otro borrador.
+- **Agente (solo al crear):** exige marca activa, brief, plataforma y formato
+  (`REEL` solo Facebook/Instagram). Un único request a
+  `POST /api/v1/generations/agent`: el backend genera el texto (Gemini), la
+  media (fal.ai: imagen FLUX en Feed / video Kling en Reel), la copia a R2 y crea
+  el `DRAFT`. El frontend invalida el caché y navega al editor del borrador
+  (`/dashboard/publications/:id/edit`). El botón avisa que el video puede tardar
+  minutos; si falla, muestra el mensaje del backend y **Reintentar** solo cuando
+  `retryable` es `true`.
 - **Ideas:** genera 3 tarjetas con título, ángulo, hook, por qué funciona y
   formato sugerido. **Más ideas** vuelve a llamar al endpoint enviando
   `excludeIdeas` con los títulos ya mostrados, y **anexa** las nuevas tarjetas
   (no reemplaza).
 - **Desarrollar:** toma una idea y pasa al modo Texto con el brief enriquecido
   para generar 3 variantes de copy.
-- **Texto:** muestra las variantes con hashtags, CTA y propuesta de media. Cada
-  variante se puede **Mejorar** con una indicación (modo `IMPROVE`).
-- **Usar este texto:** prellena copy + prompt original en `PublicationForm`
-  mediante la prop `fill` (con `nonce`); no toca la URL ni el tipo de media. El
-  formulario sigue siendo editable y es el único que crea el `DRAFT`.
+- **Texto:** muestra las variantes con título, hashtags, CTA y propuesta de
+  media. Cada variante se puede **Mejorar** con una indicación (modo `IMPROVE`).
+  En edición, mientras no hay variantes, aparece la tarjeta "Texto actual del
+  borrador" con **Mejorar este texto**, que usa el copy guardado como
+  `currentCopy`.
+- **Usar este texto:** prellena **descripción** (`copy`) + **título** (`title` de
+  la variante) + prompt original + `modelText` en `PublicationForm` mediante la
+  prop `fill` (con `nonce`); no toca la URL ni el tipo de media. El formulario
+  sigue siendo editable y es el único que guarda al crear.
 - Cada variante conserva el modelo real que la generó (incluido el fallback); el
   formulario lo envía como `modelText` al crear el borrador sin mostrarlo. Un
   borrador escrito manualmente queda como `"manual"`.
-- La generación es **stateless**: no crea publicaciones ni escribe en la base de
-  datos. La media todavía se agrega manualmente; la fase 2 (modo agente: fal.ai
-  + Cloudflare R2) la generará desde el guion del asistente y prellenará el
-  borrador.
+- **Texto/Ideas son stateless:** no crean publicaciones ni escriben en la base
+  de datos. La media se agrega manualmente en el formulario.
 - El panel envía plataforma, formato (`FEED`/`REEL`) y tipo de media opcionales
-  para adaptar el copy. Si Gemini falla, muestra un mensaje en español según la
+  para adaptar el copy. En modo agente, `REEL` fuerza video y el selector de
+  media se deshabilita.
+- Si Gemini/fal.ai fallan, el panel muestra un mensaje en español según la
   causa; cuando el API marca `retryable`, aparece **Reintentar**, que repite la
-  misma solicitud. Si no es reintentable (configuración, autenticación,
-  seguridad), solo se muestra el mensaje.
+  misma solicitud (texto o agente). Si no es reintentable (configuración,
+  autenticación, seguridad), solo se muestra el mensaje.
 - Las instrucciones del modelo se escriben en inglés, pero todo el contenido
   generado se devuelve en español neutro latinoamericano; la interfaz y los
   mensajes de error permanecen en español.
+- El formulario manual (`PublicationForm`) expone **Título (opcional)**,
+  **Descripción** (el campo `copy`, que es la caption pública) y media (URL +
+  tipo). En la bandeja el título encabeza la tarjeta cuando existe; si no, se
+  sigue mostrando la descripción.
+
+### 4.3 Editor unificado (crear/editar)
+
+- Crear (`/dashboard/publications/new`) y editar
+  (`/dashboard/publications/:id/edit`) comparten el mismo grid y
+  `PublicationForm`; el modal "Editar borrador" del detalle se eliminó.
+- `PublicationEditor` carga el borrador con `getPublicationCached`, usa el
+  `brandId` del propio borrador, oculta la pestaña Agente y precarga todos los
+  campos (incluido el título). Solo se edita `DRAFT`: si el estado avanzó,
+  muestra un aviso con enlace al detalle.
+- Guardar hace `PATCH /publications/:id` con `updateDraftFormSchema`, invalida
+  el caché de publicaciones y vuelve al detalle. El botón "Editar borrador" del
+  detalle es ahora un `Link` a esta vista (visible para dueño/ADMIN en `DRAFT`).
 
 ## 5. Analytics e Insights por IA (requisito de tesis)
 

@@ -14,14 +14,18 @@ export interface CreatePublicationData {
   readonly brandId: string;
   readonly userId: string;
   readonly originalPrompt: string;
+  readonly title?: string | null;
   readonly copy: string;
   readonly mediaUrl: string;
   readonly mediaType?: PublicationMediaType;
   readonly modelText?: string;
+  readonly modelMedia?: string;
+  readonly tokensUsed?: number | null;
 }
 
 export interface UpdatePublicationData {
   readonly originalPrompt?: string;
+  readonly title?: string | null;
   readonly copy?: string;
   readonly mediaUrl?: string;
   readonly mediaType?: PublicationMediaType;

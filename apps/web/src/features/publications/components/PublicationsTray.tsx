@@ -156,9 +156,16 @@ function PublicationsList({ brandId, version }: { brandId: string; version: numb
           className="bg-white dark:bg-[#232a3e] border border-gray-100 dark:border-[#2d374e] rounded-[18px] p-5 shadow-xs flex flex-col gap-1.5 transition-colors hover:border-gray-300 dark:hover:border-slate-500 cursor-pointer"
         >
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-medium text-[#083A3D] dark:text-white truncate">
-              {publication.copy}
-            </span>
+            <div className="min-w-0">
+              <span className="block text-sm font-medium text-[#083A3D] dark:text-white truncate">
+                {publication.title ?? publication.copy}
+              </span>
+              {publication.title !== null && (
+                <span className="block text-xs text-gray-500 dark:text-gray-400 truncate">
+                  {publication.copy}
+                </span>
+              )}
+            </div>
             <PublicationStatusBadge status={publication.status} />
           </div>
           <div className="flex flex-wrap gap-x-3 text-xs text-gray-500 dark:text-gray-400">

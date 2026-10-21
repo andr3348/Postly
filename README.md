@@ -154,12 +154,13 @@ pnpm --filter api run test:e2e      # e2e (DB levantada y migrada)
 - [x] Obj. 1 (parcial): flujo actual analizado y documentado.
 - [x] Obj. 2: monorepo + esquema relacional **definido, migrado y verificado**.
       Falta: diagramas UML (casos de uso, clases, despliegue, secuencia).
-- [ ] Obj. 3: backend — campañas, persistencia, LLMs/difusión.
+- [x] Obj. 3: backend — campañas, persistencia, LLMs/difusión.
       Hecho: auth, marcas, cuentas conectadas (+ verificación real), publications
-      con targets/métricas, superficie de despacho n8n, resumen analítico y
-      generación de texto con Gemini (`POST /api/v1/generations/text`).
-      Falta: modo agente (fal.ai + Cloudflare R2) con persistencia del DRAFT
-      prellenado — ver TODO §7.1.
+      con targets/métricas, superficie de despacho n8n, resumen analítico,
+      generación de texto con Gemini (`POST /api/v1/generations/text`) y modo
+      agente (`POST /api/v1/generations/agent`: Gemini → fal.ai → Cloudflare R2
+      → DRAFT). Pendiente ambiental: probar con credenciales reales de fal.ai/R2
+      (el código y los tests usan mocks).
 - [x] Obj. 4: dashboard — prompt → preview → aprobación + Analytics/Insights.
       Hecho: Marcas, Cuentas y Publicaciones (bandeja, crear con asistente IA,
       detalle con flujo DRAFT → … → PUBLICADO y métricas) + vista Analytics —
@@ -188,17 +189,20 @@ pnpm --filter api run test:e2e      # e2e (DB levantada y migrada)
    "Usar este texto"; la generación no persiste, pero al crear el `DRAFT` se
    audita el `modelText` real (incluido el fallback). Los errores de Gemini se
    explican por causa y solo ofrecen **Reintentar** cuando son reintentables. La
-   media sigue manual.
-   [ ] **Fase 2 — modo agente (un prompt → DRAFT con media):** desde un solo
-   prompt, Gemini prellena el borrador (copy + hashtags) y produce el guion de
-   la media; el backend envía ese guion a `MediaGenerator` (fal.ai: imagen
-   FLUX / video Kling) y guarda el resultado en `MediaStorage` — **Cloudflare
-   R2** (API compatible con S3, URL pública) —, auditando
+   media sigue manual en Texto/Ideas.
+   [x] **Fase 2 — modo agente (un prompt → DRAFT con media):** desde un solo
+   prompt, Gemini prellena el borrador (título + descripción + hashtags) y
+   produce el guion de la media; el backend envía ese guion a `MediaGenerator`
+   (fal.ai: imagen FLUX / video Kling) y guarda el resultado en `MediaStorage`
+   — **Cloudflare R2** (API compatible con S3, URL pública) —, auditando
    `modelMedia`/`tokensUsed`. El usuario revisa/edita antes de programar. Las
-   pestañas actuales (Ideas/Texto) y el formulario manual se conservan como
-   fallback, y n8n sigue siendo solo despacho.
-   Nota: el borrador no tiene campo `título` (hoy el `copy` cumple ese rol);
-   añadirlo implica migración + UI si se quiere prellenar por separado.
+   pestañas Texto/Ideas y el formulario manual se conservan como fallback, y n8n
+   sigue siendo solo despacho. Backend (`docs/backend.md` §9.2) y panel
+   (`docs/frontend.md` §4.2–4.3) completos; probar con credenciales reales de
+   fal.ai/R2 queda pendiente (sin keys en este entorno).
+   Base lista: `Publication.title` opcional (migración + UI; en el dashboard
+   `copy` se muestra como «Descripción»), `caption` fusionada por target en el
+   claim de n8n y título prellenado por la IA.
 
 ## 8. Tesis — datos para capítulos V y VI
 

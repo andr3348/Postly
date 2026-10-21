@@ -30,6 +30,7 @@ const BASE_PUBLICATION: Publication = {
   modelText: 'manual',
   modelMedia: null,
   tokensUsed: null,
+  title: 'Título base',
   copy: 'copy',
   mediaUrl: 'https://postly.test/m.jpg',
   mediaType: 'IMAGE',

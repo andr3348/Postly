@@ -29,6 +29,16 @@ export const publicationFormatSchema = z.enum(["FEED", "REEL"]);
 
 export type PublicationFormat = z.infer<typeof publicationFormatSchema>;
 
+/**
+ * Título opcional del borrador (espejo de `publicationTitleSchema` del backend):
+ * se recorta, vacío → `null` (limpia) y `null` explícito también se acepta.
+ */
+const publicationTitleField = z
+  .string()
+  .trim()
+  .max(200, "El título es demasiado largo")
+  .transform((value) => (value === "" ? null : value));
+
 export const createPublicationFormSchema = z.object({
   brandId: z
     .string()
@@ -38,6 +48,7 @@ export const createPublicationFormSchema = z.object({
     .string()
     .max(10000, "El texto es demasiado largo")
     .optional(),
+  title: publicationTitleField.nullable().optional(),
   copy: z
     .string()
     .trim()
@@ -62,6 +73,7 @@ export const updateDraftFormSchema = z.object({
     .string()
     .max(10000, "El texto es demasiado largo")
     .optional(),
+  title: publicationTitleField.nullable().optional(),
   copy: z
     .string()
     .trim()

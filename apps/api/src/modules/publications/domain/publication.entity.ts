@@ -28,6 +28,7 @@ export interface Publication {
   readonly modelText: string;
   readonly modelMedia: string | null;
   readonly tokensUsed: number | null;
+  readonly title: string | null;
   readonly copy: string;
   readonly mediaUrl: string;
   readonly mediaType: PublicationMediaType;

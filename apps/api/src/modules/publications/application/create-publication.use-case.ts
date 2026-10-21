@@ -11,10 +11,13 @@ export interface CreatePublicationInput {
   readonly brandId: string;
   readonly userId: string;
   readonly originalPrompt?: string;
+  readonly title?: string | null;
   readonly copy: string;
   readonly mediaUrl: string;
   readonly mediaType?: PublicationMediaType;
   readonly modelText?: string;
+  readonly modelMedia?: string;
+  readonly tokensUsed?: number | null;
 }
 
 /** Crea la publicación en DRAFT (ya generada por IA y editable). */
@@ -34,10 +37,13 @@ export class CreatePublicationUseCase {
       brandId: input.brandId,
       userId: input.userId,
       originalPrompt: input.originalPrompt ?? '',
+      title: input.title,
       copy: input.copy,
       mediaUrl: input.mediaUrl,
       mediaType: input.mediaType,
       modelText: input.modelText,
+      modelMedia: input.modelMedia,
+      tokensUsed: input.tokensUsed,
     });
   }
 }

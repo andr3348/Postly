@@ -18,6 +18,7 @@ export interface UpdateDraftInput {
   readonly id: string;
   readonly requester: Requester;
   readonly originalPrompt?: string;
+  readonly title?: string | null;
   readonly copy?: string;
   readonly mediaUrl?: string;
   readonly mediaType?: PublicationMediaType;
@@ -48,6 +49,7 @@ export class UpdateDraftUseCase {
     }
     return this.publications.update(input.id, {
       originalPrompt: input.originalPrompt,
+      title: input.title,
       copy: input.copy,
       mediaUrl: input.mediaUrl,
       mediaType: input.mediaType,

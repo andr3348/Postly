@@ -13,6 +13,8 @@ import {
 export interface PublicationFormFill {
   /** Texto que reemplaza el campo de copy (incluye hashtags si aplica). */
   readonly copy: string;
+  /** Título sugerido por la IA (las variantes ahora lo traen). */
+  readonly title?: string;
   /** Brief con el que se generó, para dejarlo como contexto. */
   readonly originalPrompt?: string;
   /** Modelo real que generó el texto; no se muestra, solo se audita al guardar. */
@@ -26,7 +28,7 @@ interface PublicationFormProps {
   readonly mode: "create" | "edit";
   /** Solo se usa al crear: va en el parse y falla si está vacío. */
   readonly brandId?: string;
-  readonly initial?: Partial<Pick<CreatePublicationFormInput, "originalPrompt" | "copy" | "mediaUrl" | "mediaType">>;
+  readonly initial?: Partial<Pick<CreatePublicationFormInput, "originalPrompt" | "title" | "copy" | "mediaUrl" | "mediaType">>;
   /** Prellenado externo (por ejemplo, desde el asistente IA). */
   readonly fill?: PublicationFormFill;
   readonly submitLabel: string;
@@ -46,6 +48,7 @@ export function PublicationForm({
   brandId,
 }: PublicationFormProps) {
   const [originalPrompt, setOriginalPrompt] = useState(initial?.originalPrompt ?? "");
+  const [title, setTitle] = useState(initial?.title ?? "");
   const [copy, setCopy] = useState(initial?.copy ?? "");
   const [mediaUrl, setMediaUrl] = useState(initial?.mediaUrl ?? "");
   // El backend fuerza mediaUrl y defaultea mediaType a IMAGE; la UI lo refleja.
@@ -56,11 +59,14 @@ export function PublicationForm({
   const [appliedFillNonce, setAppliedFillNonce] = useState<number | undefined>(undefined);
 
   // Ajuste de estado al cambiar una prop (patrón de React, sin useEffect):
-  // solo reemplaza copy y contexto; mediaUrl y mediaType no se tocan.
+  // reemplaza copy, título y contexto; mediaUrl y mediaType no se tocan.
   if (fill !== undefined && fill.nonce !== appliedFillNonce) {
     setAppliedFillNonce(fill.nonce);
     setCopy(fill.copy);
     setModelText(fill.modelText);
+    if (fill.title !== undefined) {
+      setTitle(fill.title);
+    }
     if (fill.originalPrompt !== undefined) {
       setOriginalPrompt(fill.originalPrompt);
     }
@@ -72,6 +78,8 @@ export function PublicationForm({
 
     const draftValues = {
       originalPrompt: emptyToUndefined(originalPrompt),
+      // Vacío → `null` en el schema: en edición, borra el título guardado.
+      title: title,
       copy: copy,
       mediaUrl: emptyToUndefined(mediaUrl),
       mediaType: mediaType,
@@ -105,11 +113,20 @@ export function PublicationForm({
       {errorMsg !== "" && (
         <p className="text-red-500 text-sm text-center font-medium">{errorMsg}</p>
       )}
-      <Field label="Texto de la publicación">
+      <Field label="Título (opcional)">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Título breve para identificar la publicación…"
+          maxLength={200}
+          className={inputClass}
+        />
+      </Field>
+      <Field label="Descripción">
         <textarea
           value={copy}
           onChange={(e) => setCopy(e.target.value)}
-          placeholder="Escribe el texto que se publicará…"
+          placeholder="Escribe la descripción que se publicará…"
           rows={4}
           required
           className={areaClass}

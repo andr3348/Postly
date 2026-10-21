@@ -17,6 +17,7 @@ function response(body: unknown, status = 200): Response {
 const GENERATED_TEXT = JSON.stringify({
   variants: [
     {
+      title: 'Titular',
       copy: 'Copy',
       hashtags: ['#Marketing'],
       cta: 'CTA',

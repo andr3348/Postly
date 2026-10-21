@@ -73,6 +73,7 @@ describe('Publications (e2e)', () => {
       .send({
         brandId,
         originalPrompt: 'Post e2e',
+        title: 'Titulo e2e',
         copy: 'Copy e2e',
         mediaUrl: 'https://postly.test/e2e.jpg',
         modelText: 'gemini-3.5-flash-lite',
@@ -81,15 +82,30 @@ describe('Publications (e2e)', () => {
     expect(created.body).toMatchObject({
       status: 'DRAFT',
       brandId,
+      title: 'Titulo e2e',
       modelText: 'gemini-3.5-flash-lite',
     });
     publicationId = created.body.id as string;
 
     const stored = await prisma.client.publication.findUnique({
       where: { id: publicationId },
-      select: { modelText: true },
+      select: { modelText: true, title: true },
     });
     expect(stored?.modelText).toBe('gemini-3.5-flash-lite');
+    expect(stored?.title).toBe('Titulo e2e');
+
+    // El título es opcional y editable solo en DRAFT; null o vacío lo limpian.
+    const edited = await agent
+      .patch(`/api/publications/${publicationId}`)
+      .send({ title: 'Titulo editado' })
+      .expect(200);
+    expect(edited.body.title).toBe('Titulo editado');
+
+    const cleared = await agent
+      .patch(`/api/publications/${publicationId}`)
+      .send({ title: null })
+      .expect(200);
+    expect(cleared.body.title).toBeNull();
 
     // Sin modelo declarado, el default de la BD marca el borrador como manual.
     const manual = await agent
@@ -101,6 +117,7 @@ describe('Publications (e2e)', () => {
       })
       .expect(201);
     expect(manual.body.modelText).toBe('manual');
+    expect(manual.body.title).toBeNull();
     await prisma.client.publication.delete({
       where: { id: manual.body.id as string },
     });

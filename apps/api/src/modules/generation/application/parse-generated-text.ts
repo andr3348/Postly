@@ -14,6 +14,7 @@ const ideaSchema = z.object({
 });
 
 const variantSchema = z.object({
+  title: z.string().trim().min(1).max(200),
   copy: z.string().trim().min(1).max(10000),
   hashtags: z.array(z.string().trim().max(100)).max(30).default([]),
   cta: z.string().trim().max(800).default(''),

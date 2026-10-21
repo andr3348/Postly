@@ -120,7 +120,26 @@ export type AiGenerationErrorCode =
   | 'GEMINI_UPSTREAM_ERROR'
   | 'GEMINI_SAFETY_BLOCKED'
   | 'GEMINI_INVALID_RESPONSE'
-  | 'GEMINI_UNKNOWN';
+  | 'GEMINI_UNKNOWN'
+  | 'FAL_NOT_CONFIGURED'
+  | 'FAL_AUTH_FAILED'
+  | 'FAL_MODEL_NOT_FOUND'
+  | 'FAL_QUOTA_EXCEEDED'
+  | 'FAL_OVERLOADED'
+  | 'FAL_UNAVAILABLE'
+  | 'FAL_TIMEOUT'
+  | 'FAL_UNREACHABLE'
+  | 'FAL_UPSTREAM_ERROR'
+  | 'FAL_REJECTED'
+  | 'FAL_INVALID_RESPONSE'
+  | 'FAL_UNKNOWN'
+  | 'MEDIA_DOWNLOAD_FAILED'
+  | 'R2_NOT_CONFIGURED'
+  | 'R2_UPLOAD_FAILED'
+  | 'R2_UNKNOWN';
+
+/** Proveedor de la capa de IA que originó el error. */
+export type AiGenerationProvider = 'GEMINI' | 'FAL' | 'R2';
 
 export interface AiGenerationErrorOptions {
   readonly code: AiGenerationErrorCode;
@@ -128,6 +147,8 @@ export interface AiGenerationErrorOptions {
   readonly retryable: boolean;
   readonly httpStatus?: number;
   readonly model?: string | null;
+  /** Default `GEMINI` (compatibilidad con los errores existentes). */
+  readonly provider?: AiGenerationProvider;
 }
 
 /**
@@ -139,7 +160,7 @@ export class AiGenerationError extends Error {
   readonly httpStatus: number;
   readonly retryable: boolean;
   readonly model: string | null;
-  readonly provider = 'GEMINI' as const;
+  readonly provider: AiGenerationProvider;
 
   constructor(
     options: AiGenerationErrorOptions & { readonly httpStatus: number },
@@ -150,6 +171,7 @@ export class AiGenerationError extends Error {
     this.httpStatus = options.httpStatus;
     this.retryable = options.retryable;
     this.model = options.model ?? null;
+    this.provider = options.provider ?? 'GEMINI';
   }
 }
 

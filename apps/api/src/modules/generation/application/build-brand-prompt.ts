@@ -107,8 +107,8 @@ function outputInstructions(mode: GenerationMode): string {
       ? 'Improve the current copy by applying the user feedback while preserving the original intent.'
       : 'Generate exactly 3 copy variants ready for review.',
     'Return a JSON object with this exact shape:',
-    '{"variants":[{"copy":"...","hashtags":["#..."],"cta":"...","mediaPrompt":"...","altText":"..."}]}',
-    'Write all variant fields in neutral Latin American Spanish. Each variant must include copy, hashtags, CTA, a media description, and alt text.',
+    '{"variants":[{"title":"...","copy":"...","hashtags":["#..."],"cta":"...","mediaPrompt":"...","altText":"..."}]}',
+    'Write all variant fields in neutral Latin American Spanish. Each variant must include a short headline title (max 200 characters), copy, hashtags, CTA, a media description, and alt text.',
     'Use the brand base hashtags when they fit and do not invent facts.',
   ].join('\n');
 }
