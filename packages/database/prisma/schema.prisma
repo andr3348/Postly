@@ -151,6 +151,10 @@ model Publication {
   scheduledAt  DateTime?
   dispatchedAt DateTime?
 
+  // Intento de despacho vigente. n8n lo recibe en el claim y lo devuelve al
+  // reportar; un reporte con otro intento es viejo y se rechaza (409).
+  dispatchAttemptId String?
+
   // Redes seleccionadas y estados de publicación
   targets PublicationTarget[]
 
@@ -176,6 +180,11 @@ model PublicationTarget {
   externalPostUrl String?   @db.Text
   errorMessage    String?   @db.Text
   publishedAt     DateTime?
+
+  // Clasificación estructurada del fallo (causa, acción y si es seguro
+  // reintentar) + contador de reintentos manuales por destino.
+  failure    Json?
+  retryCount Int   @default(0)
 
   // Historial de métricas para el Dashboard
   metrics TargetMetric[]
