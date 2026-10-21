@@ -80,6 +80,54 @@ export class InvalidPublicationTransitionError extends Error {
   }
 }
 
+/** El reporte de n8n pertenece a un intento de despacho viejo. */
+export class StaleDispatchAttemptError extends Error {
+  constructor() {
+    super('El reporte pertenece a un intento de despacho anterior. Actualiza el claim y vuelve a reportar.');
+    this.name = 'StaleDispatchAttemptError';
+  }
+}
+
+/** El target ya fue reportado con otro estado; no se sobrescribe. */
+export class TargetAlreadyReportedError extends Error {
+  constructor(targetId: string) {
+    super(`El canal ${targetId} ya fue reportado con otro estado.`);
+    this.name = 'TargetAlreadyReportedError';
+  }
+}
+
+/** El reporte no trae los datos mínimos para un resultado seguro. */
+export class InvalidTargetReportError extends Error {
+  constructor(reason: string) {
+    super(`Reporte de canal inválido: ${reason}`);
+    this.name = 'InvalidTargetReportError';
+  }
+}
+
+/** El reintento no es seguro o la publicación no está en un estado terminal. */
+export class PublicationRetryNotAllowedError extends Error {
+  constructor(reason: string) {
+    super(reason);
+    this.name = 'PublicationRetryNotAllowedError';
+  }
+}
+
+/** Se agotaron los reintentos manuales de un canal. */
+export class RetryLimitExceededError extends Error {
+  constructor(platform: string, max: number) {
+    super(`El canal ${platform} agotó sus ${max} reintentos manuales.`);
+    this.name = 'RetryLimitExceededError';
+  }
+}
+
+/** Plataforma fuera del alcance de reintento de esta fase. */
+export class UnsupportedRetryPlatformError extends Error {
+  constructor(platform: string) {
+    super(`El reintento no está disponible para ${platform}.`);
+    this.name = 'UnsupportedRetryPlatformError';
+  }
+}
+
 export class BrandNotFoundError extends Error {
   constructor(id: string) {
     super(`Brand with id ${id} not found`);

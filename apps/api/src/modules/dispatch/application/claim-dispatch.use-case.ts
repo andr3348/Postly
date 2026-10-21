@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { ConnectedAccountWithCredentials } from '../../connected-accounts/domain/connected-account.entity.js';
 import type { Publication } from '../../publications/domain/publication.entity.js';
@@ -64,7 +65,8 @@ export class ClaimDispatchUseCase {
         publication.brandId,
         pending.map((target) => target.platform),
       );
-      const claimed = await this.publications.markProcessing(publication.id);
+      const attemptId = randomUUID();
+      const claimed = await this.publications.markProcessing(publication.id, attemptId, now);
       if (!claimed) {
         continue;
       }

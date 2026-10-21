@@ -1,9 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { resolveTerminalStatus } from '../../publications/domain/publication.entity.js';
+import { staleDispatchFailure } from '../../publications/domain/target-failure.js';
 import {
-  PUBLICATION_TARGETS_REPOSITORY,
-  type PublicationTargetsRepository,
-} from '../../publications/domain/ports/publication-targets.repository.js';
+  PUBLICATION_UNIT_OF_WORK,
+  type PublicationUnitOfWork,
+} from '../../publications/domain/ports/publication-unit-of-work.port.js';
 import {
   PUBLICATIONS_REPOSITORY,
   type PublicationsRepository,
@@ -19,56 +20,66 @@ const STALE_ERROR_MESSAGE =
   'Despacho vencido: n8n no reportó dentro del lease (estado real del post desconocido).';
 
 /**
- * Expira claims abandonados por n8n: PROCESSING con `dispatchedAt` más viejo
- * que el lease (el proceso murió entre reclamar y reportar).
+ * Expira claims abandonados por n8n. Cada cierre corre en una transacción con
+ * lock de la publicación para no competir con un reporte que llega tarde.
  *
- * Dos desenlaces según lo que n8n alcanzó a reportar:
- * - Nada reportado: murió antes de publicar (p. ej. antes del IF). La pieza
- *   vuelve a SCHEDULED y el mismo claim la re-entrega — reintento automático
- *   con ventana de duplicado mínima (caída entre publicar el primer destino y
- *   su reporte, que el flujo minimiza reportando apenas publica cada uno).
- * - Algo reportado: murió a mitad. Los destinos sin reportar pasan a FAILED
- *   con mensaje y la publicación se cierra con `resolveTerminalStatus`
- *   (FAILED/PARTIAL) sin reintento: duplicar un post es peor que perderlo.
- *
- * Corre perezoso al inicio de cada claim: muerto n8n, el primer poll que
- * vuelva a pedir trabajo limpia la cola colgada y sigue con la siguiente.
+ * - Nada reportado: vuelve a SCHEDULED y se re-entrega (sin post que duplicar).
+ * - Algo reportado: los PENDING pasan a FAILED (`UNKNOWN_OUTCOME`, sin
+ *   reintento) y la publicación se cierra según lo ya reportado.
  */
 @Injectable()
 export class ExpireStaleClaimsUseCase {
   constructor(
     @Inject(PUBLICATIONS_REPOSITORY) private readonly publications: PublicationsRepository,
-    @Inject(PUBLICATION_TARGETS_REPOSITORY) private readonly targets: PublicationTargetsRepository,
+    @Inject(PUBLICATION_UNIT_OF_WORK) private readonly uow: PublicationUnitOfWork,
   ) {}
 
   async execute(now: Date = new Date()): Promise<number> {
     const cutoff = new Date(now.getTime() - LEASE_TIMEOUT_MS);
     const stale = await this.publications.findStaleProcessing(cutoff, STALE_BATCH_SIZE);
-    for (const publication of stale) {
-      const targets = await this.targets.findByPublication(publication.id);
-      const anyReported = targets.some((target) => target.status !== 'PENDING');
-      if (!anyReported) {
-        // Nada reportado: n8n murió antes de publicar. Reencolar (el mismo
-        // claim la re-entrega); sin reportes no hay post que duplicar.
-        await this.publications.update(publication.id, {
-          status: 'SCHEDULED',
-          dispatchedAt: null,
+    let expired = 0;
+
+    for (const candidate of stale) {
+      const handled = await this.uow.run(async (tx) => {
+        const publication = await tx.lockPublication(candidate.id);
+        if (publication === null || publication.status !== 'PROCESSING') {
+          return false;
+        }
+
+        const targets = await tx.findTargets(publication.id);
+        const anyReported = targets.some((target) => target.status !== 'PENDING');
+        if (!anyReported) {
+          await tx.updatePublication(publication.id, {
+            status: 'SCHEDULED',
+            dispatchedAt: null,
+            dispatchAttemptId: null,
+          });
+          return true;
+        }
+
+        const failure = staleDispatchFailure();
+        for (const target of targets.filter((item) => item.status === 'PENDING')) {
+          await tx.updateTarget(target.id, {
+            status: 'FAILED',
+            errorMessage: STALE_ERROR_MESSAGE,
+            failure,
+            publishedAt: null,
+          });
+        }
+
+        const siblings = await tx.findTargets(publication.id);
+        await tx.updatePublication(publication.id, {
+          status: resolveTerminalStatus(siblings.map((sibling) => sibling.status)),
+          dispatchAttemptId: null,
         });
-        continue;
-      }
-      const pending = targets.filter((target) => target.status === 'PENDING');
-      for (const target of pending) {
-        await this.targets.updateTarget(target.id, {
-          status: 'FAILED',
-          errorMessage: STALE_ERROR_MESSAGE,
-        });
-      }
-      // Releer: refleja lo ya reportado por n8n antes de la caída.
-      const siblings = await this.targets.findByPublication(publication.id);
-      await this.publications.update(publication.id, {
-        status: resolveTerminalStatus(siblings.map((sibling) => sibling.status)),
+        return true;
       });
+
+      if (handled) {
+        expired += 1;
+      }
     }
-    return stale.length;
+
+    return expired;
   }
 }

@@ -7,6 +7,7 @@ import {
   BASE_TARGET,
   stubDispatchCredentials,
   stubPublicationTargetsRepository,
+  stubPublicationUnitOfWork,
   stubPublicationsRepository,
 } from './test-stubs.js';
 
@@ -19,10 +20,23 @@ describe('ClaimDispatchUseCase', () => {
     claimed?: boolean;
   } = {}) {
     const due = options.due ?? [BASE_PUBLICATION];
+    const attempts = new Map<string, string>();
     const publications = stubPublicationsRepository({
       findDueDispatch: async () => due,
-      findById: async (id) => due.find((publication) => publication.id === id) ?? null,
-      markProcessing: async () => options.claimed ?? true,
+      findById: async (id) => {
+        const publication = due.find((item) => item.id === id) ?? null;
+        const attemptId = attempts.get(id);
+        return publication === null || attemptId === undefined
+          ? publication
+          : { ...publication, dispatchAttemptId: attemptId };
+      },
+      markProcessing: async (id, dispatchAttemptId) => {
+        if (options.claimed === false) {
+          return false;
+        }
+        attempts.set(id, dispatchAttemptId);
+        return true;
+      },
     });
     const targets = stubPublicationTargetsRepository({
       findByPublication: async () => options.targets ?? [BASE_TARGET],
@@ -35,31 +49,42 @@ describe('ClaimDispatchUseCase', () => {
               throw options.failCredentials;
             },
     });
-    return new ClaimDispatchUseCase(
-      publications,
-      targets,
-      credentials,
-      new ExpireStaleClaimsUseCase(publications, targets),
-    );
+    const { uow } = stubPublicationUnitOfWork({
+      publication: BASE_PUBLICATION,
+      targets: options.targets ?? [BASE_TARGET],
+    });
+    return {
+      useCase: new ClaimDispatchUseCase(
+        publications,
+        targets,
+        credentials,
+        new ExpireStaleClaimsUseCase(publications, uow),
+      ),
+      attempts,
+    };
   }
 
-  it('claims the next due publication with credentials', async () => {
-    const claim = await arrange().execute(new Date());
+  it('claims the next due publication with credentials and a dispatch attempt id', async () => {
+    const { useCase, attempts } = arrange();
+
+    const claim = await useCase.execute(new Date());
 
     expect(claim?.publication.id).toBe(BASE_PUBLICATION.id);
+    expect(claim?.publication.dispatchAttemptId).toBe(attempts.get(BASE_PUBLICATION.id));
+    expect(claim?.publication.dispatchAttemptId).toMatch(/^[0-9a-f-]{36}$/);
     expect(claim?.targets).toHaveLength(1);
     expect(claim?.targets[0]?.credentials.accessToken).toBe('decrypted-access');
   });
 
   it('returns null when nothing is due', async () => {
-    await expect(arrange({ due: [] }).execute(new Date())).resolves.toBeNull();
+    await expect(arrange({ due: [] }).useCase.execute(new Date())).resolves.toBeNull();
   });
 
   it('skips publications without pending targets', async () => {
     const success = { ...BASE_TARGET, status: 'SUCCESS' as const };
 
     await expect(
-      arrange({ targets: [success] }).execute(new Date()),
+      arrange({ targets: [success] }).useCase.execute(new Date()),
     ).resolves.toBeNull();
   });
 
@@ -80,11 +105,15 @@ describe('ClaimDispatchUseCase', () => {
         throw new MissingConnectedAccountError('brand-1', ['LINKEDIN']);
       },
     });
+    const { uow } = stubPublicationUnitOfWork({
+      publication: BASE_PUBLICATION,
+      targets: [BASE_TARGET],
+    });
     const useCase = new ClaimDispatchUseCase(
       publications,
       targets,
       credentials,
-      new ExpireStaleClaimsUseCase(publications, targets),
+      new ExpireStaleClaimsUseCase(publications, uow),
     );
 
     await expect(useCase.execute(new Date())).rejects.toBeInstanceOf(
@@ -108,11 +137,15 @@ describe('ClaimDispatchUseCase', () => {
     const targets = stubPublicationTargetsRepository({
       findByPublication: async () => [BASE_TARGET],
     });
+    const { uow } = stubPublicationUnitOfWork({
+      publication: BASE_PUBLICATION,
+      targets: [BASE_TARGET],
+    });
     const useCase = new ClaimDispatchUseCase(
       publications,
       targets,
       stubDispatchCredentials(),
-      new ExpireStaleClaimsUseCase(publications, targets),
+      new ExpireStaleClaimsUseCase(publications, uow),
     );
 
     const claim = await useCase.execute(new Date());

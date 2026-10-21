@@ -18,6 +18,8 @@ const SUCCESS_TARGET = {
   externalPostId: 'urn:li:share:1',
   externalPostUrl: null,
   errorMessage: null,
+  failure: null,
+  retryCount: 0,
   publishedAt: new Date('2026-01-02T00:00:00Z'),
   createdAt: new Date('2026-01-02T00:00:00Z'),
   updatedAt: new Date('2026-01-02T00:00:00Z'),

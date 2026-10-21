@@ -21,11 +21,17 @@ import {
   InvalidRefreshTokenError,
   InvalidTargetFormatError,
   PublicationNotFoundError,
+  PublicationRetryNotAllowedError,
   PublicationTargetAlreadyAttachedError,
   PublicationTargetNotFoundError,
   PublicationWithoutTargetsError,
   MissingConnectedAccountError,
+  RetryLimitExceededError,
+  StaleDispatchAttemptError,
+  TargetAlreadyReportedError,
   TargetNotPublishedError,
+  InvalidTargetReportError,
+  UnsupportedRetryPlatformError,
 } from './errors.js';
 
 /**
@@ -50,6 +56,12 @@ import {
   MissingConnectedAccountError,
   InvalidAccountCredentialsError,
   AiGenerationError,
+  StaleDispatchAttemptError,
+  TargetAlreadyReportedError,
+  InvalidTargetReportError,
+  PublicationRetryNotAllowedError,
+  RetryLimitExceededError,
+  UnsupportedRetryPlatformError,
 )
 export class DomainExceptionFilter implements ExceptionFilter {
   catch(exception: Error, host: ArgumentsHost): void {
@@ -70,6 +82,20 @@ export class DomainExceptionFilter implements ExceptionFilter {
     }
     if (exception instanceof PublicationTargetAlreadyAttachedError) {
       throw new ConflictException(exception.message);
+    }
+    if (
+      exception instanceof StaleDispatchAttemptError ||
+      exception instanceof TargetAlreadyReportedError ||
+      exception instanceof PublicationRetryNotAllowedError ||
+      exception instanceof RetryLimitExceededError
+    ) {
+      throw new ConflictException(exception.message);
+    }
+    if (
+      exception instanceof InvalidTargetReportError ||
+      exception instanceof UnsupportedRetryPlatformError
+    ) {
+      throw new BadRequestException(exception.message);
     }
     if (
       exception instanceof BrandNotFoundError ||

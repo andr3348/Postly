@@ -34,6 +34,7 @@ export interface Publication {
   readonly status: PublicationStatus;
   readonly scheduledAt: Date | null;
   readonly dispatchedAt: Date | null;
+  readonly dispatchAttemptId: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }

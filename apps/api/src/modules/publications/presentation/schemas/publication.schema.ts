@@ -71,6 +71,20 @@ export const updateTargetFormatSchema = z.object({
 
 export type UpdateTargetFormatDto = z.infer<typeof updateTargetFormatSchema>;
 
+export const retryPublicationSchema = z
+  .object({
+    platforms: z
+      .array(z.enum(['FACEBOOK', 'INSTAGRAM']))
+      .min(1, 'Selecciona al menos un canal')
+      .max(2),
+  })
+  .refine((value) => new Set(value.platforms).size === value.platforms.length, {
+    message: 'No repitas canales',
+    path: ['platforms'],
+  });
+
+export type RetryPublicationDto = z.infer<typeof retryPublicationSchema>;
+
 const nonNegativeMetric = z.number().int().min(0).max(1_000_000_000).optional();
 
 export const recordMetricSchema = z.object({

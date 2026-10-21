@@ -1,16 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../shared/prisma/prisma.service.js';
-import type {
-  Publication,
-  PublicationMediaType,
-  PublicationStatus,
-} from '../domain/publication.entity.js';
+import type { Publication } from '../domain/publication.entity.js';
 import type {
   CreatePublicationData,
   PublicationFilters,
   PublicationsRepository,
   UpdatePublicationData,
 } from '../domain/ports/publications.repository.js';
+import { toDomainPublication } from './prisma-publication-mappers.js';
+
 /**
  * Adaptador Prisma de `PublicationsRepository`.
  * Único lugar del módulo que conoce al cliente generado.
@@ -64,6 +62,7 @@ export class PrismaPublicationsRepository implements PublicationsRepository {
         approvedById: data.approvedById,
         approvedAt: data.approvedAt,
         dispatchedAt: data.dispatchedAt,
+        dispatchAttemptId: data.dispatchAttemptId,
       },
     });
     return toDomainPublication(row);
@@ -78,10 +77,14 @@ export class PrismaPublicationsRepository implements PublicationsRepository {
     return rows.map(toDomainPublication);
   }
 
-  async markProcessing(id: string): Promise<boolean> {
+  async markProcessing(id: string, dispatchAttemptId: string, now: Date): Promise<boolean> {
     const claimed = await this.prisma.client.publication.updateMany({
       where: { id, status: 'SCHEDULED' },
-      data: { status: 'PROCESSING', dispatchedAt: new Date() },
+      data: {
+        status: 'PROCESSING',
+        dispatchedAt: now,
+        dispatchAttemptId,
+      },
     });
     return claimed.count > 0;
   }
@@ -93,71 +96,5 @@ export class PrismaPublicationsRepository implements PublicationsRepository {
       take: limit,
     });
     return rows.map(toDomainPublication);
-  }
-}
-
-interface PublicationRow {
-  readonly id: string;
-  readonly brandId: string;
-  readonly userId: string;
-  readonly approvedById: string | null;
-  readonly approvedAt: Date | null;
-  readonly originalPrompt: string;
-  readonly systemPrompt: string | null;
-  readonly modelText: string;
-  readonly modelMedia: string | null;
-  readonly tokensUsed: number | null;
-  readonly copy: string;
-  readonly mediaUrl: string;
-  readonly mediaType: string;
-  readonly status: string;
-  readonly scheduledAt: Date | null;
-  readonly dispatchedAt: Date | null;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-}
-
-function toDomainPublication(row: PublicationRow): Publication {
-  return {
-    id: row.id,
-    brandId: row.brandId,
-    userId: row.userId,
-    approvedById: row.approvedById,
-    approvedAt: row.approvedAt,
-    originalPrompt: row.originalPrompt,
-    systemPrompt: row.systemPrompt,
-    modelText: row.modelText,
-    modelMedia: row.modelMedia,
-    tokensUsed: row.tokensUsed,
-    copy: row.copy,
-    mediaUrl: row.mediaUrl,
-    mediaType: toDomainMediaType(row.mediaType),
-    status: toDomainStatus(row.status),
-    scheduledAt: row.scheduledAt,
-    dispatchedAt: row.dispatchedAt,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
-}
-
-function toDomainMediaType(value: string): PublicationMediaType {
-  if (value === 'IMAGE' || value === 'VIDEO') {
-    return value;
-  }
-  throw new Error(`[publications] Unknown mediaType in database: ${value}`);
-}
-
-function toDomainStatus(value: string): PublicationStatus {
-  switch (value) {
-    case 'DRAFT':
-    case 'PENDING_APPROVAL':
-    case 'SCHEDULED':
-    case 'PROCESSING':
-    case 'PUBLISHED':
-    case 'PARTIAL':
-    case 'FAILED':
-      return value;
-    default:
-      throw new Error(`[publications] Unknown status in database: ${value}`);
   }
 }

@@ -35,6 +35,23 @@ const BASE_PUBLICATION: Publication = {
   status: 'DRAFT',
   scheduledAt: null,
   dispatchedAt: null,
+  dispatchAttemptId: null,
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  updatedAt: new Date('2026-01-01T00:00:00Z'),
+};
+
+const BASE_TARGET = {
+  id: 'target-1',
+  publicationId: BASE_PUBLICATION.id,
+  platform: 'LINKEDIN' as const,
+  format: 'FEED' as const,
+  status: 'PENDING' as const,
+  externalPostId: null,
+  externalPostUrl: null,
+  errorMessage: null,
+  failure: null,
+  retryCount: 0,
+  publishedAt: null,
   createdAt: new Date('2026-01-01T00:00:00Z'),
   updatedAt: new Date('2026-01-01T00:00:00Z'),
 };
@@ -86,6 +103,8 @@ export function stubPublicationTargetsRepository(
       externalPostId: null,
       externalPostUrl: null,
       errorMessage: null,
+      failure: null,
+      retryCount: 0,
       publishedAt: null,
       createdAt: new Date('2026-01-01T00:00:00Z'),
       updatedAt: new Date('2026-01-01T00:00:00Z'),
@@ -99,6 +118,8 @@ export function stubPublicationTargetsRepository(
       externalPostId: null,
       externalPostUrl: null,
       errorMessage: null,
+      failure: null,
+      retryCount: 0,
       publishedAt: null,
       createdAt: new Date('2026-01-01T00:00:00Z'),
       updatedAt: new Date('2026-01-01T00:00:00Z'),
@@ -113,6 +134,8 @@ export function stubPublicationTargetsRepository(
       externalPostId: null,
       externalPostUrl: null,
       errorMessage: null,
+      failure: null,
+      retryCount: 0,
       publishedAt: null,
       createdAt: new Date('2026-01-01T00:00:00Z'),
       updatedAt: new Date('2026-01-01T00:00:00Z'),
@@ -141,4 +164,4 @@ export function stubPublicationMetricsRepository(
   };
 }
 
-export { BASE_BRAND, BASE_PUBLICATION };
+export { BASE_BRAND, BASE_PUBLICATION, BASE_TARGET };

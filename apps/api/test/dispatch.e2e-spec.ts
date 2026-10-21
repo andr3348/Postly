@@ -9,6 +9,7 @@ import { setupApp } from './../src/setup-app.js';
 const ACCOUNT_SEED = {
   LINKEDIN: { accountName: 'marcaoficial', externalAccountId: 'urn:li:org:9' },
   FACEBOOK: { accountName: 'paginaoficial', externalAccountId: 'page-9' },
+  INSTAGRAM: { accountName: 'instagramoficial', externalAccountId: 'ig-9' },
 } as const;
 
 /**
@@ -119,6 +120,7 @@ describe('Dispatch (e2e)', () => {
     expect(claim.body.publication).toMatchObject({ id: publicationId, status: 'PROCESSING' });
     expect(claim.body.targets).toHaveLength(1);
     expect(claim.body.targets[0].credentials.accessToken).toBe('live-token-e2e');
+    expect(claim.body.publication.dispatchAttemptId).toMatch(/^[0-9a-f-]{36}$/);
 
     // Nada más vencido: 200 con sobre vacío explícito (n8n distingue por
     // `publication === null`, nunca por un cuerpo ausente).
@@ -128,6 +130,7 @@ describe('Dispatch (e2e)', () => {
     const targetId = claim.body.targets[0].target.id as string;
     const reported = await n8n('post', `/api/v1/dispatch/targets/${targetId}/report`)
       .send({
+        dispatchAttemptId: claim.body.publication.dispatchAttemptId,
         status: 'SUCCESS',
         externalPostId: 'urn:li:share:e2e',
         metrics: { impressions: 500, likes: 20 },
@@ -155,7 +158,11 @@ describe('Dispatch (e2e)', () => {
 
     const targetId = claim.body.targets[0].target.id as string;
     await n8n('post', `/api/v1/dispatch/targets/${targetId}/report`)
-      .send({ status: 'SUCCESS', externalPostId: 'fb-reel-e2e' })
+      .send({
+        dispatchAttemptId: claim.body.publication.dispatchAttemptId,
+        status: 'SUCCESS',
+        externalPostId: 'fb-reel-e2e',
+      })
       .expect(200);
   });
 
@@ -166,6 +173,7 @@ describe('Dispatch (e2e)', () => {
     const claim = await n8n('post', '/api/v1/dispatch/claim').expect(200);
     expect(claim.body.publication).toMatchObject({ id: publicationId, status: 'PROCESSING' });
     const targetId = claim.body.targets[0].target.id as string;
+    const oldAttemptId = claim.body.publication.dispatchAttemptId as string;
 
     // n8n "muere" antes de publicar y el lease (15 min) expira: envejecemos 20.
     await prisma.client.publication.update({
@@ -176,6 +184,7 @@ describe('Dispatch (e2e)', () => {
     // Sin ningún reporte: el mismo claim la reencola y la re-entrega al toque.
     const reclaimed = await n8n('post', '/api/v1/dispatch/claim').expect(200);
     expect(reclaimed.body.publication).toMatchObject({ id: publicationId, status: 'PROCESSING' });
+    expect(reclaimed.body.publication.dispatchAttemptId).not.toBe(oldAttemptId);
     expect(reclaimed.body.targets).toHaveLength(1);
     expect(reclaimed.body.targets[0].target.id).toBe(targetId);
 
@@ -184,6 +193,105 @@ describe('Dispatch (e2e)', () => {
       where: { id: publicationId },
     });
     expect(publication?.dispatchedAt?.getTime() ?? 0).toBeGreaterThan(Date.now() - 60_000);
+  });
+
+  it('retry only the failed Instagram target and keeps Facebook published', async () => {
+    const agent = request.agent(app.getHttpServer());
+    await seedClaimablePublication(agent, ['FACEBOOK', 'INSTAGRAM']);
+
+    const claim = await n8n('post', '/api/v1/dispatch/claim').expect(200);
+    const oldAttemptId = claim.body.publication.dispatchAttemptId as string;
+    const entries = claim.body.targets as Array<{
+      target: { id: string; platform: string };
+    }>;
+    const facebook = entries.find((entry) => entry.target.platform === 'FACEBOOK');
+    const instagram = entries.find((entry) => entry.target.platform === 'INSTAGRAM');
+    expect(facebook).toBeDefined();
+    expect(instagram).toBeDefined();
+
+    await n8n('post', `/api/v1/dispatch/targets/${facebook!.target.id}/report`)
+      .send({
+        dispatchAttemptId: oldAttemptId,
+        status: 'SUCCESS',
+        externalPostId: 'fb-keep-e2e',
+      })
+      .expect(200);
+
+    const failed = await n8n(
+      'post',
+      `/api/v1/dispatch/targets/${instagram!.target.id}/report`,
+    )
+      .send({
+        dispatchAttemptId: oldAttemptId,
+        status: 'FAILED',
+        stage: 'PUBLISH',
+        errorMessage:
+          '400 - {"error":{"message":"Please reduce the amount of data","type":"OAuthException","code":4,"fbtrace_id":"trace-e2e"}}',
+      })
+      .expect(200);
+    expect(failed.body).toMatchObject({
+      terminal: true,
+      publication: { status: 'PARTIAL' },
+    });
+
+    const stored = await prisma.client.publicationTarget.findMany({
+      where: { publicationId },
+    });
+    expect(stored.find((target) => target.platform === 'INSTAGRAM')?.failure).toMatchObject({
+      kind: 'RATE_LIMIT',
+      retryable: true,
+    });
+
+    const retried = await agent
+      .post(`/api/publications/${publicationId}/retry`)
+      .send({ platforms: ['INSTAGRAM'] })
+      .expect(202);
+    expect(retried.body).toMatchObject({
+      status: 'SCHEDULED',
+      dispatchAttemptId: null,
+    });
+
+    const afterRetry = await agent
+      .get(`/api/publications/${publicationId}/targets`)
+      .expect(200);
+    expect(
+      afterRetry.body.find((target: { platform: string }) => target.platform === 'FACEBOOK'),
+    ).toMatchObject({ status: 'SUCCESS', externalPostId: 'fb-keep-e2e' });
+    expect(
+      afterRetry.body.find((target: { platform: string }) => target.platform === 'INSTAGRAM'),
+    ).toMatchObject({ status: 'PENDING', retryCount: 1, failure: null });
+
+    const retryClaim = await n8n('post', '/api/v1/dispatch/claim').expect(200);
+    expect(retryClaim.body.publication.dispatchAttemptId).not.toBe(oldAttemptId);
+    expect(retryClaim.body.targets).toHaveLength(1);
+    expect(retryClaim.body.targets[0].target).toMatchObject({
+      id: instagram!.target.id,
+      platform: 'INSTAGRAM',
+    });
+
+    // Un reporte del intento viejo ya no puede tocar la publicación.
+    await n8n('post', `/api/v1/dispatch/targets/${instagram!.target.id}/report`)
+      .send({
+        dispatchAttemptId: oldAttemptId,
+        status: 'SUCCESS',
+        externalPostId: 'stale-e2e',
+      })
+      .expect(409);
+
+    const done = await n8n(
+      'post',
+      `/api/v1/dispatch/targets/${instagram!.target.id}/report`,
+    )
+      .send({
+        dispatchAttemptId: retryClaim.body.publication.dispatchAttemptId,
+        status: 'SUCCESS',
+        externalPostId: 'ig-retry-e2e',
+      })
+      .expect(200);
+    expect(done.body).toMatchObject({
+      terminal: true,
+      publication: { status: 'PUBLISHED' },
+    });
   });
 
   it('lease vencido con un reporte parcial: cierra lo faltante sin reintento', async () => {
@@ -198,7 +306,11 @@ describe('Dispatch (e2e)', () => {
 
     // n8n alcanzó a reportar LINKEDIN (FACEBOOK sigue pendiente) y murió.
     const reported = await n8n('post', `/api/v1/dispatch/targets/${linkedin.target.id}/report`)
-      .send({ status: 'SUCCESS', externalPostId: 'urn:li:share:e2e' })
+      .send({
+        dispatchAttemptId: claim.body.publication.dispatchAttemptId,
+        status: 'SUCCESS',
+        externalPostId: 'urn:li:share:e2e',
+      })
       .expect(200);
     expect(reported.body).toMatchObject({ terminal: false });
 
