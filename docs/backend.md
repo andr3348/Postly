@@ -135,7 +135,8 @@ GET    /publications/:id        → detalle (404 si no existe)
 PATCH  /publications/:id        → edita copy/media solo en DRAFT (dueño o admin)
 POST   /publications/:id/submit → DRAFT → PENDING_APPROVAL (dueño o admin)
 POST   /publications/:id/approve→ PENDING_APPROVAL → SCHEDULED, solo ADMIN
-                                   (body { scheduledAt }; fija approvedBy/approvedAt)
+                                   (body { scheduledAt }; exige ≥1 canal; fija
+                                   approvedBy/approvedAt)
 POST   /publications/:id/publish-now → PENDING_APPROVAL → SCHEDULED con
                                    scheduledAt=now y despierta a n8n (202; solo ADMIN)
 POST   /publications/:id/reject → PENDING_APPROVAL → DRAFT, solo ADMIN
@@ -145,6 +146,7 @@ Autorización en los casos de uso (no en guards): el `requester` (`id` + `rol`
 del `@CurrentUser()`) viaja al caso de uso; dueño-or-admin para editar/enviar,
 solo-ADMIN para aprobar/publicar-ahora/rechazar. Errores:
 `PublicationNotFoundError` → 404, `InvalidPublicationTransitionError` → 400,
+`PublicationWithoutTargetsError` → 400 (submit o aprobar sin canales),
 `ForbiddenError` → 403.
 
 **Destinos omnicanal (sin módulo propio):** la publicación decide *qué*,

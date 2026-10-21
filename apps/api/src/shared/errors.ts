@@ -60,8 +60,8 @@ export class InvalidTargetFormatError extends Error {
 }
 
 export class PublicationWithoutTargetsError extends Error {
-  constructor(id: string) {
-    super(`Publication ${id} has no targets and cannot be submitted`);
+  constructor(id: string, action = 'submitted') {
+    super(`Publication ${id} has no targets and cannot be ${action}`);
     this.name = 'PublicationWithoutTargetsError';
   }
 }

@@ -1,6 +1,7 @@
 import type { Brand } from '../../../../src/modules/brand/domain/brand.entity.js';
 import type { BrandsRepository } from '../../../../src/modules/brand/domain/ports/brands.repository.js';
 import type { Publication } from '../../../../src/modules/publications/domain/publication.entity.js';
+import type { PublicationTarget } from '../../../../src/modules/publications/domain/target.entity.js';
 import type { PublicationsRepository } from '../../../../src/modules/publications/domain/ports/publications.repository.js';
 import type { PublicationTargetsRepository } from '../../../../src/modules/publications/domain/ports/publication-targets.repository.js';
 import type { PublicationMetricsRepository } from '../../../../src/modules/publications/domain/ports/publication-metrics.repository.js';
@@ -35,6 +36,20 @@ const BASE_PUBLICATION: Publication = {
   status: 'DRAFT',
   scheduledAt: null,
   dispatchedAt: null,
+  createdAt: new Date('2026-01-01T00:00:00Z'),
+  updatedAt: new Date('2026-01-01T00:00:00Z'),
+};
+
+export const BASE_TARGET: PublicationTarget = {
+  id: 'target-1',
+  publicationId: BASE_PUBLICATION.id,
+  platform: 'FACEBOOK',
+  format: 'FEED',
+  status: 'PENDING',
+  externalPostId: null,
+  externalPostUrl: null,
+  errorMessage: null,
+  publishedAt: null,
   createdAt: new Date('2026-01-01T00:00:00Z'),
   updatedAt: new Date('2026-01-01T00:00:00Z'),
 };

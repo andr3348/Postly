@@ -136,6 +136,19 @@ describe('Publications (e2e)', () => {
     await prisma.client.user.update({ where: { email }, data: { role: 'ADMIN' } });
     await agent.post('/api/auth/login').send({ email, password: 'secreto-123' }).expect(200);
 
+    // Programar sin canales: el último canal se puede quitar en
+    // PENDING_APPROVAL, pero aprobar sin destinos responde 400 (antes quedaba
+    // SCHEDULED sin targets y el claim la saltaba para siempre).
+    await agent.delete(`/api/publications/${publicationId}/targets/LINKEDIN`).expect(204);
+    await agent
+      .post(`/api/publications/${publicationId}/approve`)
+      .send({ scheduledAt: agenda1 })
+      .expect(400);
+    await agent
+      .post(`/api/publications/${publicationId}/targets`)
+      .send({ platform: 'LINKEDIN' })
+      .expect(201);
+
     const approved = await agent
       .post(`/api/publications/${publicationId}/approve`)
       .send({ scheduledAt: agenda1 })
