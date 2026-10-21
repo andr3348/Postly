@@ -11,7 +11,8 @@
   `POST /api/v1/generations/agent` (JWT) body
   `{ brandId, prompt, platform, format, mediaType? }`
   → Gemini (COPY, reusa `GenerateTextUseCase`) → fal.ai (`MediaGenerator`) →
-  R2 (`MediaStorage`) → **crea el DRAFT** → `201 { publication }`.
+  R2 (`MediaStorage`) → **crea el DRAFT** → `201` (la publicación creada,
+  igual que `POST /publications`).
 - **Auto-guardado server-side**: el DRAFT lo crea el backend dentro del mismo
   request (no un auto-click del front), para que un refresh/cierre de pestaña no
   pierda la media ya pagada. Único caso que se pierde: reinicio del server a
@@ -48,51 +49,51 @@
 
 ## Checklist backend (en orden)
 
-- [ ] 1. `apps/api/src/shared/errors.ts`: `provider` configurable +
+- [x] 1. `apps/api/src/shared/errors.ts`: `provider` configurable +
       códigos `FAL_*`, `R2_*`, `MEDIA_DOWNLOAD_FAILED` (sin romper `GEMINI_*`).
-- [ ] 2. Título en variantes: `domain/generated-content.entity.ts`,
+- [x] 2. Título en variantes: `domain/generated-content.entity.ts`,
       `application/build-brand-prompt.ts`, `application/parse-generated-text.ts`,
       `infrastructure/gemini-text.generator.ts` (`responseSchema`) + specs.
-- [ ] 3. `modelMedia`/`tokensUsed`: `application/create-publication.use-case.ts`,
+- [x] 3. `modelMedia`/`tokensUsed`: `application/create-publication.use-case.ts`,
       `domain/ports/publications.repository.ts` (input de create),
       `infrastructure/prisma-publications.repository.ts` (create) + specs.
-- [ ] 4. Puertos nuevos en `modules/generation/domain/ports/`:
+- [x] 4. Puertos nuevos en `modules/generation/domain/ports/`:
       `media-generator.port.ts`, `media-storage.port.ts`.
-- [ ] 5. `infrastructure/fal-media.generator.ts`: queue API de fal
+- [x] 5. `infrastructure/fal-media.generator.ts`: queue API de fal
       (submit → poll `status_url` → `response_url`), `Authorization: Key`,
       envs `FAL_KEY`, `FAL_IMAGE_MODEL` (default `fal-ai/flux/schnell`),
       `FAL_VIDEO_MODEL` (default Kling text-to-video), timeout total configurable
       (video ~4 min, imagen ~1 min); payloads best-effort (ajustar al probar con
       key real) + unit con `fetch` mockeado.
-- [ ] 6. `infrastructure/r2-media.storage.ts`: `@aws-sdk/client-s3`
+- [x] 6. `infrastructure/r2-media.storage.ts`: `@aws-sdk/client-s3`
       (agregar dependencia en `apps/api`), `uploadFromUrl` (descarga + PutObject),
       envs `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
       `R2_BUCKET`, `R2_PUBLIC_BASE_URL`; devuelve URL pública + unit con cliente
       inyectado.
-- [ ] 7. `application/generate-agent.use-case.ts`: texto (variante 0) → media →
+- [x] 7. `application/generate-agent.use-case.ts`: texto (variante 0) → media →
       storage → `CreatePublicationUseCase`; helper puro de copy+hashtags (misma
       regla que el panel web) + unit con stubs tipados.
-- [ ] 8. `presentation/schemas/generation.schema.ts` (`generateAgentSchema`) +
+- [x] 8. `presentation/schemas/generation.schema.ts` (`generateAgentSchema`) +
       `presentation/generation.controller.ts` (`@Post('agent')`, 201,
       `@CurrentUser`) + `generation.module.ts` (importa `PublicationsModule`,
       providers `MEDIA_GENERATOR`/`MEDIA_STORAGE`).
-- [ ] 9. `publications.module.ts`: exportar `CreatePublicationUseCase`.
-- [ ] 10. `apps/api/.env.example`: `FAL_*` y `R2_*` (placeholders).
-- [ ] 11. `apps/api/test/generation.e2e-spec.ts`: agente feliz (overrides de
+- [x] 9. `publications.module.ts`: exportar `CreatePublicationUseCase`.
+- [x] 10. `apps/api/.env.example`: `FAL_*` y `R2_*` (placeholders).
+- [x] 11. `apps/api/test/generation.e2e-spec.ts`: agente feliz (overrides de
       `LLM_TEXT_GENERATOR`, `MEDIA_GENERATOR`, `MEDIA_STORAGE`) valida DRAFT +
       auditoría (`modelMedia`, `tokensUsed`) y sin targets; error
       `FAL_NOT_CONFIGURED` estructurado (reintentable vs no).
-- [ ] 12. Docs API: `docs/backend.md` §9 (endpoint, etapas, errores, envs,
+- [x] 12. Docs API: `docs/backend.md` §9 (endpoint, etapas, errores, envs,
       límites) + `README.md` §7.1.
-- [ ] 13. Verificación API: `check-types`, `lint`, `test`, `test:e2e`.
-- [ ] 14. Commit backend.
+- [x] 13. Verificación API: `check-types`, `lint`, `test`, `test:e2e`.
+- [x] 14. Commit backend.
 
 ## Checklist frontend
 
 - [ ] 0. Leer `apps/web/AGENTS.md` + guía relevante de
       `apps/web/node_modules/next/dist/docs/01-app` **antes** de tocar rutas.
 - [ ] 1. `features/ai/api.ts`: `generateAgent()` + tipos (`GeneratedVariant.title`,
-      respuesta `{ publication }`).
+      respuesta = la publicación creada).
 - [ ] 2. `features/ai/components/AiAssistantPanel.tsx`: pestaña **Agente** (default),
       ocultable (`hideAgent`), `initialCopy` para Mejorar en edición,
       `onAgentDraft(publicationId)`; para agente exige prompt + plataforma + formato;

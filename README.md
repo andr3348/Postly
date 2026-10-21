@@ -156,10 +156,12 @@ pnpm --filter api run test:e2e      # e2e (DB levantada y migrada)
       Falta: diagramas UML (casos de uso, clases, despliegue, secuencia).
 - [ ] Obj. 3: backend — campañas, persistencia, LLMs/difusión.
       Hecho: auth, marcas, cuentas conectadas (+ verificación real), publications
-      con targets/métricas, superficie de despacho n8n, resumen analítico y
-      generación de texto con Gemini (`POST /api/v1/generations/text`).
-      Falta: modo agente (fal.ai + Cloudflare R2) con persistencia del DRAFT
-      prellenado — ver TODO §7.1.
+      con targets/métricas, superficie de despacho n8n, resumen analítico,
+      generación de texto con Gemini (`POST /api/v1/generations/text`) y el
+      modo agente del backend (`POST /api/v1/generations/agent`: Gemini →
+      fal.ai → Cloudflare R2 → DRAFT).
+      Falta: pestaña **Agente** en el panel y prueba con credenciales reales
+      de fal.ai/R2 — ver TODO §7.1.
 - [x] Obj. 4: dashboard — prompt → preview → aprobación + Analytics/Insights.
       Hecho: Marcas, Cuentas y Publicaciones (bandeja, crear con asistente IA,
       detalle con flujo DRAFT → … → PUBLICADO y métricas) + vista Analytics —
@@ -188,7 +190,7 @@ pnpm --filter api run test:e2e      # e2e (DB levantada y migrada)
    "Usar este texto"; la generación no persiste, pero al crear el `DRAFT` se
    audita el `modelText` real (incluido el fallback). Los errores de Gemini se
    explican por causa y solo ofrecen **Reintentar** cuando son reintentables. La
-   media sigue manual.
+   media sigue manual (hasta que el panel exponga el modo agente).
    [ ] **Fase 2 — modo agente (un prompt → DRAFT con media):** desde un solo
    prompt, Gemini prellena el borrador (título + descripción + hashtags) y
    produce el guion de la media; el backend envía ese guion a `MediaGenerator`
@@ -196,7 +198,9 @@ pnpm --filter api run test:e2e      # e2e (DB levantada y migrada)
    — **Cloudflare R2** (API compatible con S3, URL pública) —, auditando
    `modelMedia`/`tokensUsed`. El usuario revisa/edita antes de programar. Las
    pestañas actuales (Ideas/Texto) y el formulario manual se conservan como
-   fallback, y n8n sigue siendo solo despacho.
+   fallback, y n8n sigue siendo solo despacho. **Backend hecho**
+   (`POST /api/v1/generations/agent`, `docs/backend.md` §9.2); falta la pestaña
+   Agente en el panel y probar con credenciales reales.
    Base lista: `Publication.title` opcional (migración + UI; en el dashboard
    `copy` se muestra como «Descripción») y `caption` fusionada por target en
    el claim de n8n; pendiente, prellenar el título con IA.

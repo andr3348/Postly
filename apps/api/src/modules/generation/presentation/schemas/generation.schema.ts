@@ -50,3 +50,27 @@ export const generateTextSchema = z
   });
 
 export type GenerateTextDto = z.infer<typeof generateTextSchema>;
+
+export const generateAgentSchema = z
+  .object({
+    brandId: z.string().min(1).max(100),
+    prompt: z.string().trim().min(1).max(10000),
+    platform: generationPlatformSchema,
+    format: generationFormatSchema,
+    mediaType: generationMediaTypeSchema.optional(),
+  })
+  .superRefine((data, context) => {
+    if (
+      data.format === 'REEL' &&
+      data.platform !== 'FACEBOOK' &&
+      data.platform !== 'INSTAGRAM'
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['format'],
+        message: 'El formato REEL solo aplica a Facebook e Instagram',
+      });
+    }
+  });
+
+export type GenerateAgentDto = z.infer<typeof generateAgentSchema>;
