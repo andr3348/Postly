@@ -13,6 +13,8 @@ import {
 export interface PublicationFormFill {
   /** Texto que reemplaza el campo de copy (incluye hashtags si aplica). */
   readonly copy: string;
+  /** Título sugerido por la IA (las variantes ahora lo traen). */
+  readonly title?: string;
   /** Brief con el que se generó, para dejarlo como contexto. */
   readonly originalPrompt?: string;
   /** Modelo real que generó el texto; no se muestra, solo se audita al guardar. */
@@ -57,11 +59,14 @@ export function PublicationForm({
   const [appliedFillNonce, setAppliedFillNonce] = useState<number | undefined>(undefined);
 
   // Ajuste de estado al cambiar una prop (patrón de React, sin useEffect):
-  // solo reemplaza copy y contexto; mediaUrl y mediaType no se tocan.
+  // reemplaza copy, título y contexto; mediaUrl y mediaType no se tocan.
   if (fill !== undefined && fill.nonce !== appliedFillNonce) {
     setAppliedFillNonce(fill.nonce);
     setCopy(fill.copy);
     setModelText(fill.modelText);
+    if (fill.title !== undefined) {
+      setTitle(fill.title);
+    }
     if (fill.originalPrompt !== undefined) {
       setOriginalPrompt(fill.originalPrompt);
     }

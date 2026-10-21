@@ -36,3 +36,18 @@ export const PublicationDetailLoader = dynamic(
     ),
   },
 );
+
+export const PublicationEditorLoader = dynamic(
+  () =>
+    import("@/features/publications/components/PublicationEditor").then(
+      (module) => module.PublicationEditor,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="bg-white dark:bg-[#232a3e] border border-gray-100 dark:border-[#2d374e] rounded-[22px] p-8 shadow-xs text-center">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Cargando borrador…</p>
+      </div>
+    ),
+  },
+);

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import {
+  generateAgent,
   generateText,
   type AiGenerationFormat,
   type AiGenerationMediaType,
@@ -9,6 +10,7 @@ import {
   type AiGenerationPlatform,
   type GeneratedIdea,
   type GeneratedVariant,
+  type GenerateAgentPayload,
   type GenerateTextPayload,
 } from "@/features/ai/api";
 import { ApiError } from "@/lib/api";
@@ -16,13 +18,20 @@ import { ApiError } from "@/lib/api";
 interface AiAssistantPanelProps {
   readonly brandId: string | null;
   readonly onUseText: (payload: {
+    title: string;
     copy: string;
     originalPrompt: string;
     modelText: string;
   }) => void;
+  /** Se llama con el id del DRAFT creado por el agente (para navegar). */
+  readonly onAgentDraft?: (publicationId: string) => void;
+  /** En edición el agente crearía otro borrador: se oculta su pestaña. */
+  readonly hideAgent?: boolean;
+  /** Copy guardado del borrador, para "Mejorar este texto" en edición. */
+  readonly initialCopy?: string;
 }
 
-type VisibleMode = "IDEAS" | "COPY";
+type VisibleMode = "AGENT" | "IDEAS" | "COPY";
 
 interface RunOptions {
   readonly prompt?: string;
@@ -40,12 +49,24 @@ interface AiPanelError {
   readonly retryable: boolean;
 }
 
+/** Acción fallida conservada para el botón Reintentar. */
+type RetryState =
+  | { readonly kind: "TEXT"; readonly payload: GenerateTextPayload }
+  | { readonly kind: "AGENT"; readonly payload: GenerateAgentPayload };
+
 /**
- * Panel de generación de texto. No guarda publicaciones: el botón "Usar este
- * texto" solo prellena el formulario que está debajo.
+ * Panel de generación con IA. En "Texto"/"Ideas" no guarda nada: "Usar este
+ * texto" solo prellena el formulario. En "Agente" el backend genera texto y
+ * media, y crea el borrador dentro del mismo request.
  */
-export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) {
-  const [mode, setMode] = useState<VisibleMode>("IDEAS");
+export function AiAssistantPanel({
+  brandId,
+  onUseText,
+  onAgentDraft,
+  hideAgent = false,
+  initialCopy,
+}: AiAssistantPanelProps) {
+  const [mode, setMode] = useState<VisibleMode>(hideAgent ? "COPY" : "AGENT");
   const [brief, setBrief] = useState("");
   const [platform, setPlatform] = useState<AiGenerationPlatform | "">("");
   const [format, setFormat] = useState<AiGenerationFormat | "">("");
@@ -54,7 +75,7 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
   const [variants, setVariants] = useState<GeneratedVariantWithModel[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<AiPanelError | null>(null);
-  const [retryPayload, setRetryPayload] = useState<GenerateTextPayload | null>(null);
+  const [retryState, setRetryState] = useState<RetryState | null>(null);
   const [model, setModel] = useState<string | null>(null);
   const [improveTarget, setImproveTarget] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
@@ -62,7 +83,7 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
   const executeGeneration = async (payload: GenerateTextPayload): Promise<void> => {
     setLoading(true);
     setError(null);
-    setRetryPayload(null);
+    setRetryState(null);
 
     try {
       const response = await generateText(payload);
@@ -85,7 +106,26 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
       const panelError = toPanelError(err);
       setError(panelError);
       if (panelError.retryable) {
-        setRetryPayload(payload);
+        setRetryState({ kind: "TEXT", payload });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const executeAgent = async (payload: GenerateAgentPayload): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    setRetryState(null);
+
+    try {
+      const publication = await generateAgent(payload);
+      onAgentDraft?.(publication.id);
+    } catch (err: unknown) {
+      const panelError = toPanelError(err);
+      setError(panelError);
+      if (panelError.retryable) {
+        setRetryState({ kind: "AGENT", payload });
       }
     } finally {
       setLoading(false);
@@ -141,14 +181,67 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
     await executeGeneration(request);
   };
 
-  const handleRetry = (): void => {
-    if (retryPayload === null || loading) {
+  const runAgent = async (): Promise<void> => {
+    if (brandId === null) {
+      setError({
+        message: "Selecciona una marca en el switcher para usar el asistente.",
+        retryable: false,
+      });
       return;
     }
-    void executeGeneration(retryPayload);
+
+    const prompt = brief.trim();
+    if (prompt === "") {
+      setError({
+        message: "Escribe el brief de la publicación para usar el modo agente.",
+        retryable: false,
+      });
+      return;
+    }
+    if (platform === "" || format === "") {
+      setError({
+        message: "Elige plataforma y formato: el agente genera la media según el destino.",
+        retryable: false,
+      });
+      return;
+    }
+    if (format === "REEL" && platform !== "FACEBOOK" && platform !== "INSTAGRAM") {
+      setError({
+        message: "Los reels solo aplican a Facebook e Instagram.",
+        retryable: false,
+      });
+      return;
+    }
+
+    // En REEL la media siempre es video; en FEED se respeta el selector.
+    const effectiveMediaType: AiGenerationMediaType =
+      format === "REEL" ? "VIDEO" : mediaType === "" ? "IMAGE" : mediaType;
+
+    await executeAgent({
+      brandId,
+      prompt,
+      platform,
+      format,
+      mediaType: effectiveMediaType,
+    });
+  };
+
+  const handleRetry = (): void => {
+    if (retryState === null || loading) {
+      return;
+    }
+    if (retryState.kind === "AGENT") {
+      void executeAgent(retryState.payload);
+      return;
+    }
+    void executeGeneration(retryState.payload);
   };
 
   const handleGenerate = (): void => {
+    if (mode === "AGENT") {
+      void runAgent();
+      return;
+    }
     void runGeneration(mode);
   };
 
@@ -182,6 +275,7 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
     const copy = [variant.copy.trim(), hashtags].filter((part) => part !== "").join("\n\n");
 
     onUseText({
+      title: variant.title,
       copy,
       originalPrompt: brief.trim(),
       modelText: variant.model,
@@ -189,6 +283,7 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
   };
 
   const disabled = loading || brandId === null;
+  const reelForcesVideo = mode === "AGENT" && format === "REEL";
 
   return (
     <section className="rounded-[22px] border border-[#dce8e6] bg-[#f7fbfa] p-5 dark:border-[#2d374e] dark:bg-[#1d2433]">
@@ -199,29 +294,39 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
               Asistente IA
             </h2>
             <span className="rounded-full bg-[#e5f4ef] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#0f766e] dark:bg-[#123a3a] dark:text-[#7dd3c7]">
-              Gemini
+              {mode === "AGENT" ? "Gemini + fal.ai" : "Gemini"}
             </span>
           </div>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Genera ideas o copy con el tono de la marca activa. No se guarda nada
-            hasta que crees el borrador.
+            {mode === "AGENT"
+              ? "Pide el brief completo: Gemini escribe el texto y fal.ai genera la imagen o el video. El borrador se guarda solo."
+              : "Genera ideas o copy con el tono de la marca activa. No se guarda nada hasta que crees el borrador."}
           </p>
         </div>
 
         <div className="inline-flex w-fit rounded-full border border-[#dce8e6] bg-white p-1 dark:border-[#2d374e] dark:bg-[#232a3e]">
-          <button
-            type="button"
-            onClick={() => setMode("IDEAS")}
-            className={mode === "IDEAS" ? tabActiveClass : tabClass}
-          >
-            Ideas
-          </button>
+          {!hideAgent && (
+            <button
+              type="button"
+              onClick={() => setMode("AGENT")}
+              className={mode === "AGENT" ? tabActiveClass : tabClass}
+            >
+              Agente
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setMode("COPY")}
             className={mode === "COPY" ? tabActiveClass : tabClass}
           >
             Texto
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("IDEAS")}
+            className={mode === "IDEAS" ? tabActiveClass : tabClass}
+          >
+            Ideas
           </button>
         </div>
       </div>
@@ -235,7 +340,11 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
       <div className="mt-4 flex flex-col gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-sm font-semibold text-[#151717] dark:text-gray-200">
-            {mode === "IDEAS" ? "¿Qué quieres comunicar?" : "Brief o idea a desarrollar"}
+            {mode === "IDEAS"
+              ? "¿Qué quieres comunicar?"
+              : mode === "AGENT"
+                ? "Brief de la publicación"
+                : "Brief o idea a desarrollar"}
           </span>
           <textarea
             value={brief}
@@ -243,7 +352,9 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
             placeholder={
               mode === "IDEAS"
                 ? "Ej. Curso de marketing digital para pymes de Arequipa…"
-                : "Ej. Lanzamiento de un curso de marketing para pymes…"
+                : mode === "AGENT"
+                  ? "Ej. Reel para Instagram anunciando el curso de marketing: público, oferta y tono…"
+                  : "Ej. Lanzamiento de un curso de marketing para pymes…"
             }
             rows={3}
             maxLength={5000}
@@ -259,6 +370,7 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
             disabled={brandId === null}
             className={selectClass}
             aria-label="Plataforma"
+            required={mode === "AGENT"}
           >
             <option value="">Plataforma: general</option>
             <option value="FACEBOOK">Facebook</option>
@@ -272,19 +384,20 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
             disabled={brandId === null}
             className={selectClass}
             aria-label="Formato"
+            required={mode === "AGENT"}
           >
             <option value="">Formato: general</option>
             <option value="FEED">Feed</option>
             <option value="REEL">Reel</option>
           </select>
           <select
-            value={mediaType}
+            value={reelForcesVideo ? "VIDEO" : mediaType}
             onChange={(event) => setMediaType(event.target.value as AiGenerationMediaType | "")}
-            disabled={brandId === null}
+            disabled={brandId === null || reelForcesVideo}
             className={selectClass}
             aria-label="Tipo de media"
           >
-            <option value="">Media: general</option>
+            <option value="">{mode === "AGENT" ? "Media: automática" : "Media: general"}</option>
             <option value="IMAGE">Imagen</option>
             <option value="VIDEO">Video</option>
           </select>
@@ -298,12 +411,16 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
             className={primaryButtonClass}
           >
             {loading
-              ? "Generando…"
-              : mode === "IDEAS"
-                ? "Generar ideas"
-                : variants.length > 0
-                  ? "Generar otras variantes"
-                  : "Generar texto"}
+              ? mode === "AGENT"
+                ? "Generando borrador…"
+                : "Generando…"
+              : mode === "AGENT"
+                ? "Generar borrador con IA"
+                : mode === "IDEAS"
+                  ? "Generar ideas"
+                  : variants.length > 0
+                    ? "Generar otras variantes"
+                    : "Generar texto"}
           </button>
           {mode === "IDEAS" && ideas.length > 0 && (
             <button
@@ -315,6 +432,11 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
               Más ideas
             </button>
           )}
+          {mode === "AGENT" && (
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+              El video puede tardar unos minutos. No cierres la pestaña.
+            </span>
+          )}
         </div>
       </div>
 
@@ -325,7 +447,7 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
         >
           <p className="font-semibold">No se pudo generar el contenido</p>
           <p className="mt-1 leading-relaxed">{error.message}</p>
-          {error.retryable && retryPayload !== null && (
+          {error.retryable && retryState !== null && (
             <button
               type="button"
               onClick={handleRetry}
@@ -382,6 +504,31 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
         </div>
       )}
 
+      {mode === "COPY" &&
+        initialCopy !== undefined &&
+        initialCopy.trim() !== "" &&
+        variants.length === 0 && (
+          <div className="mt-5 rounded-[16px] border border-[#dce8e6] bg-white p-4 dark:border-[#2d374e] dark:bg-[#232a3e]">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-[#0f766e] dark:text-[#7dd3c7]">
+              Texto actual del borrador
+            </p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#151717] dark:text-gray-100">
+              {initialCopy}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setImproveTarget(initialCopy);
+                setFeedback("");
+              }}
+              disabled={disabled}
+              className={`${secondaryButtonClass} mt-3`}
+            >
+              Mejorar este texto
+            </button>
+          </div>
+        )}
+
       {mode === "COPY" && variants.length > 0 && (
         <div className="mt-5 flex flex-col gap-3">
           {variants.map((variant, index) => (
@@ -399,7 +546,10 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
                   </span>
                 )}
               </div>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#151717] dark:text-gray-100">
+              <h3 className="mt-2 text-sm font-semibold leading-snug text-[#151717] dark:text-white">
+                {variant.title}
+              </h3>
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-[#151717] dark:text-gray-100">
                 {variant.copy}
               </p>
               {variant.hashtags.length > 0 && (
@@ -435,54 +585,58 @@ export function AiAssistantPanel({ brandId, onUseText }: AiAssistantPanelProps) 
               </div>
             </article>
           ))}
+        </div>
+      )}
 
-          {improveTarget !== null && (
-            <div className="rounded-[16px] border border-[#dce8e6] bg-white p-4 dark:border-[#2d374e] dark:bg-[#232a3e]">
-              <label className="flex flex-col gap-1">
-                <span className="text-sm font-semibold text-[#151717] dark:text-gray-200">
-                  ¿Qué quieres ajustar?
-                </span>
-                <textarea
-                  value={feedback}
-                  onChange={(event) => setFeedback(event.target.value)}
-                  placeholder="Ej. Hazlo más corto y cambia el CTA…"
-                  rows={2}
-                  maxLength={1000}
-                  className={areaClass}
-                />
-              </label>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    void runGeneration("IMPROVE", {
-                      currentCopy: improveTarget,
-                      feedback,
-                    })
-                  }
-                  disabled={disabled}
-                  className={primaryButtonSmallClass}
-                >
-                  Aplicar indicación
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImproveTarget(null);
-                    setFeedback("");
-                  }}
-                  className={secondaryButtonClass}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          )}
+      {mode === "COPY" && improveTarget !== null && (
+        <div className="mt-3 rounded-[16px] border border-[#dce8e6] bg-white p-4 dark:border-[#2d374e] dark:bg-[#232a3e]">
+          <label className="flex flex-col gap-1">
+            <span className="text-sm font-semibold text-[#151717] dark:text-gray-200">
+              ¿Qué quieres ajustar?
+            </span>
+            <textarea
+              value={feedback}
+              onChange={(event) => setFeedback(event.target.value)}
+              placeholder="Ej. Hazlo más corto y cambia el CTA…"
+              rows={2}
+              maxLength={1000}
+              className={areaClass}
+            />
+          </label>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                void runGeneration("IMPROVE", {
+                  currentCopy: improveTarget,
+                  feedback,
+                })
+              }
+              disabled={disabled}
+              className={primaryButtonSmallClass}
+            >
+              Aplicar indicación
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setImproveTarget(null);
+                setFeedback("");
+              }}
+              className={secondaryButtonClass}
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#e3ecea] pt-3 text-[11px] text-gray-500 dark:border-[#2d374e] dark:text-gray-400">
-        <span>Revisa datos y tono. La media se agrega manualmente por ahora.</span>
+        <span>
+          {mode === "AGENT"
+            ? "El borrador se guarda automáticamente; podrás editarlo antes de programar."
+            : "La media se agrega manualmente en el formulario."}
+        </span>
         {model !== null && <span>Modelo: {model}</span>}
       </div>
     </section>
@@ -502,7 +656,7 @@ function toPanelError(error: unknown): AiPanelError {
     message:
       error instanceof Error
         ? error.message
-        : "No se pudo generar el texto.",
+        : "No se pudo generar el contenido.",
     retryable: false,
   };
 }

@@ -90,29 +90,29 @@
 
 ## Checklist frontend
 
-- [ ] 0. Leer `apps/web/AGENTS.md` + guía relevante de
+- [x] 0. Leer `apps/web/AGENTS.md` + guía relevante de
       `apps/web/node_modules/next/dist/docs/01-app` **antes** de tocar rutas.
-- [ ] 1. `features/ai/api.ts`: `generateAgent()` + tipos (`GeneratedVariant.title`,
+- [x] 1. `features/ai/api.ts`: `generateAgent()` + tipos (`GeneratedVariant.title`,
       respuesta = la publicación creada).
-- [ ] 2. `features/ai/components/AiAssistantPanel.tsx`: pestaña **Agente** (default),
+- [x] 2. `features/ai/components/AiAssistantPanel.tsx`: pestaña **Agente** (default),
       ocultable (`hideAgent`), `initialCopy` para Mejorar en edición,
       `onAgentDraft(publicationId)`; para agente exige prompt + plataforma + formato;
       aviso de que video tarda; errores con Reintentar según `retryable`.
-- [ ] 3. `features/publications/components/PublicationForm.tsx`: `fill` acepta
+- [x] 3. `features/publications/components/PublicationForm.tsx`: `fill` acepta
       `title` (prellenado de variantes/ideas).
-- [ ] 4. Editor unificado: `app/dashboard/publications/[id]/edit/page.tsx` +
+- [x] 4. Editor unificado: `app/dashboard/publications/[id]/edit/page.tsx` +
       loader/componente que reusa el layout de `new` (panel Texto/Mejorar con
       `initialCopy`, sin Agente) y guarda con `updateDraft` → navega al detalle.
       Solo DRAFT (si no, redirige al detalle).
-- [ ] 5. `app/dashboard/publications/new/page.tsx`: `onAgentDraft` →
+- [x] 5. `app/dashboard/publications/new/page.tsx`: `onAgentDraft` →
       `invalidatePublications()` + `router.push('/dashboard/publications/{id}/edit')`.
-- [ ] 6. `features/publications/components/PublicationDetail.tsx`: eliminar el
+- [x] 6. `features/publications/components/PublicationDetail.tsx`: eliminar el
       modal de edición (estado, imports) y convertir el botón "Editar borrador"
       en Link a `[id]/edit`.
-- [ ] 7. Docs web: `docs/frontend.md` §4.2 (+ tabla de vistas del §4 si aplica).
-- [ ] 8. Verificación web: `lint` + `build`; prueba manual mínima si el entorno
+- [x] 7. Docs web: `docs/frontend.md` §4.2 (+ tabla de vistas del §4 si aplica).
+- [x] 8. Verificación web: `lint` + `build`; prueba manual mínima si el entorno
       lo permite.
-- [ ] 9. Commit frontend.
+- [x] 9. Commit frontend.
 
 ## Verificación final
 

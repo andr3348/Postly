@@ -2,6 +2,7 @@
 
 import { Suspense, use, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   addTarget,
   approvePublication,
@@ -14,7 +15,6 @@ import {
   removeTarget,
   recordMetric,
   submitPublication,
-  updateDraft,
   updateTargetFormat,
   type PublicationTarget,
 } from "@/features/publications/api";
@@ -25,7 +25,6 @@ import {
   PublicationStatusBadge,
   TargetStatusBadge,
 } from "@/features/publications/components/StatusBadges";
-import { PublicationForm } from "@/features/publications/components/PublicationForm";
 import {
   publicationFormatSchema,
   recordMetricFormSchema,
@@ -81,7 +80,6 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
   const { brands } = use(getBrandsCached());
   const user = useSessionUser();
 
-  const [editing, setEditing] = useState(false);
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [publishingNow, setPublishingNow] = useState(false);
@@ -139,16 +137,12 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
           </div>
           <div className="flex flex-wrap gap-2">
             {canEditContent && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditing(true);
-                  setFlowMsg("");
-                }}
-                className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer text-gray-700 border border-gray-200 dark:text-gray-300 dark:border-[#2d374e] hover:bg-gray-100 dark:hover:bg-[#2d374e] transition-colors"
+              <Link
+                href={`/dashboard/publications/${id}/edit`}
+                className="inline-flex items-center text-xs font-medium rounded-[10px] px-4 h-[36px] text-gray-700 border border-gray-200 dark:text-gray-300 dark:border-[#2d374e] hover:bg-gray-100 dark:hover:bg-[#2d374e] transition-colors"
               >
                 Editar borrador
-              </button>
+              </Link>
             )}
             {canSubmit && (
               <button
@@ -309,31 +303,6 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
 
       {/* Métricas */}
       <MetricsSection id={id} version={version} canRecord={isOwner || isAdminUser} onChanged={onChanged} />
-
-      {/* Modal editar borrador */}
-      <Modal title="Editar borrador" open={editing} onClose={() => setEditing(false)}>
-        {editing && (
-          <PublicationForm
-            mode="edit"
-            initial={{
-              originalPrompt: publication.originalPrompt,
-              title: publication.title ?? "",
-              copy: publication.copy,
-              mediaUrl: publication.mediaUrl,
-              mediaType: publication.mediaType,
-            }}
-            submitLabel="Guardar cambios"
-            onSubmit={(data) => updateDraft(id, {
-              originalPrompt: data.originalPrompt,
-              title: data.title,
-              copy: data.copy,
-              mediaUrl: data.mediaUrl,
-              mediaType: data.mediaType,
-            })}
-            onCancel={() => setEditing(false)}
-          />
-        )}
-      </Modal>
 
       {/* Modal aprobar (agendar) */}
       <ApproveModal
