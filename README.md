@@ -106,7 +106,7 @@ por rol (endurecimiento pendiente).
 | Backend         | NestJS 12, `@nestjs/jwt` + `argon2` + `zod`, `vitest`, `oxlint`       |
 | Datos           | Prisma **7.10.0** (NO v8 RC), PostgreSQL **17-alpine**                |
 | Frontend        | Next.js 16.3.5, React 19, Tailwind 4 (Shadcn + Recharts instalados)  |
-| Orquestación/IA | n8n (workflow FB/IG activo) + Gemini texto (IDEAS/COPY/IMPROVE) + fal.ai/almacenamiento en fase 2 — LinkedIn/TikTok planificados |
+| Orquestación/IA | n8n (workflow FB/IG activo) + Gemini texto (IDEAS/COPY/IMPROVE) + fase 2: modo agente (fal.ai + Cloudflare R2) — LinkedIn/TikTok planificados |
 
 ## 5. Estructura
 
@@ -158,8 +158,8 @@ pnpm --filter api run test:e2e      # e2e (DB levantada y migrada)
       Hecho: auth, marcas, cuentas conectadas (+ verificación real), publications
       con targets/métricas, superficie de despacho n8n, resumen analítico y
       generación de texto con Gemini (`POST /api/v1/generations/text`).
-      Falta: generación de media (fal.ai) + almacenamiento y persistencia del
-      DRAFT prellenado — ver TODO §7.1.
+      Falta: modo agente (fal.ai + Cloudflare R2) con persistencia del DRAFT
+      prellenado — ver TODO §7.1.
 - [x] Obj. 4: dashboard — prompt → preview → aprobación + Analytics/Insights.
       Hecho: Marcas, Cuentas y Publicaciones (bandeja, crear con asistente IA,
       detalle con flujo DRAFT → … → PUBLICADO y métricas) + vista Analytics —
@@ -189,12 +189,16 @@ pnpm --filter api run test:e2e      # e2e (DB levantada y migrada)
    audita el `modelText` real (incluido el fallback). Los errores de Gemini se
    explican por causa y solo ofrecen **Reintentar** cuando son reintentables. La
    media sigue manual.
-   [ ] **Fase 2 — media + DRAFT prellenado:** `MediaGenerator` (fal.ai: imagen
-   FLUX / video Kling), storage (`MediaStorage`: Cloudinary en desarrollo;
-   producción a definir — Supabase Pro/S3), se persiste el `DRAFT` con copy,
-   `mediaUrl`, `modelMedia`/`tokensUsed` y el usuario revisa/edita antes de
-   programar. El form manual queda como fallback y n8n sigue siendo solo
-   despacho.
+   [ ] **Fase 2 — modo agente (un prompt → DRAFT con media):** desde un solo
+   prompt, Gemini prellena el borrador (copy + hashtags) y produce el guion de
+   la media; el backend envía ese guion a `MediaGenerator` (fal.ai: imagen
+   FLUX / video Kling) y guarda el resultado en `MediaStorage` — **Cloudflare
+   R2** (API compatible con S3, URL pública) —, auditando
+   `modelMedia`/`tokensUsed`. El usuario revisa/edita antes de programar. Las
+   pestañas actuales (Ideas/Texto) y el formulario manual se conservan como
+   fallback, y n8n sigue siendo solo despacho.
+   Nota: el borrador no tiene campo `título` (hoy el `copy` cumple ese rol);
+   añadirlo implica migración + UI si se quiere prellenar por separado.
 
 ## 8. Tesis — datos para capítulos V y VI
 

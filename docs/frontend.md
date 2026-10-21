@@ -115,8 +115,9 @@ En `/dashboard/publications/new`, en la misma vista que el formulario manual
   formulario lo envía como `modelText` al crear el borrador sin mostrarlo. Un
   borrador escrito manualmente queda como `"manual"`.
 - La generación es **stateless**: no crea publicaciones ni escribe en la base de
-  datos. La media todavía se agrega manualmente; fal.ai + storage quedan para la
-  fase 2.
+  datos. La media todavía se agrega manualmente; la fase 2 (modo agente: fal.ai
+  + Cloudflare R2) la generará desde el guion del asistente y prellenará el
+  borrador.
 - El panel envía plataforma, formato (`FEED`/`REEL`) y tipo de media opcionales
   para adaptar el copy. Si Gemini falla, muestra un mensaje en español según la
   causa; cuando el API marca `retryable`, aparece **Reintentar**, que repite la

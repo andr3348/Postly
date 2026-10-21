@@ -412,8 +412,9 @@ Ejemplo de respuesta:
 ```
 
 Límite de esta fase: `Publication.mediaUrl` es obligatorio, así que la media se
-sigue agregando manualmente en el formulario. La fase 2 (fal.ai + storage)
-persistirá el `DRAFT` prellenado.
+sigue agregando manualmente en el formulario. La fase 2 (modo agente: fal.ai +
+**Cloudflare R2** como `MediaStorage`) prellenará el `DRAFT` con la media
+generada.
 
 Nota de privacidad: en el free tier de Gemini, Google puede usar el contenido
 enviado para mejorar sus productos. Para demos/tests usar datos sintéticos y no
