@@ -1,0 +1,1516 @@
+[
+  {
+    "name": "Post Content",
+    "active": false,
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              {
+                "field": "minutes",
+                "minutesInterval": 1
+              }
+            ]
+          }
+        },
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.4,
+        "position": [0, 464],
+        "id": "75e0701a-0b1d-4856-9340-c0a63a918af2",
+        "name": "Schedule Trigger"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "http://host.docker.internal:3001/api/v1/dispatch/claim",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "options": {
+            "response": {
+              "response": {
+                "fullResponse": true
+              }
+            }
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [224, 560],
+        "id": "66b38ffc-d231-4819-9074-d049411fab9f",
+        "name": "HTTP Request",
+        "notesInFlow": false,
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "PostlyApiKey0001",
+            "name": "Postly Dispatch API"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "4fda9ead-d752-4fb1-a900-b763d698e8a3",
+                "leftValue": "={{ $json.body.publication !== null }}",
+                "rightValue": "=PROCESSING",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [448, 560],
+        "id": "a5e4e894-2c45-4ac8-a801-3716d4d82457",
+        "name": "If"
+      },
+      {
+        "parameters": {
+          "fieldToSplitOut": "targets",
+          "include": "allOtherFields",
+          "options": {
+            "destinationFieldName": "targets"
+          }
+        },
+        "type": "n8n-nodes-base.splitOut",
+        "typeVersion": 1.1,
+        "position": [896, 560],
+        "id": "89605be7-4f03-451f-a54b-41c40e64ec5e",
+        "name": "Split Out"
+      },
+      {
+        "parameters": {
+          "rules": {
+            "values": [
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "ccaf6174-5f4b-4e28-b973-e0c28ce06851",
+                      "leftValue": "={{ $json.targets.target.platform }}",
+                      "rightValue": "FACEBOOK",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    },
+                    {
+                      "id": "0f86f121-5829-471a-949e-2236bf13ffb1",
+                      "leftValue": "={{ $json.targets.target.format }}",
+                      "rightValue": "FEED",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    },
+                    {
+                      "id": "b559c016-696f-4460-8b9c-2039067112d5",
+                      "leftValue": "={{ $json.publication.mediaType }}",
+                      "rightValue": "IMAGE",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "FB Feed Image"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "238b5821-b2b5-4583-8155-0fca0adbfe62",
+                      "leftValue": "={{ $json.targets.target.platform }}",
+                      "rightValue": "FACEBOOK",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    },
+                    {
+                      "id": "02191c0c-dfa8-4f0c-a456-200808db4547",
+                      "leftValue": "={{ $json.targets.target.format }}",
+                      "rightValue": "FEED",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    },
+                    {
+                      "id": "3324b1ba-240c-40c1-9a01-fb1825f93ecf",
+                      "leftValue": "={{ $json.publication.mediaType }}",
+                      "rightValue": "VIDEO",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "FB Feed Video"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "9ac21c99-ee21-4587-845d-6c49c3643c89",
+                      "leftValue": "={{ $json.targets.target.platform }}",
+                      "rightValue": "FACEBOOK",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    },
+                    {
+                      "id": "2355a80f-6bf8-434a-a1d2-8ddfa72aecfc",
+                      "leftValue": "={{ $json.targets.target.format }}",
+                      "rightValue": "REEL",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "FB Reel"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "8bf7abfb-15dc-419c-a836-9e2fc4145194",
+                      "leftValue": "={{ $json.targets.target.platform }}",
+                      "rightValue": "INSTAGRAM",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    },
+                    {
+                      "id": "957b2239-0dd8-4743-a9e4-404e0452662e",
+                      "leftValue": "={{ $json.targets.target.format }}",
+                      "rightValue": "FEED",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    },
+                    {
+                      "id": "f50184ed-a9a2-472a-8341-566d4b4d26eb",
+                      "leftValue": "={{ $json.publication.mediaType }}",
+                      "rightValue": "IMAGE",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "IG Feed Image"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "ba4fd850-f39a-4a9e-920e-1a34f08b5c8b",
+                      "leftValue": "={{ $json.targets.target.platform }}",
+                      "rightValue": "INSTAGRAM",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    },
+                    {
+                      "id": "270ba45b-2c9c-4bd2-98e7-e77cfb795039",
+                      "leftValue": "={{ $json.targets.target.format }}",
+                      "rightValue": "FEED",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    },
+                    {
+                      "id": "611187d6-df1b-4c75-a4db-67be661cdeda",
+                      "leftValue": "={{ $json.publication.mediaType }}",
+                      "rightValue": "VIDEO",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "IG Feed Video"
+              },
+              {
+                "conditions": {
+                  "options": {
+                    "caseSensitive": true,
+                    "leftValue": "",
+                    "typeValidation": "strict",
+                    "version": 3
+                  },
+                  "conditions": [
+                    {
+                      "id": "67d4f3ec-a20c-4422-8dca-530814bdeeaf",
+                      "leftValue": "={{ $json.targets.target.platform }}",
+                      "rightValue": "INSTAGRAM",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    },
+                    {
+                      "id": "3d3ac9e8-a5f6-4956-b0bc-edfbcedb7eaf",
+                      "leftValue": "={{ $json.targets.target.format }}",
+                      "rightValue": "REEL",
+                      "operator": {
+                        "type": "string",
+                        "operation": "equals"
+                      }
+                    }
+                  ],
+                  "combinator": "and"
+                },
+                "renameOutput": true,
+                "outputKey": "IG Reel"
+              }
+            ]
+          },
+          "options": {
+            "fallbackOutput": "extra"
+          }
+        },
+        "type": "n8n-nodes-base.switch",
+        "typeVersion": 3.4,
+        "position": [1120, 480],
+        "id": "1ea59fb5-4441-4797-8ee5-478106d2693c",
+        "name": "Switch"
+      },
+      {
+        "parameters": {
+          "jsCode": "return $input.all().map((item) => ({\n  json: {\n    publication: item.json.body.publication,\n    targets: item.json.body.targets,\n  },\n}));"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [672, 560],
+        "id": "253a7646-1c21-461e-b0ee-80814ab77059",
+        "name": "Code in JavaScript"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://graph.facebook.com/v25.0/{{ $json.targets.credentials.externalAccountId }}/photos",
+          "sendBody": true,
+          "contentType": "form-urlencoded",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "url",
+                "value": "={{ $json.publication.mediaUrl }}"
+              },
+              {
+                "name": "caption",
+                "value": "={{ $json.publication.copy }}"
+              },
+              {
+                "name": "access_token",
+                "value": "={{ $json.targets.credentials.accessToken }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [1792, -144],
+        "id": "433897eb-bf1a-4bef-a554-b4e6c1328306",
+        "name": "FB Publish",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=http://host.docker.internal:3001/api/v1/dispatch/targets/{{ $('Split Out').item.json.targets.target.id }}/report",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ dispatchAttemptId: $('Split Out').item.json.publication.dispatchAttemptId, status: 'SUCCESS', externalPostId: $('Split Out').item.json.publication.mediaType === 'IMAGE' ? $('FB Publish').item.json.id : $('FB Feed Video').item.json.id, externalPostUrl: $json.permalink_url ? ($json.permalink_url.startsWith('http') ? $json.permalink_url : 'https://www.facebook.com' + $json.permalink_url) : ($('Split Out').item.json.publication.mediaType === 'IMAGE' ? ($('FB Publish').item.json.post_id ? 'https://www.facebook.com/' + $('FB Publish').item.json.post_id.replace('_', '/posts/') : 'https://www.facebook.com/' + $('FB Publish').item.json.id) : 'https://www.facebook.com/reel/' + $('FB Feed Video').item.json.id) }) }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [2016, -144],
+        "id": "97f3f44e-928e-43a3-8004-95f51658bde6",
+        "name": "FB Report OK",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "PostlyApiKey0001",
+            "name": "Postly Dispatch API"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=http://host.docker.internal:3001/api/v1/dispatch/targets/{{ $json.targetId }}/report",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ dispatchAttemptId: $json.dispatchAttemptId, status: 'FAILED', stage: $json.stage, errorMessage: $json.errorMessage, error: $json.error }) }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [2240, 192],
+        "id": "d7d799b6-1eb9-4dc8-bf29-b6b686d811d8",
+        "name": "FB Report FAIL Publish",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "PostlyApiKey0001",
+            "name": "Postly Dispatch API"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=http://host.docker.internal:3001/api/v1/dispatch/targets/{{ $json.targetId }}/report",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ dispatchAttemptId: $json.dispatchAttemptId, status: 'FAILED', stage: $json.stage, errorMessage: $json.errorMessage, error: $json.error }) }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [3136, 816],
+        "id": "88076264-ac10-4fde-bbe5-332b38b91855",
+        "name": "IG Report FAIL Publish",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "PostlyApiKey0001",
+            "name": "Postly Dispatch API"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://graph.facebook.com/v25.0/{{ $json.targets.credentials.externalAccountId }}/media",
+          "sendBody": true,
+          "contentType": "form-urlencoded",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "image_url",
+                "value": "={{ $json.publication.mediaUrl }}"
+              },
+              {
+                "name": "caption",
+                "value": "={{ $json.publication.copy }}"
+              },
+              {
+                "name": "access_token",
+                "value": "={{ $json.targets.credentials.accessToken }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [2464, 800],
+        "id": "939285de-c5a0-41a2-a2ec-c6fe73e061e6",
+        "name": "IG Container",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://graph.facebook.com/v25.0/{{ $('Split Out').item.json.targets.credentials.externalAccountId }}/media_publish",
+          "sendBody": true,
+          "contentType": "form-urlencoded",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "creation_id",
+                "value": "={{ $json.containerId ?? $json.id }}"
+              },
+              {
+                "name": "access_token",
+                "value": "={{ $('Split Out').item.json.targets.credentials.accessToken }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [2688, 720],
+        "id": "c6efe50b-02df-46ac-af66-f79af282ecf6",
+        "name": "IG Publish",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=http://host.docker.internal:3001/api/v1/dispatch/targets/{{ $('Split Out').item.json.targets.target.id }}/report",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ dispatchAttemptId: $('Split Out').item.json.publication.dispatchAttemptId, status: 'SUCCESS', externalPostId: $('IG Publish').item.json.id, externalPostUrl: $json.permalink ? ($json.permalink.startsWith('http') ? $json.permalink : 'https://www.instagram.com' + $json.permalink) : undefined }) }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [2912, 624],
+        "id": "9160fe3f-f028-437b-8f69-aa346e03e7f7",
+        "name": "IG Report OK",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "PostlyApiKey0001",
+            "name": "Postly Dispatch API"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "publish-now",
+          "authentication": "headerAuth",
+          "options": {
+            "responseCode": {
+              "values": {}
+            }
+          }
+        },
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2.2,
+        "position": [0, 656],
+        "id": "80b56d23-21da-4009-92fd-7a2f9a73e611",
+        "name": "Webhook",
+        "webhookId": "195ce8de-71aa-4090-b250-fce6e30ffd11",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "KHUtJk5cdBF6HTBx",
+            "name": "Webhook Credential"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://graph.facebook.com/v25.0/{{ $json.targets.credentials.externalAccountId }}/videos",
+          "sendBody": true,
+          "contentType": "form-urlencoded",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "file_url",
+                "value": "={{ $json.publication.mediaUrl }}"
+              },
+              {
+                "name": "description",
+                "value": "={{ $json.publication.copy }}"
+              },
+              {
+                "name": "access_token",
+                "value": "={{ $json.targets.credentials.accessToken }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [1792, 96],
+        "id": "c059c35d-1209-4753-b014-9637463a7836",
+        "name": "FB Feed Video",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://graph.facebook.com/v25.0/{{ $json.targets.credentials.externalAccountId }}/video_reels",
+          "sendBody": true,
+          "contentType": "form-urlencoded",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "upload_phase",
+                "value": "start"
+              },
+              {
+                "name": "access_token",
+                "value": "={{ $json.targets.credentials.accessToken }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [1344, 480],
+        "id": "642f2f2f-63f1-4b72-83b4-e044c48c8791",
+        "name": "FB Reel Start",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "={{ $json.upload_url }}",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Authorization",
+                "value": "=OAuth {{ $('Split Out').item.json.targets.credentials.accessToken }}"
+              },
+              {
+                "name": "file_url",
+                "value": "={{ $('Split Out').item.json.publication.mediaUrl }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [1568, 560],
+        "id": "2ccc8786-82da-4b1f-b6e7-8c7898fc8eeb",
+        "name": "FB Reel Upload",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://graph.facebook.com/v25.0/{{ $('Split Out').item.json.targets.credentials.externalAccountId }}/video_reels",
+          "sendBody": true,
+          "contentType": "form-urlencoded",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "upload_phase",
+                "value": "finish"
+              },
+              {
+                "name": "video_id",
+                "value": "={{ $('FB Reel Start').item.json.video_id }}"
+              },
+              {
+                "name": "video_state",
+                "value": "PUBLISHED"
+              },
+              {
+                "name": "description",
+                "value": "={{ $('Split Out').item.json.publication.copy }}"
+              },
+              {
+                "name": "access_token",
+                "value": "={{ $('Split Out').item.json.targets.credentials.accessToken }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [1792, 608],
+        "id": "4723f1b8-12da-4f8f-84a8-64446ac1e9d0",
+        "name": "FB Reel Finish",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=http://host.docker.internal:3001/api/v1/dispatch/targets/{{ $('Split Out').item.json.targets.target.id }}/report",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ dispatchAttemptId: $('Split Out').item.json.publication.dispatchAttemptId, status: 'SUCCESS', externalPostId: $('FB Reel Start').item.json.video_id, externalPostUrl: 'https://www.facebook.com/reel/' + $('FB Reel Start').item.json.video_id }) }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [2016, 656],
+        "id": "efa5152a-1b50-4ebe-9716-a6352edcc4d2",
+        "name": "FB Reel Report OK",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "PostlyApiKey0001",
+            "name": "Postly Dispatch API"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://graph.facebook.com/v25.0/{{ $json.targets.credentials.externalAccountId }}/media",
+          "sendBody": true,
+          "contentType": "form-urlencoded",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "media_type",
+                "value": "REELS"
+              },
+              {
+                "name": "video_url",
+                "value": "={{ $json.publication.mediaUrl }}"
+              },
+              {
+                "name": "caption",
+                "value": "={{ $json.publication.copy }}"
+              },
+              {
+                "name": "share_to_feed",
+                "value": "true"
+              },
+              {
+                "name": "access_token",
+                "value": "={{ $json.targets.credentials.accessToken }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [1344, 1328],
+        "id": "fbe3ea92-a7b1-45c3-8a1c-75fa5bdcaa29",
+        "name": "IG Feed Video Container",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=https://graph.facebook.com/v25.0/{{ $json.targets.credentials.externalAccountId }}/media",
+          "sendBody": true,
+          "contentType": "form-urlencoded",
+          "bodyParameters": {
+            "parameters": [
+              {
+                "name": "media_type",
+                "value": "REELS"
+              },
+              {
+                "name": "video_url",
+                "value": "={{ $json.publication.mediaUrl }}"
+              },
+              {
+                "name": "caption",
+                "value": "={{ $json.publication.copy }}"
+              },
+              {
+                "name": "share_to_feed",
+                "value": "true"
+              },
+              {
+                "name": "access_token",
+                "value": "={{ $json.targets.credentials.accessToken }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [1344, 1680],
+        "id": "d578d1f0-fdc4-47de-abc5-76f6191dde6c",
+        "name": "IG Reel Container",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const base = $('Split Out').item.json;\nreturn [{ json: { ...base, containerId: $json.id, attempt: 0 } }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [1568, 1344],
+        "id": "c5780c16-8222-46bc-9c1d-fece4151d931",
+        "name": "IG Video Init"
+      },
+      {
+        "parameters": {
+          "amount": 15
+        },
+        "type": "n8n-nodes-base.wait",
+        "typeVersion": 1.1,
+        "position": [1792, 1344],
+        "id": "62445a5a-310a-4039-83ee-33807a9363fe",
+        "name": "IG Video Wait",
+        "webhookId": "56e669c0-a999-4d3d-bcc5-3b6c8762a104"
+      },
+      {
+        "parameters": {
+          "url": "=https://graph.facebook.com/v25.0/{{ $json.containerId }}",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "fields",
+                "value": "status_code"
+              },
+              {
+                "name": "access_token",
+                "value": "={{ $json.targets.credentials.accessToken }}"
+              }
+            ]
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [2016, 1280],
+        "id": "622eef64-3723-4edb-ab01-35b037f246be",
+        "name": "IG Video Check",
+        "onError": "continueErrorOutput"
+      },
+      {
+        "parameters": {
+          "jsCode": "const base = $('IG Video Wait').item.json;\nconst status = $json.status_code;\nconst attempt = (base.attempt ?? 0) + 1;\nconst failed = status === 'ERROR' || status === 'EXPIRED' || attempt >= 20;\nconst errorMessage =\n  status === 'ERROR'\n    ? 'Instagram no pudo procesar el video'\n    : status === 'EXPIRED'\n      ? 'El contenedor de Instagram expiró antes de publicarse'\n      : failed\n        ? 'Instagram no terminó de procesar el video a tiempo'\n        : undefined;\nreturn [{ json: { ...base, attempt, status_code: status, failed, errorMessage } }];"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [2240, 1344],
+        "id": "6e21960d-93ec-4262-ae00-18ea61c620f6",
+        "name": "IG Video Status"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "b27b6d82-acc1-45f1-a651-808fcc963ca2",
+                "leftValue": "={{ $json.status_code }}",
+                "rightValue": "FINISHED",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [2464, 1344],
+        "id": "3cb2c932-195e-4d42-979b-2e70cf9ace5e",
+        "name": "IG Video Ready?"
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "9fec19d7-9fb8-4d37-a9f3-7d659422b9e2",
+                "leftValue": "={{ $json.failed }}",
+                "rightValue": "",
+                "operator": {
+                  "type": "boolean",
+                  "operation": "true",
+                  "singleValue": true
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2.3,
+        "position": [2688, 1472],
+        "id": "fbb9a725-dcf0-4477-a7b0-7b1856edde75",
+        "name": "IG Video Failed?"
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=http://host.docker.internal:3001/api/v1/dispatch/targets/{{ $json.targetId }}/report",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ dispatchAttemptId: $json.dispatchAttemptId, status: 'FAILED', stage: $json.stage, errorMessage: $json.errorMessage, error: $json.error }) }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [2016, 384],
+        "id": "f0d34481-5431-46c8-a5e0-3dbca9870331",
+        "name": "FB Report FAIL Media",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "PostlyApiKey0001",
+            "name": "Postly Dispatch API"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "=http://host.docker.internal:3001/api/v1/dispatch/targets/{{ $json.targetId }}/report",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ dispatchAttemptId: $json.dispatchAttemptId, status: 'FAILED', stage: $json.stage, errorMessage: $json.errorMessage, error: $json.error }) }}",
+          "options": {}
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [3136, 1280],
+        "id": "d2d45bb1-5fc1-457d-a9e7-3df9c9bb28c9",
+        "name": "IG Report FAIL Media",
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "PostlyApiKey0001",
+            "name": "Postly Dispatch API"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "const STAGE = 'MEDIA_PREPARATION';\nconst PLATFORM = 'Facebook';\n\nfunction asNumber(value) {\n  if (typeof value === 'number' && Number.isFinite(value)) return value;\n  if (typeof value === 'string') {\n    const trimmed = value.trim();\n    if (trimmed === '') return null;\n    const numeric = Number(trimmed);\n    return Number.isFinite(numeric) ? numeric : null;\n  }\n  return null;\n}\n\nfunction asString(value) {\n  if (typeof value !== 'string') return null;\n  const trimmed = value.trim();\n  return trimmed === '' ? null : trimmed;\n}\n\nfunction asBoolean(value) {\n  if (typeof value === 'boolean') return value;\n  if (value === 'true') return true;\n  if (value === 'false') return false;\n  return null;\n}\n\nfunction parseJsonString(value) {\n  if (typeof value !== 'string') return undefined;\n  const trimmed = value.trim();\n  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return undefined;\n  try {\n    return JSON.parse(trimmed);\n  } catch (error) {\n    return undefined;\n  }\n}\n\nfunction isMetaError(value) {\n  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;\n  const keys = [\n    'code',\n    'error_subcode',\n    'errorSubcode',\n    'subcode',\n    'fbtrace_id',\n    'trace_id',\n    'traceId',\n    'is_transient',\n    'isTransient',\n    'error_user_msg',\n  ];\n  return keys.some((key) => value[key] !== undefined && value[key] !== null);\n}\n\nfunction collectCandidates(root) {\n  const candidates = [];\n  const seen = new Set();\n\n  function visit(value, depth) {\n    if (value === null || value === undefined || depth > 10) return;\n    if (typeof value === 'string') {\n      const parsed = parseJsonString(value);\n      if (parsed !== undefined) visit(parsed, depth + 1);\n      return;\n    }\n    if (typeof value !== 'object') return;\n    if (seen.has(value)) return;\n    seen.add(value);\n    if (Array.isArray(value)) {\n      for (const child of value) visit(child, depth + 1);\n      return;\n    }\n    if (isMetaError(value)) candidates.push(value);\n    for (const child of Object.values(value)) visit(child, depth + 1);\n  }\n\n  visit(root, 0);\n  return candidates;\n}\n\nfunction scoreCandidate(candidate) {\n  let score = 0;\n  if (asNumber(candidate.error_subcode ?? candidate.errorSubcode ?? candidate.subcode) !== null) score += 16;\n  if (asString(candidate.fbtrace_id ?? candidate.trace_id ?? candidate.traceId) !== null) score += 8;\n  if (asString(candidate.error_user_msg ?? candidate.errorUserMsg) !== null) score += 8;\n  if (asString(candidate.type) !== null) score += 4;\n  if (asBoolean(candidate.is_transient ?? candidate.isTransient) !== null) score += 4;\n  if (asNumber(candidate.code) !== null) score += 2;\n  if (asString(candidate.message) !== null) score += 1;\n  return score;\n}\n\nfunction pickMeta(candidates) {\n  let best = null;\n  let bestScore = -1;\n  for (const candidate of candidates) {\n    const score = scoreCandidate(candidate);\n    if (score > bestScore) {\n      best = candidate;\n      bestScore = score;\n    }\n  }\n  return best;\n}\n\nfunction firstDefined(values, mapper) {\n  for (const value of values) {\n    const result = mapper(value);\n    if (result !== null && result !== undefined) return result;\n  }\n  return null;\n}\n\nfunction safeHttpStatus(value) {\n  const status = asNumber(value);\n  return status !== null && status >= 100 && status <= 599 ? status : null;\n}\n\nfunction normalize(input) {\n  const sources = [];\n  if (input && typeof input === 'object') {\n    if (input.details) sources.push(input.details);\n    if (input.error) sources.push(input.error);\n    if (input.response) sources.push(input.response);\n  }\n\n  const candidates = [];\n  for (const source of sources) {\n    for (const candidate of collectCandidates(source)) candidates.push(candidate);\n  }\n\n  const meta = pickMeta(candidates) ?? {};\n\n  const httpStatus = firstDefined(\n    [\n      input?.details?.httpCode,\n      input?.error?.httpCode,\n      input?.error?.statusCode,\n      input?.error?.response?.status,\n      input?.response?.status,\n      input?.response?.statusCode,\n      input?.httpCode,\n      input?.statusCode,\n      meta.httpStatus,\n    ],\n    safeHttpStatus,\n  );\n\n  const code = firstDefined([meta.code, input?.error?.code], asNumber);\n  const subcode = firstDefined(\n    [meta.error_subcode, meta.errorSubcode, meta.subcode, input?.error?.error_subcode, input?.error?.subcode],\n    asNumber,\n  );\n  const providerMessage = firstDefined(\n    [\n      meta.message,\n      meta.error_user_msg,\n      meta.errorUserMsg,\n      input?.details?.message,\n      input?.error?.message,\n      input?.error,\n      input?.message,\n    ],\n    asString,\n  );\n  const fallbackMessage = firstDefined([input?.errorMessage], asString);\n  const message = providerMessage ?? fallbackMessage ?? 'Error publicando en ' + PLATFORM;\n  const errorMessage = (httpStatus !== null ? httpStatus + ' - ' : '') + message;\n\n  const error = {};\n  if (code !== null) error.code = code;\n  if (subcode !== null) error.subcode = subcode;\n  if (message !== null) error.message = message.slice(0, 5000);\n  const type = firstDefined([meta.type, input?.error?.type], asString);\n  if (type !== null) error.type = type.slice(0, 200);\n  const isTransient = firstDefined([meta.is_transient, meta.isTransient, input?.error?.isTransient], asBoolean);\n  if (isTransient !== null) error.isTransient = isTransient;\n  if (httpStatus !== null) error.httpStatus = httpStatus;\n  const traceId = firstDefined([meta.fbtrace_id, meta.trace_id, meta.traceId, input?.error?.fbtrace_id], asString);\n  if (traceId !== null) error.traceId = traceId.slice(0, 200);\n  const retryAfterSeconds = firstDefined(\n    [meta.retry_after, meta.retryAfterSeconds, input?.error?.retryAfterSeconds],\n    asNumber,\n  );\n  if (retryAfterSeconds !== null && retryAfterSeconds >= 0) error.retryAfterSeconds = retryAfterSeconds;\n\n  const target = input?.targets?.target ?? input?.target ?? {};\n  const targetId = firstDefined([target.id], asString);\n  const dispatchAttemptId = firstDefined(\n    [input?.publication?.dispatchAttemptId, input?.dispatchAttemptId],\n    asString,\n  );\n\n  return {\n    targetId,\n    dispatchAttemptId,\n    stage: STAGE,\n    errorMessage: errorMessage.slice(0, 5000),\n    error: Object.keys(error).length > 0 ? error : undefined,\n  };\n}\n\nreturn $input.all().map((item, index) => ({\n  json: normalize(item.json ?? {}),\n  pairedItem: { item: index },\n}));\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [1792, 336],
+        "id": "66ac7a7e-7d59-463e-b18c-1701b3cd7c38",
+        "name": "FB Media Failure"
+      },
+      {
+        "parameters": {
+          "jsCode": "const STAGE = 'PUBLISH';\nconst PLATFORM = 'Facebook';\n\nfunction asNumber(value) {\n  if (typeof value === 'number' && Number.isFinite(value)) return value;\n  if (typeof value === 'string') {\n    const trimmed = value.trim();\n    if (trimmed === '') return null;\n    const numeric = Number(trimmed);\n    return Number.isFinite(numeric) ? numeric : null;\n  }\n  return null;\n}\n\nfunction asString(value) {\n  if (typeof value !== 'string') return null;\n  const trimmed = value.trim();\n  return trimmed === '' ? null : trimmed;\n}\n\nfunction asBoolean(value) {\n  if (typeof value === 'boolean') return value;\n  if (value === 'true') return true;\n  if (value === 'false') return false;\n  return null;\n}\n\nfunction parseJsonString(value) {\n  if (typeof value !== 'string') return undefined;\n  const trimmed = value.trim();\n  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return undefined;\n  try {\n    return JSON.parse(trimmed);\n  } catch (error) {\n    return undefined;\n  }\n}\n\nfunction isMetaError(value) {\n  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;\n  const keys = [\n    'code',\n    'error_subcode',\n    'errorSubcode',\n    'subcode',\n    'fbtrace_id',\n    'trace_id',\n    'traceId',\n    'is_transient',\n    'isTransient',\n    'error_user_msg',\n  ];\n  return keys.some((key) => value[key] !== undefined && value[key] !== null);\n}\n\nfunction collectCandidates(root) {\n  const candidates = [];\n  const seen = new Set();\n\n  function visit(value, depth) {\n    if (value === null || value === undefined || depth > 10) return;\n    if (typeof value === 'string') {\n      const parsed = parseJsonString(value);\n      if (parsed !== undefined) visit(parsed, depth + 1);\n      return;\n    }\n    if (typeof value !== 'object') return;\n    if (seen.has(value)) return;\n    seen.add(value);\n    if (Array.isArray(value)) {\n      for (const child of value) visit(child, depth + 1);\n      return;\n    }\n    if (isMetaError(value)) candidates.push(value);\n    for (const child of Object.values(value)) visit(child, depth + 1);\n  }\n\n  visit(root, 0);\n  return candidates;\n}\n\nfunction scoreCandidate(candidate) {\n  let score = 0;\n  if (asNumber(candidate.error_subcode ?? candidate.errorSubcode ?? candidate.subcode) !== null) score += 16;\n  if (asString(candidate.fbtrace_id ?? candidate.trace_id ?? candidate.traceId) !== null) score += 8;\n  if (asString(candidate.error_user_msg ?? candidate.errorUserMsg) !== null) score += 8;\n  if (asString(candidate.type) !== null) score += 4;\n  if (asBoolean(candidate.is_transient ?? candidate.isTransient) !== null) score += 4;\n  if (asNumber(candidate.code) !== null) score += 2;\n  if (asString(candidate.message) !== null) score += 1;\n  return score;\n}\n\nfunction pickMeta(candidates) {\n  let best = null;\n  let bestScore = -1;\n  for (const candidate of candidates) {\n    const score = scoreCandidate(candidate);\n    if (score > bestScore) {\n      best = candidate;\n      bestScore = score;\n    }\n  }\n  return best;\n}\n\nfunction firstDefined(values, mapper) {\n  for (const value of values) {\n    const result = mapper(value);\n    if (result !== null && result !== undefined) return result;\n  }\n  return null;\n}\n\nfunction safeHttpStatus(value) {\n  const status = asNumber(value);\n  return status !== null && status >= 100 && status <= 599 ? status : null;\n}\n\nfunction normalize(input) {\n  const sources = [];\n  if (input && typeof input === 'object') {\n    if (input.details) sources.push(input.details);\n    if (input.error) sources.push(input.error);\n    if (input.response) sources.push(input.response);\n  }\n\n  const candidates = [];\n  for (const source of sources) {\n    for (const candidate of collectCandidates(source)) candidates.push(candidate);\n  }\n\n  const meta = pickMeta(candidates) ?? {};\n\n  const httpStatus = firstDefined(\n    [\n      input?.details?.httpCode,\n      input?.error?.httpCode,\n      input?.error?.statusCode,\n      input?.error?.response?.status,\n      input?.response?.status,\n      input?.response?.statusCode,\n      input?.httpCode,\n      input?.statusCode,\n      meta.httpStatus,\n    ],\n    safeHttpStatus,\n  );\n\n  const code = firstDefined([meta.code, input?.error?.code], asNumber);\n  const subcode = firstDefined(\n    [meta.error_subcode, meta.errorSubcode, meta.subcode, input?.error?.error_subcode, input?.error?.subcode],\n    asNumber,\n  );\n  const providerMessage = firstDefined(\n    [\n      meta.message,\n      meta.error_user_msg,\n      meta.errorUserMsg,\n      input?.details?.message,\n      input?.error?.message,\n      input?.error,\n      input?.message,\n    ],\n    asString,\n  );\n  const fallbackMessage = firstDefined([input?.errorMessage], asString);\n  const message = providerMessage ?? fallbackMessage ?? 'Error publicando en ' + PLATFORM;\n  const errorMessage = (httpStatus !== null ? httpStatus + ' - ' : '') + message;\n\n  const error = {};\n  if (code !== null) error.code = code;\n  if (subcode !== null) error.subcode = subcode;\n  if (message !== null) error.message = message.slice(0, 5000);\n  const type = firstDefined([meta.type, input?.error?.type], asString);\n  if (type !== null) error.type = type.slice(0, 200);\n  const isTransient = firstDefined([meta.is_transient, meta.isTransient, input?.error?.isTransient], asBoolean);\n  if (isTransient !== null) error.isTransient = isTransient;\n  if (httpStatus !== null) error.httpStatus = httpStatus;\n  const traceId = firstDefined([meta.fbtrace_id, meta.trace_id, meta.traceId, input?.error?.fbtrace_id], asString);\n  if (traceId !== null) error.traceId = traceId.slice(0, 200);\n  const retryAfterSeconds = firstDefined(\n    [meta.retry_after, meta.retryAfterSeconds, input?.error?.retryAfterSeconds],\n    asNumber,\n  );\n  if (retryAfterSeconds !== null && retryAfterSeconds >= 0) error.retryAfterSeconds = retryAfterSeconds;\n\n  const target = input?.targets?.target ?? input?.target ?? {};\n  const targetId = firstDefined([target.id], asString);\n  const dispatchAttemptId = firstDefined(\n    [input?.publication?.dispatchAttemptId, input?.dispatchAttemptId],\n    asString,\n  );\n\n  return {\n    targetId,\n    dispatchAttemptId,\n    stage: STAGE,\n    errorMessage: errorMessage.slice(0, 5000),\n    error: Object.keys(error).length > 0 ? error : undefined,\n  };\n}\n\nreturn $input.all().map((item, index) => ({\n  json: normalize(item.json ?? {}),\n  pairedItem: { item: index },\n}));\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [2016, 192],
+        "id": "b97cdfcc-2480-41a3-bcb5-df1dd6658af8",
+        "name": "FB Publish Failure"
+      },
+      {
+        "parameters": {
+          "jsCode": "const STAGE = 'MEDIA_PREPARATION';\nconst PLATFORM = 'Instagram';\n\nfunction asNumber(value) {\n  if (typeof value === 'number' && Number.isFinite(value)) return value;\n  if (typeof value === 'string') {\n    const trimmed = value.trim();\n    if (trimmed === '') return null;\n    const numeric = Number(trimmed);\n    return Number.isFinite(numeric) ? numeric : null;\n  }\n  return null;\n}\n\nfunction asString(value) {\n  if (typeof value !== 'string') return null;\n  const trimmed = value.trim();\n  return trimmed === '' ? null : trimmed;\n}\n\nfunction asBoolean(value) {\n  if (typeof value === 'boolean') return value;\n  if (value === 'true') return true;\n  if (value === 'false') return false;\n  return null;\n}\n\nfunction parseJsonString(value) {\n  if (typeof value !== 'string') return undefined;\n  const trimmed = value.trim();\n  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return undefined;\n  try {\n    return JSON.parse(trimmed);\n  } catch (error) {\n    return undefined;\n  }\n}\n\nfunction isMetaError(value) {\n  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;\n  const keys = [\n    'code',\n    'error_subcode',\n    'errorSubcode',\n    'subcode',\n    'fbtrace_id',\n    'trace_id',\n    'traceId',\n    'is_transient',\n    'isTransient',\n    'error_user_msg',\n  ];\n  return keys.some((key) => value[key] !== undefined && value[key] !== null);\n}\n\nfunction collectCandidates(root) {\n  const candidates = [];\n  const seen = new Set();\n\n  function visit(value, depth) {\n    if (value === null || value === undefined || depth > 10) return;\n    if (typeof value === 'string') {\n      const parsed = parseJsonString(value);\n      if (parsed !== undefined) visit(parsed, depth + 1);\n      return;\n    }\n    if (typeof value !== 'object') return;\n    if (seen.has(value)) return;\n    seen.add(value);\n    if (Array.isArray(value)) {\n      for (const child of value) visit(child, depth + 1);\n      return;\n    }\n    if (isMetaError(value)) candidates.push(value);\n    for (const child of Object.values(value)) visit(child, depth + 1);\n  }\n\n  visit(root, 0);\n  return candidates;\n}\n\nfunction scoreCandidate(candidate) {\n  let score = 0;\n  if (asNumber(candidate.error_subcode ?? candidate.errorSubcode ?? candidate.subcode) !== null) score += 16;\n  if (asString(candidate.fbtrace_id ?? candidate.trace_id ?? candidate.traceId) !== null) score += 8;\n  if (asString(candidate.error_user_msg ?? candidate.errorUserMsg) !== null) score += 8;\n  if (asString(candidate.type) !== null) score += 4;\n  if (asBoolean(candidate.is_transient ?? candidate.isTransient) !== null) score += 4;\n  if (asNumber(candidate.code) !== null) score += 2;\n  if (asString(candidate.message) !== null) score += 1;\n  return score;\n}\n\nfunction pickMeta(candidates) {\n  let best = null;\n  let bestScore = -1;\n  for (const candidate of candidates) {\n    const score = scoreCandidate(candidate);\n    if (score > bestScore) {\n      best = candidate;\n      bestScore = score;\n    }\n  }\n  return best;\n}\n\nfunction firstDefined(values, mapper) {\n  for (const value of values) {\n    const result = mapper(value);\n    if (result !== null && result !== undefined) return result;\n  }\n  return null;\n}\n\nfunction safeHttpStatus(value) {\n  const status = asNumber(value);\n  return status !== null && status >= 100 && status <= 599 ? status : null;\n}\n\nfunction normalize(input) {\n  const sources = [];\n  if (input && typeof input === 'object') {\n    if (input.details) sources.push(input.details);\n    if (input.error) sources.push(input.error);\n    if (input.response) sources.push(input.response);\n  }\n\n  const candidates = [];\n  for (const source of sources) {\n    for (const candidate of collectCandidates(source)) candidates.push(candidate);\n  }\n\n  const meta = pickMeta(candidates) ?? {};\n\n  const httpStatus = firstDefined(\n    [\n      input?.details?.httpCode,\n      input?.error?.httpCode,\n      input?.error?.statusCode,\n      input?.error?.response?.status,\n      input?.response?.status,\n      input?.response?.statusCode,\n      input?.httpCode,\n      input?.statusCode,\n      meta.httpStatus,\n    ],\n    safeHttpStatus,\n  );\n\n  const code = firstDefined([meta.code, input?.error?.code], asNumber);\n  const subcode = firstDefined(\n    [meta.error_subcode, meta.errorSubcode, meta.subcode, input?.error?.error_subcode, input?.error?.subcode],\n    asNumber,\n  );\n  const providerMessage = firstDefined(\n    [\n      meta.message,\n      meta.error_user_msg,\n      meta.errorUserMsg,\n      input?.details?.message,\n      input?.error?.message,\n      input?.error,\n      input?.message,\n    ],\n    asString,\n  );\n  const fallbackMessage = firstDefined([input?.errorMessage], asString);\n  const message = providerMessage ?? fallbackMessage ?? 'Error publicando en ' + PLATFORM;\n  const errorMessage = (httpStatus !== null ? httpStatus + ' - ' : '') + message;\n\n  const error = {};\n  if (code !== null) error.code = code;\n  if (subcode !== null) error.subcode = subcode;\n  if (message !== null) error.message = message.slice(0, 5000);\n  const type = firstDefined([meta.type, input?.error?.type], asString);\n  if (type !== null) error.type = type.slice(0, 200);\n  const isTransient = firstDefined([meta.is_transient, meta.isTransient, input?.error?.isTransient], asBoolean);\n  if (isTransient !== null) error.isTransient = isTransient;\n  if (httpStatus !== null) error.httpStatus = httpStatus;\n  const traceId = firstDefined([meta.fbtrace_id, meta.trace_id, meta.traceId, input?.error?.fbtrace_id], asString);\n  if (traceId !== null) error.traceId = traceId.slice(0, 200);\n  const retryAfterSeconds = firstDefined(\n    [meta.retry_after, meta.retryAfterSeconds, input?.error?.retryAfterSeconds],\n    asNumber,\n  );\n  if (retryAfterSeconds !== null && retryAfterSeconds >= 0) error.retryAfterSeconds = retryAfterSeconds;\n\n  const target = input?.targets?.target ?? input?.target ?? {};\n  const targetId = firstDefined([target.id], asString);\n  const dispatchAttemptId = firstDefined(\n    [input?.publication?.dispatchAttemptId, input?.dispatchAttemptId],\n    asString,\n  );\n\n  return {\n    targetId,\n    dispatchAttemptId,\n    stage: STAGE,\n    errorMessage: errorMessage.slice(0, 5000),\n    error: Object.keys(error).length > 0 ? error : undefined,\n  };\n}\n\nreturn $input.all().map((item, index) => ({\n  json: normalize(item.json ?? {}),\n  pairedItem: { item: index },\n}));\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [2912, 1280],
+        "id": "39592693-767f-4f0b-919c-dd6af8d88d26",
+        "name": "IG Media Failure"
+      },
+      {
+        "parameters": {
+          "jsCode": "const STAGE = 'PUBLISH';\nconst PLATFORM = 'Instagram';\n\nfunction asNumber(value) {\n  if (typeof value === 'number' && Number.isFinite(value)) return value;\n  if (typeof value === 'string') {\n    const trimmed = value.trim();\n    if (trimmed === '') return null;\n    const numeric = Number(trimmed);\n    return Number.isFinite(numeric) ? numeric : null;\n  }\n  return null;\n}\n\nfunction asString(value) {\n  if (typeof value !== 'string') return null;\n  const trimmed = value.trim();\n  return trimmed === '' ? null : trimmed;\n}\n\nfunction asBoolean(value) {\n  if (typeof value === 'boolean') return value;\n  if (value === 'true') return true;\n  if (value === 'false') return false;\n  return null;\n}\n\nfunction parseJsonString(value) {\n  if (typeof value !== 'string') return undefined;\n  const trimmed = value.trim();\n  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return undefined;\n  try {\n    return JSON.parse(trimmed);\n  } catch (error) {\n    return undefined;\n  }\n}\n\nfunction isMetaError(value) {\n  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;\n  const keys = [\n    'code',\n    'error_subcode',\n    'errorSubcode',\n    'subcode',\n    'fbtrace_id',\n    'trace_id',\n    'traceId',\n    'is_transient',\n    'isTransient',\n    'error_user_msg',\n  ];\n  return keys.some((key) => value[key] !== undefined && value[key] !== null);\n}\n\nfunction collectCandidates(root) {\n  const candidates = [];\n  const seen = new Set();\n\n  function visit(value, depth) {\n    if (value === null || value === undefined || depth > 10) return;\n    if (typeof value === 'string') {\n      const parsed = parseJsonString(value);\n      if (parsed !== undefined) visit(parsed, depth + 1);\n      return;\n    }\n    if (typeof value !== 'object') return;\n    if (seen.has(value)) return;\n    seen.add(value);\n    if (Array.isArray(value)) {\n      for (const child of value) visit(child, depth + 1);\n      return;\n    }\n    if (isMetaError(value)) candidates.push(value);\n    for (const child of Object.values(value)) visit(child, depth + 1);\n  }\n\n  visit(root, 0);\n  return candidates;\n}\n\nfunction scoreCandidate(candidate) {\n  let score = 0;\n  if (asNumber(candidate.error_subcode ?? candidate.errorSubcode ?? candidate.subcode) !== null) score += 16;\n  if (asString(candidate.fbtrace_id ?? candidate.trace_id ?? candidate.traceId) !== null) score += 8;\n  if (asString(candidate.error_user_msg ?? candidate.errorUserMsg) !== null) score += 8;\n  if (asString(candidate.type) !== null) score += 4;\n  if (asBoolean(candidate.is_transient ?? candidate.isTransient) !== null) score += 4;\n  if (asNumber(candidate.code) !== null) score += 2;\n  if (asString(candidate.message) !== null) score += 1;\n  return score;\n}\n\nfunction pickMeta(candidates) {\n  let best = null;\n  let bestScore = -1;\n  for (const candidate of candidates) {\n    const score = scoreCandidate(candidate);\n    if (score > bestScore) {\n      best = candidate;\n      bestScore = score;\n    }\n  }\n  return best;\n}\n\nfunction firstDefined(values, mapper) {\n  for (const value of values) {\n    const result = mapper(value);\n    if (result !== null && result !== undefined) return result;\n  }\n  return null;\n}\n\nfunction safeHttpStatus(value) {\n  const status = asNumber(value);\n  return status !== null && status >= 100 && status <= 599 ? status : null;\n}\n\nfunction normalize(input) {\n  const sources = [];\n  if (input && typeof input === 'object') {\n    if (input.details) sources.push(input.details);\n    if (input.error) sources.push(input.error);\n    if (input.response) sources.push(input.response);\n  }\n\n  const candidates = [];\n  for (const source of sources) {\n    for (const candidate of collectCandidates(source)) candidates.push(candidate);\n  }\n\n  const meta = pickMeta(candidates) ?? {};\n\n  const httpStatus = firstDefined(\n    [\n      input?.details?.httpCode,\n      input?.error?.httpCode,\n      input?.error?.statusCode,\n      input?.error?.response?.status,\n      input?.response?.status,\n      input?.response?.statusCode,\n      input?.httpCode,\n      input?.statusCode,\n      meta.httpStatus,\n    ],\n    safeHttpStatus,\n  );\n\n  const code = firstDefined([meta.code, input?.error?.code], asNumber);\n  const subcode = firstDefined(\n    [meta.error_subcode, meta.errorSubcode, meta.subcode, input?.error?.error_subcode, input?.error?.subcode],\n    asNumber,\n  );\n  const providerMessage = firstDefined(\n    [\n      meta.message,\n      meta.error_user_msg,\n      meta.errorUserMsg,\n      input?.details?.message,\n      input?.error?.message,\n      input?.error,\n      input?.message,\n    ],\n    asString,\n  );\n  const fallbackMessage = firstDefined([input?.errorMessage], asString);\n  const message = providerMessage ?? fallbackMessage ?? 'Error publicando en ' + PLATFORM;\n  const errorMessage = (httpStatus !== null ? httpStatus + ' - ' : '') + message;\n\n  const error = {};\n  if (code !== null) error.code = code;\n  if (subcode !== null) error.subcode = subcode;\n  if (message !== null) error.message = message.slice(0, 5000);\n  const type = firstDefined([meta.type, input?.error?.type], asString);\n  if (type !== null) error.type = type.slice(0, 200);\n  const isTransient = firstDefined([meta.is_transient, meta.isTransient, input?.error?.isTransient], asBoolean);\n  if (isTransient !== null) error.isTransient = isTransient;\n  if (httpStatus !== null) error.httpStatus = httpStatus;\n  const traceId = firstDefined([meta.fbtrace_id, meta.trace_id, meta.traceId, input?.error?.fbtrace_id], asString);\n  if (traceId !== null) error.traceId = traceId.slice(0, 200);\n  const retryAfterSeconds = firstDefined(\n    [meta.retry_after, meta.retryAfterSeconds, input?.error?.retryAfterSeconds],\n    asNumber,\n  );\n  if (retryAfterSeconds !== null && retryAfterSeconds >= 0) error.retryAfterSeconds = retryAfterSeconds;\n\n  const target = input?.targets?.target ?? input?.target ?? {};\n  const targetId = firstDefined([target.id], asString);\n  const dispatchAttemptId = firstDefined(\n    [input?.publication?.dispatchAttemptId, input?.dispatchAttemptId],\n    asString,\n  );\n\n  return {\n    targetId,\n    dispatchAttemptId,\n    stage: STAGE,\n    errorMessage: errorMessage.slice(0, 5000),\n    error: Object.keys(error).length > 0 ? error : undefined,\n  };\n}\n\nreturn $input.all().map((item, index) => ({\n  json: normalize(item.json ?? {}),\n  pairedItem: { item: index },\n}));\n"
+        },
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [2912, 816],
+        "id": "0710c1c5-1dee-4d33-91d9-9b09351566fb",
+        "name": "IG Publish Failure"
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "=https://graph.facebook.com/v25.0/{{ $json.post_id ?? $json.id }}",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "fields",
+                "value": "permalink_url"
+              },
+              {
+                "name": "access_token",
+                "value": "={{ $('Split Out').item.json.targets.credentials.accessToken }}"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 10000
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [2016, -48],
+        "id": "8360bbc7-33a8-4ce3-82bc-50c7448523bd",
+        "name": "FB Permalink",
+        "onError": "continueErrorOutput",
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 1000
+      },
+      {
+        "parameters": {
+          "method": "GET",
+          "url": "=https://graph.facebook.com/v25.0/{{ $json.id }}",
+          "sendQuery": true,
+          "queryParameters": {
+            "parameters": [
+              {
+                "name": "fields",
+                "value": "permalink"
+              },
+              {
+                "name": "access_token",
+                "value": "={{ $('Split Out').item.json.targets.credentials.accessToken }}"
+              }
+            ]
+          },
+          "options": {
+            "timeout": 10000
+          }
+        },
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.5,
+        "position": [2800, 720],
+        "id": "80856ff2-5dde-40bd-9d3a-23fe92a3069e",
+        "name": "IG Permalink",
+        "onError": "continueErrorOutput",
+        "retryOnFail": true,
+        "maxTries": 3,
+        "waitBetweenTries": 1000
+      }
+    ],
+    "connections": {
+      "Schedule Trigger": {
+        "main": [
+          [
+            {
+              "node": "HTTP Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Webhook": {
+        "main": [
+          [
+            {
+              "node": "HTTP Request",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "HTTP Request": {
+        "main": [
+          [
+            {
+              "node": "If",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "If": {
+        "main": [
+          [
+            {
+              "node": "Code in JavaScript",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          []
+        ]
+      },
+      "Code in JavaScript": {
+        "main": [
+          [
+            {
+              "node": "Split Out",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Split Out": {
+        "main": [
+          [
+            {
+              "node": "Switch",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Switch": {
+        "main": [
+          [
+            {
+              "node": "FB Publish",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "FB Feed Video",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "FB Reel Start",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "IG Container",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "IG Feed Video Container",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "IG Reel Container",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          []
+        ]
+      },
+      "FB Publish": {
+        "main": [
+          [
+            {
+              "node": "FB Permalink",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "FB Publish Failure",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "FB Feed Video": {
+        "main": [
+          [
+            {
+              "node": "FB Permalink",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "FB Publish Failure",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "FB Reel Start": {
+        "main": [
+          [
+            {
+              "node": "FB Reel Upload",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "FB Media Failure",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "FB Reel Upload": {
+        "main": [
+          [
+            {
+              "node": "FB Reel Finish",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "FB Media Failure",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "FB Reel Finish": {
+        "main": [
+          [
+            {
+              "node": "FB Reel Report OK",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "FB Publish Failure",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IG Container": {
+        "main": [
+          [
+            {
+              "node": "IG Publish",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "IG Media Failure",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IG Feed Video Container": {
+        "main": [
+          [
+            {
+              "node": "IG Video Init",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "IG Media Failure",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IG Reel Container": {
+        "main": [
+          [
+            {
+              "node": "IG Video Init",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "IG Media Failure",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IG Video Init": {
+        "main": [
+          [
+            {
+              "node": "IG Video Wait",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IG Video Wait": {
+        "main": [
+          [
+            {
+              "node": "IG Video Check",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IG Video Check": {
+        "main": [
+          [
+            {
+              "node": "IG Video Status",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "IG Media Failure",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IG Video Status": {
+        "main": [
+          [
+            {
+              "node": "IG Video Ready?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IG Video Ready?": {
+        "main": [
+          [
+            {
+              "node": "IG Publish",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "IG Video Failed?",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IG Video Failed?": {
+        "main": [
+          [
+            {
+              "node": "IG Media Failure",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "IG Video Wait",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IG Publish": {
+        "main": [
+          [
+            {
+              "node": "IG Permalink",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "IG Publish Failure",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "FB Media Failure": {
+        "main": [
+          [
+            {
+              "node": "FB Report FAIL Media",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "FB Publish Failure": {
+        "main": [
+          [
+            {
+              "node": "FB Report FAIL Publish",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IG Media Failure": {
+        "main": [
+          [
+            {
+              "node": "IG Report FAIL Media",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IG Publish Failure": {
+        "main": [
+          [
+            {
+              "node": "IG Report FAIL Publish",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "FB Permalink": {
+        "main": [
+          [
+            {
+              "node": "FB Report OK",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "FB Report OK",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "IG Permalink": {
+        "main": [
+          [
+            {
+              "node": "IG Report OK",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "IG Report OK",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "settings": {
+      "executionOrder": "v1",
+      "binaryMode": "separate",
+      "timeSavedMode": "fixed",
+      "timezone": "America/Lima",
+      "callerPolicy": "workflowsFromSameOwner",
+      "availableInMCP": false
+    },
+    "meta": {
+      "templateCredsSetupCompleted": true
+    }
+  }
+]

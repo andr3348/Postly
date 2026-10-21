@@ -3,6 +3,8 @@
 > Estado: workflow `Post Content` activo en el n8n local (`http://localhost:5678`).
 > Publicado con los cambios de §7; el cron corre cada minuto.
 > El backend es la fuente de verdad de la cola; n8n solo reclama, publica y reporta.
+> Snapshot importable: [`n8n/post-content.workflow.json`](./n8n/post-content.workflow.json).
+> Es solo para importación manual; el backend no lo lee en runtime.
 
 ## 1. Contrato con el backend
 
@@ -184,7 +186,10 @@ Ejemplo de mapeo del error crudo de Graph en el nodo de reporte:
 
 ## 5. Operación
 
-1. Importar/editar el workflow en n8n y activarlo.
+1. Importar/editar el workflow en n8n y activarlo. El snapshot saneado y las
+   instrucciones de importación están en
+   [`n8n/post-content.workflow.json`](./n8n/post-content.workflow.json) y
+   [`n8n/README.md`](./n8n/README.md).
 2. Configurar el webhook con Header Auth (`x-webhook-secret`) y respuesta
    inmediata.
 3. Configurar la API key del backend como credencial Header Auth
