@@ -132,7 +132,7 @@ via `canTransition`; n8n mueve `SCHEDULED → PROCESSING → PUBLISHED/PARTIAL/F
 POST   /publications            → crea DRAFT (verifica la marca: 404 si no existe)
 GET    /publications?brandId=&status= → bandeja (usa índice [brandId, status])
 GET    /publications/:id        → detalle (404 si no existe)
-PATCH  /publications/:id        → edita copy/media solo en DRAFT (dueño o admin)
+PATCH  /publications/:id        → edita title/copy/media solo en DRAFT (dueño o admin)
 POST   /publications/:id/submit → DRAFT → PENDING_APPROVAL (dueño o admin)
 POST   /publications/:id/approve→ PENDING_APPROVAL → SCHEDULED, solo ADMIN
                                    (body { scheduledAt }; exige ≥1 canal; fija
@@ -148,6 +148,10 @@ solo-ADMIN para aprobar/publicar-ahora/rechazar. Errores:
 `PublicationNotFoundError` → 404, `InvalidPublicationTransitionError` → 400,
 `PublicationWithoutTargetsError` → 400 (submit o aprobar sin canales),
 `ForbiddenError` → 403.
+
+`title` es opcional (Text, máximo 200 en la validación Zod; cadena vacía o
+`null` lo limpian). Es encabezado del dashboard: la caption pública sigue
+siendo `copy` (en la UI se muestra como «Descripción») y n8n lo ignora.
 
 **Destinos omnicanal (sin módulo propio):** la publicación decide *qué*,
 el target *dónde y cómo*. Anidados bajo la publicación (dueño o admin, solo

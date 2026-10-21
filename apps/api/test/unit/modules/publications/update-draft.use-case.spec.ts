@@ -40,9 +40,28 @@ describe('UpdateDraftUseCase', () => {
       id: BASE_PUBLICATION.id,
       requester: MARKETING,
       copy: 'editado',
+      title: 'Título editado',
     });
 
     expect(publication.copy).toBe('editado');
+    expect(publication.title).toBe('Título editado');
+  });
+
+  it('clears the title when null is sent', async () => {
+    const publications = stubPublicationsRepository({
+      findById: async () => BASE_PUBLICATION,
+    });
+
+    const publication = await new UpdateDraftUseCase(
+      publications,
+      stubPublicationTargetsRepository(),
+    ).execute({
+      id: BASE_PUBLICATION.id,
+      requester: MARKETING,
+      title: null,
+    });
+
+    expect(publication.title).toBeNull();
   });
 
   it('rejects editing a non-DRAFT publication', async () => {

@@ -10,9 +10,21 @@ export const publicationStatusSchema = z.enum([
   'FAILED',
 ]);
 
+/**
+ * Título opcional del borrador: se recorta, vacío → `null` (limpia) y `null`
+ * explícito también se acepta. Límite 200: es encabezado del dashboard, la
+ * caption pública sigue siendo `copy`.
+ */
+const publicationTitleSchema = z
+  .string()
+  .trim()
+  .max(200, 'El título no puede superar los 200 caracteres')
+  .transform((value) => (value === '' ? null : value));
+
 export const createPublicationSchema = z.object({
   brandId: z.string().min(1).max(100),
   originalPrompt: z.string().max(10000).optional(),
+  title: publicationTitleSchema.nullable().optional(),
   copy: z.string().trim().min(1).max(10000),
   mediaUrl: z.url().max(2000),
   mediaType: z.enum(['IMAGE', 'VIDEO']).optional(),
@@ -29,6 +41,7 @@ export type CreatePublicationDto = z.infer<typeof createPublicationSchema>;
 
 export const updateDraftSchema = z.object({
   originalPrompt: z.string().max(10000).optional(),
+  title: publicationTitleSchema.nullable().optional(),
   copy: z.string().trim().min(1).max(10000).optional(),
   mediaUrl: z.url().max(2000).optional(),
   mediaType: z.enum(['IMAGE', 'VIDEO']).optional(),

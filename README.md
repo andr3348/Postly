@@ -190,15 +190,15 @@ pnpm --filter api run test:e2e      # e2e (DB levantada y migrada)
    explican por causa y solo ofrecen **Reintentar** cuando son reintentables. La
    media sigue manual.
    [ ] **Fase 2 — modo agente (un prompt → DRAFT con media):** desde un solo
-   prompt, Gemini prellena el borrador (copy + hashtags) y produce el guion de
-   la media; el backend envía ese guion a `MediaGenerator` (fal.ai: imagen
-   FLUX / video Kling) y guarda el resultado en `MediaStorage` — **Cloudflare
-   R2** (API compatible con S3, URL pública) —, auditando
+   prompt, Gemini prellena el borrador (título + descripción + hashtags) y
+   produce el guion de la media; el backend envía ese guion a `MediaGenerator`
+   (fal.ai: imagen FLUX / video Kling) y guarda el resultado en `MediaStorage`
+   — **Cloudflare R2** (API compatible con S3, URL pública) —, auditando
    `modelMedia`/`tokensUsed`. El usuario revisa/edita antes de programar. Las
    pestañas actuales (Ideas/Texto) y el formulario manual se conservan como
    fallback, y n8n sigue siendo solo despacho.
-   Nota: el borrador no tiene campo `título` (hoy el `copy` cumple ese rol);
-   añadirlo implica migración + UI si se quiere prellenar por separado.
+   Base lista: `Publication.title` opcional (migración + UI; en el dashboard
+   `copy` se muestra como «Descripción»), pendiente de prellenar con IA.
 
 ## 8. Tesis — datos para capítulos V y VI
 

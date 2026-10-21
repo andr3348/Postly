@@ -51,8 +51,11 @@ User  1 ──N Publication (como aprobador)
   derivable de `Brand.aiTone`/`aiBrandVoice`),
   `modelText` (`"manual"` si no intervino IA; si no, el modelo real que devolvió
   Gemini, incluido el fallback) / `modelMedia`, `tokensUsed` (base del cálculo
-  B/C), `copy` + `mediaUrl` (**obligatorios**: DRAFT = ya generado por IA y
-  editable; el prompt pre-generación vive en el frontend, no en BD) + `mediaType` (`IMAGE` | `VIDEO`),
+  B/C), `title` (**opcional**, Text, máx. 200: encabezado del borrador en el
+  dashboard — la caption pública sigue siendo `copy`, así que n8n lo ignora),
+  `copy` + `mediaUrl` (**obligatorios**: DRAFT = ya generado por IA y
+  editable; en el dashboard `copy` se muestra como «Descripción»; el prompt
+  pre-generación vive en el frontend, no en BD) + `mediaType` (`IMAGE` | `VIDEO`),
   estado (`DRAFT → PENDING_APPROVAL → SCHEDULED → PROCESSING → PUBLISHED`, con
   `PARTIAL`/`FAILED` para fallos por canal), `scheduledAt` (agenda) y
   `dispatchedAt` (cuándo se envió a n8n: distingue "agendado" de "despachado"),
@@ -103,6 +106,8 @@ Feed/Reel por destino ✓, auditoría de aprobación ✓, métricas para Analyti
 **Decisión (resuelta):** `copy`/`mediaUrl` son **obligatorios** — el enum lo
 confirma: DRAFT = "creado o generado por IA, editable", es decir, la fila solo
 existe *después* de generar. Nada existe en BD antes de la generación.
+`title` nace **opcional**: es encabezado del dashboard (las redes destino no
+tienen campo de título propio), así que no bloquea el flujo.
 
 **Historial:** `prisma/migrations/20260921171619_init/` (esquema base de 4
 tablas) + `prisma/migrations/20260922012202_init/` (5 correcciones de diseño)
@@ -115,6 +120,8 @@ a NOT NULL, SQL manual de 2 líneas; requirió backfill de la fila DRAFT seed y
 + `prisma/migrations/20261020144054_add_publication_format_to_targets/`
   (`PublicationFormat` + `PublicationTarget.format` NOT NULL default `FEED`;
   los targets existentes quedan `FEED` por el default).
++ `prisma/migrations/20261021112955_add_publication_title/` (`Publication.title`
+  opcional, SQL manual de 1 línea; las filas existentes quedan en NULL).
 El seed deja 1 admin (hash argon2id real desde `SEED_ADMIN_*`: único bootstrap
 del rol ADMIN, pues `register` siempre crea MARKETING) + 1 marca + 1 usuario
 marketing (hash real desde `SEED_MARKETING_PASSWORD`) + 1 publicación PUBLISHED

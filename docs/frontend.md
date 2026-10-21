@@ -72,7 +72,7 @@ El frontend delega por completo la seguridad y emisión de JWT al backend (tal c
 | Perfil de usuario                  | `/dashboard/profile`            | Completado UI | `GET /auth/me` — nombre y rol desde sesión activa                                                  |
 | Marcas                             | `/dashboard/brands`             | Completado    | CRUD `/brands` + contexto global (`BrandProvider`, persistido) que consume el switcher |
 | Publicaciones (bandeja por estado) | `/dashboard/publications?status=` | Completado | `GET /publications?brandId=&status=` + chips `?status=` sincronizados con la URL                                   |
-| Crear publicación                  | `/dashboard/publications/new`   | Completado    | `POST /publications` (borrador de la marca activa) → redirige al detalle + `POST /api/v1/generations/text` desde el panel IA (prellenado, sin persistencia) |
+| Crear publicación                  | `/dashboard/publications/new`   | Completado    | `POST /publications` (borrador de la marca activa: título opcional, descripción y media) → redirige al detalle + `POST /api/v1/generations/text` desde el panel IA (prellenado, sin persistencia) |
 | Detalle + flujo                    | `/dashboard/publications/:id`   | Completado    | `PATCH` (dueño/ADMIN en DRAFT), `submit` (dueño/ADMIN, exige targets), `approve` (ADMIN + agenda) / `publish-now` (ADMIN, inmediato) / `reject` (ADMIN), targets add/remove y selector Feed/Reel para video en Facebook/Instagram, historial de métricas (+ snapshot manual dueño/ADMIN en canal publicado) |
 | Cuentas conectadas                 | `/dashboard/accounts`           | Completado    | CRUD anidado `/brands/:id/accounts` + `POST /verify` (prueba real antes de guardar) + badge `EXPIRED` |
 | Analytics                          | `/dashboard/analytics`          | Completado    | `GET /analytics/summary` (brandId del switcher) — KPIs, pipeline por estado y barras por canal con Shadcn cards + Recharts; Insights IA sigue placeholder (paso b del §5) |
@@ -108,9 +108,10 @@ En `/dashboard/publications/new`, en la misma vista que el formulario manual
   para generar 3 variantes de copy.
 - **Texto:** muestra las variantes con hashtags, CTA y propuesta de media. Cada
   variante se puede **Mejorar** con una indicación (modo `IMPROVE`).
-- **Usar este texto:** prellena copy + prompt original en `PublicationForm`
-  mediante la prop `fill` (con `nonce`); no toca la URL ni el tipo de media. El
-  formulario sigue siendo editable y es el único que crea el `DRAFT`.
+- **Usar este texto:** prellena la **descripción** (`copy`) + prompt original en
+  `PublicationForm` mediante la prop `fill` (con `nonce`); no toca la URL ni el
+  tipo de media. El formulario sigue siendo editable y es el único que crea el
+  `DRAFT`.
 - Cada variante conserva el modelo real que la generó (incluido el fallback); el
   formulario lo envía como `modelText` al crear el borrador sin mostrarlo. Un
   borrador escrito manualmente queda como `"manual"`.
@@ -126,6 +127,10 @@ En `/dashboard/publications/new`, en la misma vista que el formulario manual
 - Las instrucciones del modelo se escriben en inglés, pero todo el contenido
   generado se devuelve en español neutro latinoamericano; la interfaz y los
   mensajes de error permanecen en español.
+- El formulario manual (`PublicationForm`) expone **Título (opcional)**,
+  **Descripción** (el campo `copy`, que es la caption pública) y media (URL +
+  tipo). En la bandeja el título encabeza la tarjeta cuando existe; si no, se
+  sigue mostrando la descripción.
 
 ## 5. Analytics e Insights por IA (requisito de tesis)
 

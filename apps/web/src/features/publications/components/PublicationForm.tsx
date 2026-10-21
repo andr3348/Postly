@@ -26,7 +26,7 @@ interface PublicationFormProps {
   readonly mode: "create" | "edit";
   /** Solo se usa al crear: va en el parse y falla si está vacío. */
   readonly brandId?: string;
-  readonly initial?: Partial<Pick<CreatePublicationFormInput, "originalPrompt" | "copy" | "mediaUrl" | "mediaType">>;
+  readonly initial?: Partial<Pick<CreatePublicationFormInput, "originalPrompt" | "title" | "copy" | "mediaUrl" | "mediaType">>;
   /** Prellenado externo (por ejemplo, desde el asistente IA). */
   readonly fill?: PublicationFormFill;
   readonly submitLabel: string;
@@ -46,6 +46,7 @@ export function PublicationForm({
   brandId,
 }: PublicationFormProps) {
   const [originalPrompt, setOriginalPrompt] = useState(initial?.originalPrompt ?? "");
+  const [title, setTitle] = useState(initial?.title ?? "");
   const [copy, setCopy] = useState(initial?.copy ?? "");
   const [mediaUrl, setMediaUrl] = useState(initial?.mediaUrl ?? "");
   // El backend fuerza mediaUrl y defaultea mediaType a IMAGE; la UI lo refleja.
@@ -72,6 +73,8 @@ export function PublicationForm({
 
     const draftValues = {
       originalPrompt: emptyToUndefined(originalPrompt),
+      // Vacío → `null` en el schema: en edición, borra el título guardado.
+      title: title,
       copy: copy,
       mediaUrl: emptyToUndefined(mediaUrl),
       mediaType: mediaType,
@@ -105,11 +108,20 @@ export function PublicationForm({
       {errorMsg !== "" && (
         <p className="text-red-500 text-sm text-center font-medium">{errorMsg}</p>
       )}
-      <Field label="Texto de la publicación">
+      <Field label="Título (opcional)">
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Título breve para identificar la publicación…"
+          maxLength={200}
+          className={inputClass}
+        />
+      </Field>
+      <Field label="Descripción">
         <textarea
           value={copy}
           onChange={(e) => setCopy(e.target.value)}
-          placeholder="Escribe el texto que se publicará…"
+          placeholder="Escribe la descripción que se publicará…"
           rows={4}
           required
           className={areaClass}

@@ -54,6 +54,7 @@ export default function NewPublicationPage() {
     const created = await createPublication({
       brandId: selectedId,
       originalPrompt: data.originalPrompt,
+      title: data.title,
       copy: data.copy,
       mediaUrl: data.mediaUrl,
       mediaType: data.mediaType,

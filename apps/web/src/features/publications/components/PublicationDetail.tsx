@@ -266,6 +266,16 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
 
         {/* Contenido */}
         <div className="flex flex-col gap-3 border-t border-gray-100 dark:border-[#2d374e] pt-4">
+          {publication.title !== null && (
+            <div>
+              <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                Título
+              </h2>
+              <p className="text-sm font-medium text-[#151717] dark:text-white whitespace-pre-line">
+                {publication.title}
+              </p>
+            </div>
+          )}
           {publication.originalPrompt !== "" && (
             <div>
               <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
@@ -278,7 +288,7 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
           )}
           <div>
             <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
-              Copy
+              Descripción
             </h2>
             <p className="text-sm text-[#151717] dark:text-white whitespace-pre-line">
               {publication.copy}
@@ -307,6 +317,7 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
             mode="edit"
             initial={{
               originalPrompt: publication.originalPrompt,
+              title: publication.title ?? "",
               copy: publication.copy,
               mediaUrl: publication.mediaUrl,
               mediaType: publication.mediaType,
@@ -314,6 +325,7 @@ function DetailInner({ id, version, onChanged }: DetailProps) {
             submitLabel="Guardar cambios"
             onSubmit={(data) => updateDraft(id, {
               originalPrompt: data.originalPrompt,
+              title: data.title,
               copy: data.copy,
               mediaUrl: data.mediaUrl,
               mediaType: data.mediaType,

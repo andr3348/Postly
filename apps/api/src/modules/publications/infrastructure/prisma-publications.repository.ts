@@ -42,6 +42,7 @@ export class PrismaPublicationsRepository implements PublicationsRepository {
         brandId: data.brandId,
         userId: data.userId,
         originalPrompt: data.originalPrompt,
+        title: data.title,
         copy: data.copy,
         mediaUrl: data.mediaUrl,
         mediaType: data.mediaType ?? 'IMAGE',
@@ -56,6 +57,7 @@ export class PrismaPublicationsRepository implements PublicationsRepository {
       where: { id },
       data: {
         originalPrompt: data.originalPrompt,
+        title: data.title,
         copy: data.copy,
         mediaUrl: data.mediaUrl,
         mediaType: data.mediaType,
@@ -107,6 +109,7 @@ interface PublicationRow {
   readonly modelText: string;
   readonly modelMedia: string | null;
   readonly tokensUsed: number | null;
+  readonly title: string | null;
   readonly copy: string;
   readonly mediaUrl: string;
   readonly mediaType: string;
@@ -129,6 +132,7 @@ function toDomainPublication(row: PublicationRow): Publication {
     modelText: row.modelText,
     modelMedia: row.modelMedia,
     tokensUsed: row.tokensUsed,
+    title: row.title,
     copy: row.copy,
     mediaUrl: row.mediaUrl,
     mediaType: toDomainMediaType(row.mediaType),

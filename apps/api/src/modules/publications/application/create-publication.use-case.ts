@@ -11,6 +11,7 @@ export interface CreatePublicationInput {
   readonly brandId: string;
   readonly userId: string;
   readonly originalPrompt?: string;
+  readonly title?: string | null;
   readonly copy: string;
   readonly mediaUrl: string;
   readonly mediaType?: PublicationMediaType;
@@ -34,6 +35,7 @@ export class CreatePublicationUseCase {
       brandId: input.brandId,
       userId: input.userId,
       originalPrompt: input.originalPrompt ?? '',
+      title: input.title,
       copy: input.copy,
       mediaUrl: input.mediaUrl,
       mediaType: input.mediaType,

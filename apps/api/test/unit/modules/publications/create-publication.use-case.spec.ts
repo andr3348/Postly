@@ -15,6 +15,7 @@ describe('CreatePublicationUseCase', () => {
     const publication = await useCase.execute({
       brandId: 'brand-1',
       userId: 'user-1',
+      title: 'Título nuevo',
       copy: 'copy',
       mediaUrl: 'https://postly.test/m.jpg',
       modelText: 'gemini-3.5-flash-lite',
@@ -23,6 +24,7 @@ describe('CreatePublicationUseCase', () => {
     expect(publication).toMatchObject({
       status: 'DRAFT',
       brandId: 'brand-1',
+      title: 'Título nuevo',
       modelText: 'gemini-3.5-flash-lite',
     });
   });

@@ -14,6 +14,7 @@ export interface CreatePublicationData {
   readonly brandId: string;
   readonly userId: string;
   readonly originalPrompt: string;
+  readonly title?: string | null;
   readonly copy: string;
   readonly mediaUrl: string;
   readonly mediaType?: PublicationMediaType;
@@ -22,6 +23,7 @@ export interface CreatePublicationData {
 
 export interface UpdatePublicationData {
   readonly originalPrompt?: string;
+  readonly title?: string | null;
   readonly copy?: string;
   readonly mediaUrl?: string;
   readonly mediaType?: PublicationMediaType;
