@@ -13,6 +13,14 @@ process.env['N8N_API_KEY'] ??= 'e2e-n8n-api-key-only-for-tests';
 // el puerto, pero AppModule igual instancia el adapter real.
 process.env['N8N_DISPATCH_WEBHOOK_URL'] ??= 'http://127.0.0.1:9/webhook/e2e';
 process.env['INTERNAL_WEBHOOK_SECRET'] ??= 'e2e-webhook-secret-only-for-tests';
+// OAuth de Meta: los specs que no lo prueban instancian igual el cliente real
+// (con opciones válidas de prueba); el spec de meta-oauth lo reemplaza por un
+// fake. Nunca son credenciales reales.
+process.env['META_APP_ID'] ??= 'e2e-meta-app-id';
+process.env['META_APP_SECRET'] ??= 'e2e-meta-app-secret';
+process.env['META_OAUTH_REDIRECT_URI'] ??=
+  'http://localhost:3001/api/connected-accounts/meta/oauth/callback';
+process.env['WEB_APP_URL'] ??= 'http://localhost:3000';
 
 export default defineConfig({
   plugins: [tsconfigPaths()],

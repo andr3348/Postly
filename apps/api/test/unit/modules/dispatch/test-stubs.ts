@@ -56,6 +56,8 @@ const BASE_CREDENTIALS: ConnectedAccountWithCredentials = {
   brandId: BASE_PUBLICATION.brandId,
   platform: 'LINKEDIN',
   status: 'CONNECTED',
+  authType: 'MANUAL',
+  metaPageId: null,
   accountName: 'almaquintaoficial',
   externalAccountId: 'urn:li:org:1',
   accessToken: 'decrypted-access',
