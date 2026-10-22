@@ -55,6 +55,22 @@ enum AccountStatus {
   EXPIRED
 }
 
+// Origen del vínculo: token pegado a mano (respaldo para LinkedIn/TikTok y
+// Meta) u OAuth de Meta (Facebook Login for Business).
+enum AccountAuthType {
+  MANUAL
+  META_OAUTH
+}
+
+// Ciclo de vida de una sesión temporal de OAuth de Meta. El payload cifrado
+// (páginas + Page tokens) solo vive hasta que el usuario elige página.
+enum MetaOAuthSessionStatus {
+  PENDING // state emitido, esperando callback
+  READY // callback OK: páginas disponibles para elegir
+  FAILED // callback con error (denegado, code inválido, sin páginas)
+  COMPLETED // página persistida; payload borrado
+}
+
 // =========================================================================
 // MODELOS
 // =========================================================================
@@ -89,6 +105,7 @@ model Brand {
   defaultHashtags  String[] // Array nativo de PostgreSQL: ["#Tech", "#Marketing"]
 
   connectedAccounts ConnectedAccount[]
+  metaOAuthSessions MetaOAuthSession[]
   publications      Publication[]
 
   createdAt DateTime @default(now())
@@ -107,6 +124,11 @@ model ConnectedAccount {
   accountName       String // ej. "almaquintaoficial" o "Alma Quinta FanPage"
   externalAccountId String? // Facebook Page ID, IG Business Account ID, etc.
 
+  // Página de Facebook de la que depende la cuenta. En FACEBOOK coincide con
+  // externalAccountId; en INSTAGRAM apunta a la Page que le presta el token.
+  authType   AccountAuthType @default(MANUAL)
+  metaPageId String?
+
   // Credenciales directas para n8n (System User Token o OAuth)
   accessToken  String?   @db.Text
   refreshToken String?   @db.Text
@@ -119,6 +141,33 @@ model ConnectedAccount {
   // Una marca solo puede tener vinculada una cuenta por plataforma
   @@unique([brandId, platform])
   @@index([brandId, status])
+}
+
+// Sesión temporal del OAuth de Meta (Facebook Login for Business).
+// `stateHash` = SHA-256 del state; el state en claro solo viaja a Meta.
+// `encryptedPayload` = páginas + Page tokens cifrados con ENCRYPTION_KEY;
+// se borra al completar y la fila expira a los 10 minutos.
+model MetaOAuthSession {
+  id        String @id @default(cuid())
+  brandId   String
+  brand     Brand  @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  userId    String
+  stateHash String @unique
+
+  status           MetaOAuthSessionStatus @default(PENDING)
+  encryptedPayload String?                @db.Text
+  errorCode        String?
+  errorMessage     String?                @db.Text
+
+  stateConsumedAt DateTime?
+  expiresAt       DateTime
+  completedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([brandId, userId])
+  @@index([expiresAt])
 }
 
 model Publication {
