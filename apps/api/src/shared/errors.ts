@@ -156,6 +156,41 @@ export class InvalidAccountCredentialsError extends Error {
   }
 }
 
+/**
+ * Códigos del flujo OAuth de Meta. La UI los usa para guiar la conexión
+ * (por ejemplo, `META_INSTAGRAM_NOT_LINKED` vs `META_PAGE_MISMATCH`).
+ */
+export type MetaOAuthErrorCode =
+  | 'META_OAUTH_NOT_CONFIGURED'
+  | 'META_OAUTH_INVALID_STATE'
+  | 'META_OAUTH_SESSION_NOT_FOUND'
+  | 'META_OAUTH_EXPIRED'
+  | 'META_OAUTH_EXCHANGE_FAILED'
+  | 'META_OAUTH_DENIED'
+  | 'META_NO_PAGES'
+  | 'META_PAGE_NOT_FOUND'
+  | 'META_FACEBOOK_NOT_CONNECTED'
+  | 'META_TOKEN_EXPIRED'
+  | 'META_PAGE_MISMATCH'
+  | 'META_INSTAGRAM_NOT_LINKED'
+  | 'META_GRAPH_ERROR';
+
+/**
+ * Falla del flujo OAuth de Meta. A diferencia de los errores de dominio
+ * clásicos, lleva `code` y `httpStatus` propios: el filtro los devuelve tal
+ * cual para que el dashboard distinga la causa y muestre la guía correcta.
+ */
+export class MetaOAuthError extends Error {
+  constructor(
+    readonly code: MetaOAuthErrorCode,
+    message: string,
+    readonly httpStatus: number = 400,
+  ) {
+    super(message);
+    this.name = 'MetaOAuthError';
+  }
+}
+
 export type AiGenerationErrorCode =
   | 'GEMINI_NOT_CONFIGURED'
   | 'GEMINI_AUTH_FAILED'

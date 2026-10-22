@@ -34,6 +34,12 @@ export class UpsertAccountUseCase {
       input.expiresAt !== undefined && input.expiresAt.getTime() <= Date.now()
         ? 'EXPIRED'
         : 'CONNECTED';
-    return this.accountsRepository.upsertAccount(input.brandId, { ...input, status });
+    return this.accountsRepository.upsertAccount(input.brandId, {
+      ...input,
+      status,
+      authType: 'MANUAL',
+      // En Facebook la página es la propia cuenta; IG lo recibe al vincularse.
+      metaPageId: input.platform === 'FACEBOOK' ? input.externalAccountId : null,
+    });
   }
 }

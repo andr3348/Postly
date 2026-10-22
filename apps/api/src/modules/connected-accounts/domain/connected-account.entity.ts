@@ -11,11 +11,21 @@ export type AccountPlatform = 'FACEBOOK' | 'INSTAGRAM' | 'LINKEDIN' | 'TIKTOK';
 
 export type AccountStatus = 'CONNECTED' | 'DISCONNECTED' | 'EXPIRED';
 
+/** Origen del vínculo: token manual (respaldo) u OAuth de Meta. */
+export type AccountAuthType = 'MANUAL' | 'META_OAUTH';
+
 export interface ConnectedAccount {
   id: string;
   brandId: string;
   platform: AccountPlatform;
   status: AccountStatus;
+  /** OAuth vs token pegado a mano; la UI lo muestra como procedencia. */
+  authType: AccountAuthType;
+  /**
+   * Página de Facebook de la que depende la cuenta: en FACEBOOK coincide con
+   * `externalAccountId`; en INSTAGRAM apunta a la Page que presta el token.
+   */
+  metaPageId: string | null;
   accountName: string;
   externalAccountId: string | null;
   createdAt: Date;

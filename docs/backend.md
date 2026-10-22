@@ -262,24 +262,74 @@ En caso de buscar o intentar actualizar/eliminar un ID inexistente, el caso de u
 Gestiona la vinculación de cuentas de redes sociales (Facebook, Instagram, LinkedIn, TikTok) pertenecientes a una marca (`Brand`). Punto de extensión para el despacho (n8n): hoy lo consume el claim de dispatch.
 
 ```text
-POST   /brands/:brandId/accounts            → conecta/actualiza una cuenta en una plataforma (Upsert, 201)
+POST   /brands/:brandId/accounts            → conecta/actualiza una cuenta con token manual (Upsert, 201)
 GET    /brands/:brandId/accounts            → lista cuentas conectadas sanitizadas (sin tokens, 200)
 POST   /brands/:brandId/accounts/verify     → prueba el token contra la API real sin persistir (200 { valid, displayName }; 400 si el proveedor lo rechaza)
 DELETE /brands/:brandId/accounts/:platform  → desvincula la cuenta (204; 404 si no estaba vinculada)
+POST   /brands/:brandId/accounts/instagram/from-facebook → conecta Instagram reutilizando el Page token guardado de Facebook (201)
 ```
 
-Semántica: el dominio usa uniones locales (`AccountPlatform`, `AccountStatus`;
-el adaptador mapea en el borde, sin importar enums de `@postly/database`).
+Endpoints del OAuth de Meta (solo Facebook Pages; Instagram depende de Facebook):
+
+```text
+GET  /brands/:brandId/accounts/meta/oauth/start                     → URL del diálogo de Facebook Login for Business (200 { authorizationUrl })
+GET  /connected-accounts/meta/oauth/callback                        → callback público de Meta; siempre 302 al dashboard
+GET  /brands/:brandId/accounts/meta/oauth/sessions/:sessionId       → estado de la sesión y páginas elegibles (sin Page tokens)
+POST /brands/:brandId/accounts/meta/oauth/sessions/:sessionId/complete → persiste la página elegida y completa la sesión (201)
+```
+
+Semántica: el dominio usa uniones locales (`AccountPlatform`, `AccountStatus`,
+`AccountAuthType`; el adaptador mapea en el borde, sin importar enums de
+`@postly/database`). Cada cuenta guarda `authType` (`MANUAL` default |
+`META_OAUTH`) y `metaPageId`: en FACEBOOK coincide con `externalAccountId`; en
+INSTAGRAM apunta a la Page que presta el token.
 Upsert con token ya vencido nace `EXPIRED` (la UI debe pedir re-autenticar).
 Desvincular pone `DISCONNECTED` y **borra los tokens**: no se retienen secretos
-de una cuenta suelta; repetir sobre una ya desvinculada es 404.
+de una cuenta suelta; repetir sobre una ya desvinculada es 404. Al desvincular
+Facebook también se desvincula Instagram (regla de dependencia confirmada).
+
+**OAuth de Meta (Facebook Login for Business)**:
+
+- Flujo: `start` genera un `state` aleatorio (32 bytes) y guarda solo su
+  SHA-256 en `MetaOAuthSession` (TTL 10 minutos); el navegador sale a
+  `facebook.com`. El callback (público, sin JWT: el access token dura 15
+  minutos) valida y consume el state una sola vez, intercambia el `code` por
+  un token de usuario de larga duración y lista las Pages con
+  `instagram_business_account{id,username}`. El payload con Page tokens se
+  guarda **cifrado** (misma `ENCRYPTION_KEY`) y se borra al completar o
+  fallar. El dashboard consulta la sesión (`READY`) y muestra el selector de
+  página; `complete` verifica el Page token con `debug_token` y persiste
+  FACEBOOK como `META_OAUTH`.
+- Instagram no inicia OAuth propio: `instagram/from-facebook` lee el
+  `instagram_business_account` de la Page guardada y persiste INSTAGRAM con el
+  mismo Page token y `metaPageId`. Sin página vinculada en Meta responde 400
+  `META_INSTAGRAM_NOT_LINKED`; nunca asume el vínculo.
+- Consistencia: si la marca ya tiene Instagram conectado y se intenta guardar
+  otra página (o la página ya no expone la misma cuenta IG), responde 409
+  `META_PAGE_MISMATCH` y exige desconectar Instagram primero. Reconectar la
+  misma Page sincroniza el token de Facebook **e** Instagram.
+- Si Graph rechaza el token compartido (código 190/102), ambas cuentas quedan
+  `EXPIRED` conservando tokens, para que la UI pida reconectar Facebook.
+- Errores del flujo: `MetaOAuthError` lleva `code` y `httpStatus` propios
+  (`META_OAUTH_NOT_CONFIGURED` 503, `META_OAUTH_INVALID_STATE`,
+  `META_OAUTH_EXPIRED`, `META_OAUTH_EXCHANGE_FAILED`, `META_OAUTH_DENIED`,
+  `META_NO_PAGES`, `META_PAGE_NOT_FOUND`, `META_GRAPH_ERROR` 400;
+  `META_FACEBOOK_NOT_CONNECTED` y `META_PAGE_MISMATCH` 409). El filtro global
+  los serializa con `{ statusCode, code, message }`.
+- Variables: `META_APP_ID`, `META_APP_SECRET`, `META_OAUTH_REDIRECT_URI`
+  (debe coincidir exacto con el panel de Meta), `META_OAUTH_CONFIG_ID`
+  (configuración de Facebook Login for Business; opcional),
+  `WEB_APP_URL` (destino del redirect final) y, opcionales,
+  `META_GRAPH_VERSION` (default `v25.0`) y `META_OAUTH_SCOPES`. Si faltan las
+  obligatorias el API arranca y los endpoints responden 503
+  `META_OAUTH_NOT_CONFIGURED` (no se tumba el resto del API).
 
 Capas (`src/modules/connected-accounts/`):
 
-- `domain/` — entidad `ConnectedAccount` (segura) y `ConnectedAccountWithCredentials` (con tokens). Puertos `CONNECTED_ACCOUNTS_REPOSITORY` y `ACCOUNT_VERIFIER` (símbolos, sin importar `@postly/database`).
-- `application/` — casos de uso puramente funcionales: `UpsertAccountUseCase`, `GetAccountsUseCase`, `DisconnectAccountUseCase`, `VerifyAccountUseCase` (verifica marca + delega al verificador, sin persistir) para consumo externo, y `GetCredentialsUseCase` (expuesto internamente a otros módulos).
-- `infrastructure/` — `PrismaConnectedAccountsRepository` que interactúa con Prisma. En el listado aisla y omite los tokens (`accessToken`, `refreshToken`). `HttpAccountVerifier` (fetch nativo, timeout 8s, sin dependencias nuevas) valida contra las APIs oficiales en solo-lectura.
-- `presentation/` — controlador REST delgado, delegando peticiones post-validación (con `connectAccountSchema` / `verifyAccountSchema` Zod) a los casos de uso.
+- `domain/` — entidad `ConnectedAccount` (segura) y `ConnectedAccountWithCredentials` (con tokens); tipos del OAuth de Meta (`MetaOAuthSession`, `MetaPageAsset`). Puertos `CONNECTED_ACCOUNTS_REPOSITORY`, `ACCOUNT_VERIFIER`, `META_OAUTH_CLIENT` y `META_OAUTH_SESSIONS_REPOSITORY` (símbolos, sin importar `@postly/database`).
+- `application/` — casos de uso puramente funcionales: `UpsertAccountUseCase`, `GetAccountsUseCase`, `DisconnectAccountUseCase`, `VerifyAccountUseCase` (verifica marca + delega al verificador, sin persistir), `GetCredentialsUseCase` (expuesto internamente a otros módulos) y el flujo Meta: `StartMetaOAuthUseCase`, `HandleMetaOAuthCallbackUseCase`, `GetMetaOAuthSessionUseCase`, `CompleteMetaOAuthUseCase` y `ConnectInstagramFromFacebookUseCase`.
+- `infrastructure/` — `PrismaConnectedAccountsRepository` que interactúa con Prisma (incluye la transacción de alta de Page + sincronía de IG y la cascada de desconexión). `PrismaMetaOAuthSessionsRepository` cifra/descifra el payload de páginas. `HttpAccountVerifier` (fetch nativo, timeout 8s, sin dependencias nuevas) valida contra las APIs oficiales en solo-lectura. `MetaGraphOAuthClient` encapsula el diálogo, el intercambio de `code` y `debug_token`; `meta-oauth.options.ts` resuelve la configuración (o `null` → 503).
+- `presentation/` — controladores REST delgados (`ConnectedAccountsController`, `MetaOAuthController`, `MetaOAuthCallbackController`), delegando peticiones post-validación (Zod) a los casos de uso. El callback es `@Public()` y responde 302.
 
 **Manejo Interno de Credenciales**:
 El caso de uso `GetCredentialsUseCase` está exportado desde `ConnectedAccountsModule` para ser utilizado por `DispatchModule` en el claim de n8n. Si alguna red no está conectada, el caso de uso lanza un `MissingConnectedAccountError`, que el filtro global traduce a 400 Bad Request. Los tokens no son expuestos en las consultas HTTP públicas.
@@ -303,7 +353,7 @@ Solo-lectura, sin publicar nada; el rechazo del proveedor es
   pendiente (requiere `r_organization_social`).
 - **TikTok:** `GET open.tiktokapis.com/v2/user/info/` (Bearer).
 
-**Tests**: 12 unitarios (`test/unit/modules/connected-accounts/`) + flujo e2e (`test/connected-accounts.e2e-spec.ts`: conectar → listar sin secretos → desvincular → 404 → 400; verify con token falso → 400 sin persistir).
+**Tests**: 37 unitarios (`test/unit/modules/connected-accounts/`: 12 previos + 25 del OAuth de Meta) y dos flujos e2e: `test/connected-accounts.e2e-spec.ts` (conectar → listar sin secretos → desvincular → 404 → 400; verify con token falso → 400 sin persistir) y `test/meta-oauth.e2e-spec.ts` con cliente de Meta falso (start → callback 302 → sesión sin tokens → completar página → conectar IG desde Facebook → cascada de desconexión → 409 sin Facebook → 400 sin IG vinculado; verifica cifrado en reposo y no reuso del state).
 
 ## 7. Módulo dispatch (superficie n8n)
 

@@ -3,6 +3,7 @@ import { UpsertAccountUseCase } from '../application/upsert-account.use-case.js'
 import { GetAccountsUseCase } from '../application/get-accounts.use-case.js';
 import { DisconnectAccountUseCase } from '../application/disconnect-account.use-case.js';
 import { VerifyAccountUseCase } from '../application/verify-account.use-case.js';
+import { ConnectInstagramFromFacebookUseCase } from '../application/connect-instagram-from-facebook.use-case.js';
 import type { AccountPlatform } from '../domain/connected-account.entity.js';
 import {
   accountPlatformSchema,
@@ -23,6 +24,7 @@ export class ConnectedAccountsController {
     private readonly getAccountsUseCase: GetAccountsUseCase,
     private readonly disconnectAccountUseCase: DisconnectAccountUseCase,
     private readonly verifyAccountUseCase: VerifyAccountUseCase,
+    private readonly connectInstagramFromFacebookUseCase: ConnectInstagramFromFacebookUseCase,
   ) {}
 
   @Post()
@@ -31,6 +33,12 @@ export class ConnectedAccountsController {
     @Body({ schema: connectAccountSchema }) dto: ConnectAccountDto,
   ) {
     return this.upsertAccountUseCase.execute({ brandId, ...dto });
+  }
+
+  /** Instagram depende de Facebook: no inicia OAuth propio. */
+  @Post('instagram/from-facebook')
+  async connectInstagramFromFacebook(@Param('brandId') brandId: string) {
+    return this.connectInstagramFromFacebookUseCase.execute(brandId);
   }
 
   @Post('verify')

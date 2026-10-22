@@ -3,9 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../shared/prisma/prisma.service.js';
 import type {
   ConnectedAccountsRepository,
+  MetaPageConnectionPayload,
+  MetaPageConnectionResult,
   UpsertAccountPayload,
 } from '../domain/ports/connected-accounts.repository.js';
 import type {
+  AccountAuthType,
   AccountPlatform,
   AccountStatus,
   ConnectedAccount,
@@ -48,6 +51,8 @@ export class PrismaConnectedAccountsRepository implements ConnectedAccountsRepos
         brandId,
         platform: payload.platform,
         status: payload.status,
+        authType: payload.authType ?? 'MANUAL',
+        metaPageId: payload.metaPageId ?? null,
         accountName: payload.accountName,
         externalAccountId: payload.externalAccountId,
         accessToken: encryptedAccessToken,
@@ -56,6 +61,8 @@ export class PrismaConnectedAccountsRepository implements ConnectedAccountsRepos
         scope: payload.scope,
       },
       update: {
+        authType: payload.authType ?? 'MANUAL',
+        metaPageId: payload.metaPageId ?? null,
         accountName: payload.accountName,
         externalAccountId: payload.externalAccountId,
         accessToken: encryptedAccessToken,
@@ -77,6 +84,8 @@ export class PrismaConnectedAccountsRepository implements ConnectedAccountsRepos
         brandId: true,
         platform: true,
         status: true,
+        authType: true,
+        metaPageId: true,
         accountName: true,
         externalAccountId: true,
         createdAt: true,
@@ -87,15 +96,150 @@ export class PrismaConnectedAccountsRepository implements ConnectedAccountsRepos
     return accounts.map(toDomainAccount);
   }
 
+  async findByBrandAndPlatform(
+    brandId: string,
+    platform: AccountPlatform,
+  ): Promise<ConnectedAccountWithCredentials | null> {
+    const account = await this.prisma.client.connectedAccount.findUnique({
+      where: { brandId_platform: { brandId, platform } },
+    });
+    if (account === null) {
+      return null;
+    }
+    return {
+      ...toDomainAccount(account),
+      accessToken:
+        account.accessToken === null
+          ? null
+          : decrypt(account.accessToken, this.encryptionKey),
+      refreshToken:
+        account.refreshToken === null
+          ? null
+          : decrypt(account.refreshToken, this.encryptionKey),
+      expiresAt: account.expiresAt,
+      scope: account.scope,
+    };
+  }
+
+  async upsertMetaPage(
+    brandId: string,
+    payload: MetaPageConnectionPayload,
+  ): Promise<MetaPageConnectionResult> {
+    const page = payload.page;
+    const encryptedPageToken = encrypt(page.accessToken, this.encryptionKey);
+    const pageStatus: AccountStatus =
+      page.expiresAt !== null && page.expiresAt.getTime() <= Date.now()
+        ? 'EXPIRED'
+        : 'CONNECTED';
+
+    return this.prisma.client.$transaction(async (tx) => {
+      const facebook = await tx.connectedAccount.upsert({
+        where: { brandId_platform: { brandId, platform: 'FACEBOOK' } },
+        create: {
+          brandId,
+          platform: 'FACEBOOK',
+          status: pageStatus,
+          authType: 'META_OAUTH',
+          metaPageId: page.externalAccountId,
+          accountName: page.accountName,
+          externalAccountId: page.externalAccountId,
+          accessToken: encryptedPageToken,
+          expiresAt: page.expiresAt,
+          scope: page.scope,
+        },
+        update: {
+          status: pageStatus,
+          authType: 'META_OAUTH',
+          metaPageId: page.externalAccountId,
+          accountName: page.accountName,
+          externalAccountId: page.externalAccountId,
+          accessToken: encryptedPageToken,
+          refreshToken: null,
+          expiresAt: page.expiresAt,
+          scope: page.scope,
+        },
+      });
+
+      if (payload.instagram === null) {
+        return { account: toDomainAccount(facebook), instagram: null };
+      }
+
+      // Instagram comparte el Page access token: se sincroniza para que
+      // reconectar la misma Page no deje la credencial de IG desactualizada.
+      const instagram = await tx.connectedAccount.upsert({
+        where: { brandId_platform: { brandId, platform: 'INSTAGRAM' } },
+        create: {
+          brandId,
+          platform: 'INSTAGRAM',
+          status: pageStatus,
+          authType: 'META_OAUTH',
+          metaPageId: page.externalAccountId,
+          accountName: payload.instagram.accountName,
+          externalAccountId: payload.instagram.externalAccountId,
+          accessToken: encryptedPageToken,
+          expiresAt: page.expiresAt,
+          scope: page.scope,
+        },
+        update: {
+          status: pageStatus,
+          authType: 'META_OAUTH',
+          metaPageId: page.externalAccountId,
+          accountName: payload.instagram.accountName,
+          externalAccountId: payload.instagram.externalAccountId,
+          accessToken: encryptedPageToken,
+          refreshToken: null,
+          expiresAt: page.expiresAt,
+          scope: page.scope,
+        },
+      });
+
+      return {
+        account: toDomainAccount(facebook),
+        instagram: toDomainAccount(instagram),
+      };
+    });
+  }
+
   async disconnectAccount(brandId: string, platform: AccountPlatform): Promise<boolean> {
-    const disconnected = await this.prisma.client.connectedAccount.updateMany({
+    return this.prisma.client.$transaction(async (tx) => {
       // Solo un vínculo activo se puede desvincular: repetir sobre una cuenta
       // ya DISCONNECTED es 404, no éxito silencioso.
-      where: { brandId, platform, status: { in: ['CONNECTED', 'EXPIRED'] } },
+      const target = await tx.connectedAccount.findFirst({
+        where: { brandId, platform, status: { in: ['CONNECTED', 'EXPIRED'] } },
+        select: { id: true },
+      });
+      if (target === null) {
+        return false;
+      }
+
       // Desvincular = sin credenciales: no retener secretos de una cuenta suelta.
-      data: { status: 'DISCONNECTED', accessToken: null, refreshToken: null },
+      await tx.connectedAccount.update({
+        where: { id: target.id },
+        data: { status: 'DISCONNECTED', accessToken: null, refreshToken: null },
+      });
+
+      // Instagram depende de Facebook: comparte Page token, así que al
+      // desconectar la Page también se desvincula (regla confirmada).
+      if (platform === 'FACEBOOK') {
+        await tx.connectedAccount.updateMany({
+          where: {
+            brandId,
+            platform: 'INSTAGRAM',
+            status: { in: ['CONNECTED', 'EXPIRED'] },
+          },
+          data: { status: 'DISCONNECTED', accessToken: null, refreshToken: null },
+        });
+      }
+
+      return true;
     });
-    return disconnected.count > 0;
+  }
+
+  async markExpired(brandId: string, platforms: AccountPlatform[]): Promise<void> {
+    await this.prisma.client.connectedAccount.updateMany({
+      where: { brandId, platform: { in: platforms }, status: 'CONNECTED' },
+      data: { status: 'EXPIRED' },
+    });
   }
 
   async getCredentialsForDispatch(
@@ -126,6 +270,8 @@ interface AccountRow {
   readonly brandId: string;
   readonly platform: string;
   readonly status: string;
+  readonly authType: string;
+  readonly metaPageId: string | null;
   readonly accountName: string;
   readonly externalAccountId: string | null;
   readonly createdAt: Date;
@@ -138,6 +284,8 @@ function toDomainAccount(row: AccountRow): ConnectedAccount {
     brandId: row.brandId,
     platform: toDomainPlatform(row.platform),
     status: toDomainStatus(row.status),
+    authType: toDomainAuthType(row.authType),
+    metaPageId: row.metaPageId,
     accountName: row.accountName,
     externalAccountId: row.externalAccountId,
     createdAt: row.createdAt,
@@ -157,4 +305,11 @@ function toDomainStatus(value: string): AccountStatus {
     return value;
   }
   throw new Error(`[connected-accounts] Unknown account status in database: ${value}`);
+}
+
+function toDomainAuthType(value: string): AccountAuthType {
+  if (value === 'MANUAL' || value === 'META_OAUTH') {
+    return value;
+  }
+  throw new Error(`[connected-accounts] Unknown auth type in database: ${value}`);
 }

@@ -26,6 +26,7 @@ import {
   PublicationTargetNotFoundError,
   PublicationWithoutTargetsError,
   MissingConnectedAccountError,
+  MetaOAuthError,
   RetryLimitExceededError,
   StaleDispatchAttemptError,
   TargetAlreadyReportedError,
@@ -55,6 +56,7 @@ import {
   ForbiddenError,
   MissingConnectedAccountError,
   InvalidAccountCredentialsError,
+  MetaOAuthError,
   AiGenerationError,
   StaleDispatchAttemptError,
   TargetAlreadyReportedError,
@@ -74,6 +76,15 @@ export class DomainExceptionFilter implements ExceptionFilter {
         ...(exception.model !== null ? { model: exception.model } : {}),
         message: exception.message,
         retryable: exception.retryable,
+      });
+      return;
+    }
+    if (exception instanceof MetaOAuthError) {
+      const response = host.switchToHttp().getResponse<Response>();
+      response.status(exception.httpStatus).json({
+        statusCode: exception.httpStatus,
+        code: exception.code,
+        message: exception.message,
       });
       return;
     }

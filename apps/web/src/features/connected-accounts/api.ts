@@ -4,15 +4,48 @@ export type AccountPlatform = "FACEBOOK" | "INSTAGRAM" | "LINKEDIN" | "TIKTOK";
 
 export type AccountStatus = "CONNECTED" | "DISCONNECTED" | "EXPIRED";
 
+export type AccountAuthType = "MANUAL" | "META_OAUTH";
+
 export interface ConnectedAccount {
   readonly id: string;
   readonly brandId: string;
   readonly platform: AccountPlatform;
   readonly status: AccountStatus;
+  readonly authType: AccountAuthType;
+  readonly metaPageId: string | null;
   readonly accountName: string;
   readonly externalAccountId: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+export interface MetaInstagramInfo {
+  readonly id: string;
+  readonly username: string;
+}
+
+export interface MetaOAuthPageOption {
+  readonly id: string;
+  readonly name: string;
+  readonly instagram: MetaInstagramInfo | null;
+}
+
+export interface MetaOAuthSession {
+  readonly id: string;
+  readonly status: "PENDING" | "READY" | "FAILED" | "COMPLETED";
+  readonly errorCode: string | null;
+  readonly errorMessage: string | null;
+  readonly pages: MetaOAuthPageOption[];
+}
+
+export interface MetaOAuthStartResult {
+  readonly authorizationUrl: string;
+}
+
+export interface MetaOAuthCompleteResult {
+  readonly account: ConnectedAccount;
+  /** IG vinculado a la página elegida; se conecta luego con su propio botón. */
+  readonly instagram: MetaInstagramInfo | null;
 }
 
 export interface ConnectAccountPayload {
@@ -92,4 +125,43 @@ export async function disconnectAccount(brandId: string, platform: AccountPlatfo
   await apiJson<unknown>(`/brands/${brandId}/accounts/${platform}`, {
     method: "DELETE",
   });
+}
+
+/**
+ * OAuth de Meta. El navegador sale a facebook.com con `authorizationUrl`; el
+ * callback vuelve al dashboard con una sesión temporal que se elige página.
+ * Instagram no inicia OAuth propio: se conecta desde la Page ya guardada.
+ */
+export async function startMetaOAuth(brandId: string): Promise<MetaOAuthStartResult> {
+  return apiJson<MetaOAuthStartResult>(`/brands/${brandId}/accounts/meta/oauth/start`);
+}
+
+export async function getMetaOAuthSession(
+  brandId: string,
+  sessionId: string,
+): Promise<MetaOAuthSession> {
+  return apiJson<MetaOAuthSession>(
+    `/brands/${brandId}/accounts/meta/oauth/sessions/${sessionId}`,
+  );
+}
+
+export async function completeMetaOAuth(
+  brandId: string,
+  sessionId: string,
+  pageId: string,
+): Promise<MetaOAuthCompleteResult> {
+  return apiJson<MetaOAuthCompleteResult>(
+    `/brands/${brandId}/accounts/meta/oauth/sessions/${sessionId}/complete`,
+    { method: "POST", data: { pageId } },
+  );
+}
+
+/** Usa el Page token guardado para detectar y guardar el IG vinculado. */
+export async function connectInstagramFromFacebook(
+  brandId: string,
+): Promise<ConnectedAccount> {
+  return apiJson<ConnectedAccount>(
+    `/brands/${brandId}/accounts/instagram/from-facebook`,
+    { method: "POST" },
+  );
 }
