@@ -75,7 +75,7 @@ El frontend delega por completo la seguridad y emisión de JWT al backend (tal c
 | Crear publicación                  | `/dashboard/publications/new`   | Completado    | `POST /publications` (borrador de la marca activa: título opcional, descripción y media) → redirige al detalle; panel IA con `POST /api/v1/generations/text` (stateless) o `POST /api/v1/generations/agent` (texto + media + DRAFT) |
 | Editar borrador                    | `/dashboard/publications/:id/edit` | Completado | `GET /publications/:id` + `PATCH /publications/:id` (dueño/ADMIN en `DRAFT`) — misma vista que crear; el panel IA oculta Agente |
 | Detalle + flujo                    | `/dashboard/publications/:id`   | Completado    | `PATCH` (dueño/ADMIN en DRAFT desde el editor unificado), `submit` (dueño/ADMIN, exige targets), `approve` (ADMIN + agenda) / `publish-now` (ADMIN, inmediato) / `reject` (ADMIN), targets add/remove y selector Feed/Reel para video en Facebook/Instagram, historial de métricas (+ snapshot manual dueño/ADMIN en canal publicado) |
-| Cuentas conectadas                 | `/dashboard/accounts`           | Completado    | CRUD anidado `/brands/:id/accounts` + `POST /verify` (prueba real antes de guardar) + badge `EXPIRED` |
+| Cuentas conectadas                 | `/dashboard/accounts`           | Completado    | Facebook/Instagram con OAuth de Meta (`start` → callback → selector de página → `complete`; IG depende de Facebook) + CRUD anidado `/brands/:id/accounts` y `POST /verify` como respaldo manual (también LinkedIn/TikTok) + badge `EXPIRED` |
 | Analytics                          | `/dashboard/analytics`          | Completado    | `GET /analytics/summary` (brandId del switcher) — KPIs, pipeline por estado y barras por canal con Shadcn cards + Recharts; Insights IA sigue placeholder (paso b del §5) |
 
 Sin vista: `/dispatch` (superficie máquina de n8n, sin UI).
@@ -159,6 +159,27 @@ pantallas pequeñas:
 - Guardar hace `PATCH /publications/:id` con `updateDraftFormSchema`, invalida
   el caché de publicaciones y vuelve al detalle. El botón "Editar borrador" del
   detalle es ahora un `Link` a esta vista (visible para dueño/ADMIN en `DRAFT`).
+
+### 4.4 Conexión de Meta por OAuth (Facebook/Instagram)
+
+- Botones separados por plataforma (estilo Metricool). **Facebook** lanza
+  `GET /brands/:id/accounts/meta/oauth/start` y navega con
+  `window.location.assign` al diálogo de Meta. **Instagram** no inicia OAuth:
+  queda deshabilitado hasta que haya Facebook conectado y usa
+  `POST /brands/:id/accounts/instagram/from-facebook` con el Page token ya
+  guardado.
+- El callback vuelve a `/dashboard/accounts` con `meta_session`/`meta_brand`
+  (o `meta_error`). El manager prioriza esa marca, consulta la sesión (sin
+  Page tokens), limpia la query con `router.replace` y abre `MetaPagePicker`
+  cuando la sesión está `READY`; al guardar hace `complete` y refresca el
+  caché. Los errores del flujo se muestran con el `message` del backend
+  (`META_PAGE_MISMATCH` recuerda desconectar Instagram antes de cambiar de
+  página).
+- **Token manual** sigue disponible como respaldo en cada tarjeta
+  (`ConnectAccountForm` + `POST /verify`) para casos avanzados y para
+  LinkedIn/TikTok, que no usan OAuth todavía.
+- Los Page tokens nunca llegan al navegador; `authType`/`metaPageId` sí
+  permiten mostrar si la cuenta se vinculó con OAuth.
 
 ## 5. Analytics e Insights por IA (requisito de tesis)
 
