@@ -1,18 +1,25 @@
 "use client";
 
-import { Suspense, use, useCallback, useState } from "react";
+import { Suspense, use, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
+  completeMetaOAuth,
   connectAccount,
+  connectInstagramFromFacebook,
   disconnectAccount,
   getAccountsCached,
+  getMetaOAuthSession,
   invalidateAccounts,
+  startMetaOAuth,
   type AccountPlatform,
   type ConnectedAccount,
   type ConnectAccountPayload,
+  type MetaOAuthSession,
 } from "@/features/connected-accounts/api";
 import { getBrandsCached } from "@/features/brands/api";
 import { useBrand } from "@/features/brands/BrandContext";
 import { ConnectAccountForm } from "@/features/connected-accounts/components/ConnectAccountForm";
+import { MetaPagePicker } from "@/features/connected-accounts/components/MetaPagePicker";
 import { Modal } from "@/shared/components/Modal";
 import {
   FacebookIcon,
@@ -20,6 +27,8 @@ import {
   LinkedinIcon,
   TiktokIcon,
 } from "@/shared/components/icons/DashboardIcons";
+
+const ACCOUNTS_PATH = "/dashboard/accounts";
 
 const PLATFORMS: ReadonlyArray<{
   readonly platform: AccountPlatform;
@@ -60,8 +69,28 @@ function ManagerInner({
   onChanged: (brandId: string) => void;
 }) {
   const { brands } = use(getBrandsCached());
-  const { selectedId } = useBrand();
-  const current = brands.find((brand) => brand.id === selectedId) ?? brands[0] ?? null;
+  const { selectedId, select } = useBrand();
+  const searchParams = useSearchParams();
+  const metaSessionId = searchParams.get("meta_session");
+  const metaBrandId = searchParams.get("meta_brand");
+  const metaError = searchParams.get("meta_error");
+
+  // El callback de Meta regresa con la marca que inició el flujo: tiene
+  // prioridad sobre la selección actual para no abrir la sesión en otra marca.
+  const brandFromMeta =
+    metaBrandId !== null && brands.some((brand) => brand.id === metaBrandId)
+      ? metaBrandId
+      : null;
+  const current =
+    brands.find((brand) => brand.id === (brandFromMeta ?? selectedId)) ??
+    brands[0] ??
+    null;
+
+  useEffect(() => {
+    if (brandFromMeta !== null && brandFromMeta !== selectedId) {
+      select(brandFromMeta);
+    }
+  }, [brandFromMeta, selectedId, select]);
 
   if (current === null) {
     return (
@@ -80,6 +109,8 @@ function ManagerInner({
       brandName={current.name}
       version={version}
       onChanged={onChanged}
+      metaSessionId={metaSessionId}
+      metaError={metaError}
     />
   );
 }
@@ -89,26 +120,76 @@ function AccountsGrid({
   brandName,
   version,
   onChanged,
+  metaSessionId,
+  metaError,
 }: {
   brandId: string;
   brandName: string;
   version: number;
   onChanged: (brandId: string) => void;
+  metaSessionId: string | null;
+  metaError: string | null;
 }) {
   const accounts = use(getAccountsCached(brandId, version));
+  const router = useRouter();
   const [connecting, setConnecting] = useState<AccountPlatform | null>(null);
   const [confirming, setConfirming] = useState<AccountPlatform | null>(null);
-  const [errorMsg, setErrorMsg] = useState("");
+  // Si el callback no pudo asociar sesión, el error llega por query; se
+  // captura al montar para que persista cuando el effect limpie la URL.
+  const [errorMsg, setErrorMsg] = useState(() =>
+    metaError !== null ? metaErrorFromParam(metaError) : "",
+  );
+  const [metaBusy, setMetaBusy] = useState<AccountPlatform | null>(null);
+  const [pagePicker, setPagePicker] = useState<MetaOAuthSession | null>(null);
+
+  // Retorno de facebook.com: la sesión llega por query y se resuelve una vez.
+  useEffect(() => {
+    if (metaSessionId === null || metaSessionId === "") return;
+    let cancelled = false;
+    getMetaOAuthSession(brandId, metaSessionId)
+      .then((session) => {
+        if (cancelled) return;
+        if (session.status === "READY") {
+          setPagePicker(session);
+        } else {
+          setErrorMsg(
+            session.errorMessage ?? "No se pudo completar la conexión con Meta.",
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setErrorMsg(
+          err instanceof Error ? err.message : "No se pudo completar la conexión con Meta.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) router.replace(ACCOUNTS_PATH);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [metaSessionId, brandId, router]);
+
+  // State inválido o vencido: el mensaje ya quedó en estado al montar; el
+  // effect solo limpia la query para que un refresh no lo repita.
+  useEffect(() => {
+    if (metaError === null) return;
+    router.replace(ACCOUNTS_PATH);
+  }, [metaError, router]);
 
   const closeModal = useCallback(() => setConnecting(null), []);
 
   const byPlatform = new Map<AccountPlatform, ConnectedAccount>();
   for (const account of accounts) byPlatform.set(account.platform, account);
 
+  const facebook = byPlatform.get("FACEBOOK") ?? null;
+  const facebookReady = facebook !== null && facebook.status !== "DISCONNECTED";
   const connectingAccount =
     connecting === null ? null : (byPlatform.get(connecting) ?? null);
+  const connectingIsMeta = connecting === "FACEBOOK" || connecting === "INSTAGRAM";
 
-  const handleConnect = async (data: ConnectAccountPayload) => {
+  const handleManualConnect = async (data: ConnectAccountPayload) => {
     await connectAccount(brandId, data);
     setConnecting(null);
     setConfirming(null);
@@ -126,6 +207,40 @@ function AccountsGrid({
     }
   };
 
+  const handleFacebookOAuth = async () => {
+    setErrorMsg("");
+    setMetaBusy("FACEBOOK");
+    try {
+      const { authorizationUrl } = await startMetaOAuth(brandId);
+      // Salida completa a facebook.com: no es una llamada fetch.
+      window.location.assign(authorizationUrl);
+    } catch (err: unknown) {
+      setErrorMsg(
+        err instanceof Error ? err.message : "No se pudo iniciar la conexión con Meta",
+      );
+      setMetaBusy(null);
+    }
+  };
+
+  const handleInstagramFromFacebook = async () => {
+    setErrorMsg("");
+    setMetaBusy("INSTAGRAM");
+    try {
+      await connectInstagramFromFacebook(brandId);
+      onChanged(brandId);
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "No se pudo conectar Instagram");
+      setMetaBusy(null);
+    }
+  };
+
+  const handleCompleteMetaPage = async (pageId: string) => {
+    if (pagePicker === null) return;
+    await completeMetaOAuth(brandId, pagePicker.id, pageId);
+    setPagePicker(null);
+    onChanged(brandId);
+  };
+
   return (
     <div className="flex flex-col gap-5 pb-6">
       <div className="flex items-center justify-between">
@@ -134,7 +249,7 @@ function AccountsGrid({
             Cuentas conectadas
           </h1>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            Marca: {brandName} · tokens manuales con prueba real antes de guardar
+            Marca: {brandName} · Meta con OAuth; LinkedIn y TikTok con token verificado
           </p>
         </div>
       </div>
@@ -147,7 +262,9 @@ function AccountsGrid({
         title={
           connecting === null
             ? "Conectar cuenta"
-            : `${connectingAccount ? "Actualizar" : "Conectar"} ${labelOf(connecting)}`
+            : connectingIsMeta
+              ? `Token manual · ${labelOf(connecting)}`
+              : `${connectingAccount ? "Actualizar" : "Conectar"} ${labelOf(connecting)}`
         }
         open={connecting !== null}
         onClose={closeModal}
@@ -166,8 +283,22 @@ function AccountsGrid({
                 : undefined
             }
             submitLabel={connectingAccount ? "Guardar cambios" : "Guardar conexión"}
-            onSubmit={handleConnect}
+            onSubmit={handleManualConnect}
             onCancel={closeModal}
+          />
+        )}
+      </Modal>
+
+      <Modal
+        title="Elegir página de Facebook"
+        open={pagePicker !== null}
+        onClose={() => setPagePicker(null)}
+      >
+        {pagePicker !== null && (
+          <MetaPagePicker
+            session={pagePicker}
+            onSubmit={handleCompleteMetaPage}
+            onCancel={() => setPagePicker(null)}
           />
         )}
       </Modal>
@@ -176,6 +307,10 @@ function AccountsGrid({
         {PLATFORMS.map(({ platform, label }) => {
           const account = byPlatform.get(platform);
           const Icon = iconOf(platform);
+          const isInstagram = platform === "INSTAGRAM";
+          const instagramBlocked = isInstagram && !facebookReady;
+          const busy = metaBusy === platform;
+
           return (
             <article
               key={platform}
@@ -197,17 +332,88 @@ function AccountsGrid({
                   ? `${account.accountName}${account.externalAccountId ? ` · ${account.externalAccountId}` : ""}`
                   : "Sin vincular en esta marca."}
               </p>
+
+              {platform === "FACEBOOK" && (
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  {account
+                    ? "Vuelve a conectar para renovar el Page token de Meta."
+                    : "Inicia sesión con Meta y elige la página (OAuth)."}
+                </p>
+              )}
+              {isInstagram && (
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                  {instagramBlocked
+                    ? "Depende de Facebook: conecta primero la página para habilitar Instagram."
+                    : "Meta requiere que la página de Facebook y la cuenta de Instagram estén vinculadas."}
+                </p>
+              )}
+              {account?.authType === "META_OAUTH" && (
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                  Vinculada con OAuth de Meta.
+                </p>
+              )}
+
               <div className="flex gap-2 mt-1 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setConnecting(platform);
-                    setConfirming(null);
-                  }}
-                  className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-[#2d374e] transition-colors border border-gray-200 dark:border-[#2d374e]"
-                >
-                  {account ? "Actualizar" : "Conectar"}
-                </button>
+                {platform === "FACEBOOK" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void handleFacebookOAuth()}
+                      disabled={busy}
+                      className="bg-[#151717] text-white text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer hover:bg-[#252727] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {busy ? "Redirigiendo…" : account ? "Reconectar" : "Conectar Facebook"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConnecting(platform);
+                        setConfirming(null);
+                      }}
+                      className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-[#2d374e] transition-colors border border-gray-200 dark:border-[#2d374e]"
+                    >
+                      Token manual
+                    </button>
+                  </>
+                ) : isInstagram ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void handleInstagramFromFacebook()}
+                      disabled={instagramBlocked || busy}
+                      title={
+                        instagramBlocked
+                          ? "Conecta primero la página de Facebook"
+                          : undefined
+                      }
+                      className="bg-[#151717] text-white text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer hover:bg-[#252727] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {busy ? "Detectando…" : account ? "Reconectar" : "Conectar Instagram"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setConnecting(platform);
+                        setConfirming(null);
+                      }}
+                      className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-[#2d374e] transition-colors border border-gray-200 dark:border-[#2d374e]"
+                    >
+                      Token manual
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConnecting(platform);
+                      setConfirming(null);
+                    }}
+                    className="text-xs font-medium rounded-[10px] px-4 h-[36px] cursor-pointer text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-[#2d374e] transition-colors border border-gray-200 dark:border-[#2d374e]"
+                  >
+                    {account ? "Actualizar" : "Conectar"}
+                  </button>
+                )}
+
                 {account && confirming === platform ? (
                   <>
                     <button
@@ -240,11 +446,21 @@ function AccountsGrid({
                   )
                 )}
               </div>
+
               {account?.status === "EXPIRED" && (
                 <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                  Token vencido: actualiza la cuenta para re-autenticar.
+                  {platform === "INSTAGRAM"
+                    ? "Conexión vencida: vuelve a conectar Facebook."
+                    : "Token vencido: vuelve a conectar para re-autenticar."}
                 </p>
               )}
+              {platform === "FACEBOOK" &&
+                account?.status !== "EXPIRED" &&
+                confirming === "FACEBOOK" && (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                    Al desvincular Facebook también se desvincula Instagram.
+                  </p>
+                )}
             </article>
           );
         })}
@@ -297,4 +513,15 @@ function iconOf(platform: AccountPlatform) {
     case "TIKTOK":
       return TiktokIcon;
   }
+}
+
+/** Errores de Meta que no traen sesión (state inválido o vencido). */
+function metaErrorFromParam(code: string): string {
+  if (code === "invalid_state") {
+    return "La conexión con Meta no es válida o ya se usó. Inténtalo de nuevo.";
+  }
+  if (code === "expired") {
+    return "La conexión con Meta expiró. Inténtalo de nuevo.";
+  }
+  return "No se pudo completar la conexión con Meta. Inténtalo de nuevo.";
 }
