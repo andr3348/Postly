@@ -180,6 +180,62 @@ pantallas pequeñas:
   LinkedIn/TikTok, que no usan OAuth todavía.
 - Los Page tokens nunca llegan al navegador; `authType`/`metaPageId` sí
   permiten mostrar si la cuenta se vinculó con OAuth.
+- **Requisitos para una cuenta real:** la app de Meta debe estar en Live, con
+  Business Verification y Advanced Access para Pages/Instagram; el usuario
+  debe administrar la Page (tareas `MANAGE`/`CREATE_CONTENT`) y la cuenta de
+  Instagram debe ser profesional y estar vinculada. En Development solo
+  funcionan las cuentas con rol en la app. El checklist completo está en
+  `docs/backend.md` §6.
+- **Selector de página:** `MetaPagePicker` muestra nombre, ID y, si existe,
+  `Instagram: @usuario` (o "Sin Instagram vinculado"); preselecciona la
+  primera Page. "Guardar conexión" llama a `complete`; si Instagram ya está
+  vinculado a otra Page, el backend responde 409 y el mensaje indica
+  desconectarlo primero. Cancelar cierra el modal: para retomarlo hay que
+  volver a iniciar el OAuth (la sesión no se reabre desde la UI).
+- **Después de guardar:** Facebook queda `CONNECTED` y marcado "Vinculada con
+  OAuth de Meta"; el botón de Instagram se habilita. "Conectar Instagram"
+  detecta la cuenta profesional de la Page y reutiliza el token; si no hay
+  vínculo responde `META_INSTAGRAM_NOT_LINKED`. "Reconectar" en Facebook
+  renueva el token de Facebook y, si es la misma Page, el de Instagram.
+- **Errores y diagnóstico:** el mensaje del backend se muestra arriba de la
+  grilla. Un retorno con `meta_error` se traduce a "La conexión con Meta no es
+  válida o ya se usó" / "La conexión con Meta expiró"; una sesión `FAILED`
+  muestra su `errorMessage`. Causas frecuentes:
+  - *URL Blocked / redirect_uri*: el URI no coincide exacto o la app está en
+    Live con un redirect HTTP.
+  - *App not active*: la app no está en Live o el usuario no tiene rol.
+  - *No pages / permisos*: el usuario no administra la Page o la configuración
+    de Meta no incluye Pages/Instagram (`config_id` incompleto o Advanced
+    Access pendiente).
+  - *Instagram no vinculado*: la cuenta no es profesional o no está asociada a
+    la Page; también puede faltar el permiso en App Review.
+  - *Require App Secret*: ver la nota de `appsecret_proof` en
+    `docs/backend.md` §6.
+
+### 4.5 Fallos y reintento por target
+
+- `PublicationFailures` aparece en el detalle cuando al menos un
+  `PublicationTarget` quedó `FAILED`. No muestra canales exitosos.
+- Cada tarjeta fallida indica plataforma/formato, tipo de fallo, mensaje,
+  acción sugerida y reintentos usados (`n` de 3). "Detalle técnico" pliega
+  código, subcódigo, HTTP, etapa (`MEDIA_PREPARATION`/`PUBLISH`), mensaje del
+  proveedor y `fbtrace_id`.
+- El botón de reintento solo se habilita si: la publicación está `PARTIAL` o
+  `FAILED`; el target está `FAILED`; es Facebook o Instagram;
+  `failure.retryable === true`; quedan menos de 3 reintentos; y el usuario es
+  ADMIN. Con varios canales elegibles aparece "Reintentar canales de Meta";
+  con uno, "Reintentar <red>".
+- Al confirmar, el modal aclara que solo se reenviarán los canales
+  seleccionados y que se reutiliza la aprobación original (sin nueva
+  aprobación). La publicación vuelve a `SCHEDULED` y el detalle se refresca.
+- Mientras la publicación siga `PROCESSING`, el panel avisa que espera el
+  reporte de los canales restantes y no ofrece reintento. Un fallo no seguro
+  (`retryable: false`, p. ej. `UNKNOWN_OUTCOME`) muestra "Sin reintento"; los
+  no ADMIN ven que solo un administrador puede reintentar. LinkedIn/TikTok no
+  tienen reintento en esta fase.
+- El backend es la autoridad: aunque la UI oculte el botón, el endpoint
+  `POST /publications/:id/retry` valida estado, plataforma, fallo seguro y
+  límite de intentos (ver `docs/backend.md` §7).
 
 ## 5. Analytics e Insights por IA (requisito de tesis)
 

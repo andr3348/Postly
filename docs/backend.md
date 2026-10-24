@@ -310,19 +310,108 @@ Facebook también se desvincula Instagram (regla de dependencia confirmada).
   misma Page sincroniza el token de Facebook **e** Instagram.
 - Si Graph rechaza el token compartido (código 190/102), ambas cuentas quedan
   `EXPIRED` conservando tokens, para que la UI pida reconectar Facebook.
-- Errores del flujo: `MetaOAuthError` lleva `code` y `httpStatus` propios
-  (`META_OAUTH_NOT_CONFIGURED` 503, `META_OAUTH_INVALID_STATE`,
-  `META_OAUTH_EXPIRED`, `META_OAUTH_EXCHANGE_FAILED`, `META_OAUTH_DENIED`,
-  `META_NO_PAGES`, `META_PAGE_NOT_FOUND`, `META_GRAPH_ERROR` 400;
-  `META_FACEBOOK_NOT_CONNECTED` y `META_PAGE_MISMATCH` 409). El filtro global
-  los serializa con `{ statusCode, code, message }`.
-- Variables: `META_APP_ID`, `META_APP_SECRET`, `META_OAUTH_REDIRECT_URI`
-  (debe coincidir exacto con el panel de Meta), `META_OAUTH_CONFIG_ID`
-  (configuración de Facebook Login for Business; opcional),
-  `WEB_APP_URL` (destino del redirect final) y, opcionales,
-  `META_GRAPH_VERSION` (default `v25.0`) y `META_OAUTH_SCOPES`. Si faltan las
-  obligatorias el API arranca y los endpoints responden 503
-  `META_OAUTH_NOT_CONFIGURED` (no se tumba el resto del API).
+- Errores del flujo: `MetaOAuthError` lleva `code` y `httpStatus` propios; el
+  filtro global los serializa con `{ statusCode, code, message }`. La tabla de
+  **Errores del flujo y qué hacer** lista todos los códigos y su acción.
+- Configuración: ver **Conexión con una cuenta real** más abajo. Si faltan
+  `META_APP_ID`, `META_APP_SECRET`, `META_OAUTH_REDIRECT_URI` o `WEB_APP_URL`,
+  el API arranca y los endpoints responden 503 `META_OAUTH_NOT_CONFIGURED`
+  (no se tumba el resto del API).
+
+**Conexión con una cuenta real (checklist operativo)**
+
+La implementación está completa; para una cuenta que no sea de prueba hace
+falta preparar la app de Meta. Antes de conectar:
+
+1. Crear una app **Business** en `developers.facebook.com` y agregar
+   **Facebook Login for Business** e **Instagram** (Instagram API with
+   Facebook Login). El flujo usa Pages y Page tokens; una configuración de
+   *System user* no aplica.
+2. Copiar **App ID** y **App Secret** (*App settings → Basic*) a
+   `META_APP_ID`/`META_APP_SECRET`. El secret solo lo usa el backend (cambio
+   de `code` y `debug_token`); nunca debe llegar al navegador.
+3. Registrar el redirect **exacto** en *Facebook Login for Business →
+   Settings → Valid OAuth Redirect URIs* y en `META_OAUTH_REDIRECT_URI`. El
+   callback es `https://<api>/api/connected-accounts/meta/oauth/callback`.
+   En Live Meta exige **HTTPS**; `localhost` solo funciona en Development.
+4. Poner la app en **Live** para cuentas sin rol Admin/Developer/Tester. Para
+   usuarios externos se necesita **Business Verification** y **Advanced
+   Access** (App Review) de los permisos de Pages e Instagram. En
+   Development solo autorizan las cuentas con rol en la app.
+5. Completar *App Domains*, sitio web, política de privacidad y eliminación de
+   datos; Meta bloquea el modo Live si faltan.
+6. (Recomendado) Crear una configuración de Facebook Login for Business de
+   tipo **User access token** (no System user) con las Pages/IG y los permisos
+   del punto 4, y guardar su ID en `META_OAUTH_CONFIG_ID`. Con `config_id` el
+   diálogo envía `response_type=code` + `override_default_response_type=true`
+   y **no** envía `scope`. Sin `config_id` se usa `META_OAUTH_SCOPES`.
+7. Verificar Page e Instagram: el usuario necesita tareas
+   `MANAGE`/`CREATE_CONTENT` (o `PROFILE_PLUS_*`) en la Page, y la cuenta IG
+   debe ser profesional y estar vinculada a esa Page. Si el rol viene de
+   Business Manager, Meta exige además `ads_read` o `ads_management` para
+   publicar en Instagram. PPA (*Page Publishing Authorization*) y 2FA pueden
+   bloquear la publicación aunque el token sea válido.
+
+| Variable | Obligatoria | Detalle |
+| --- | --- | --- |
+| `META_APP_ID` | Sí | App Business de Meta. |
+| `META_APP_SECRET` | Sí | Solo backend; no se registra ni se envía al frontend. |
+| `META_OAUTH_REDIRECT_URI` | Sí | Igual al panel de Meta, carácter por carácter; HTTPS en Live. |
+| `WEB_APP_URL` | Sí | URL absoluta del dashboard; destino del 302 del callback. |
+| `META_OAUTH_CONFIG_ID` | No | Configuración *User access token*; si existe, define permisos/activos y se ignora `META_OAUTH_SCOPES`. |
+| `META_OAUTH_SCOPES` | No | Default: `pages_show_list`, `pages_read_engagement`, `pages_manage_posts`, `instagram_basic`, `instagram_content_publish`. |
+| `META_GRAPH_VERSION` | No | Default `v25.0`. `v26.0` es la última (jul. 2026); `v25.0` sigue soportada hasta 2028-07-29. |
+
+**Estados y tiempos de la sesión**
+
+`PENDING` (creada por `start`) → `READY` (el callback obtuvo páginas) o
+`FAILED` (cancelación o error de Graph); `COMPLETED` al guardar la Page. El TTL
+es de **10 minutos desde `start`** y no se extiende. `start` invalida las
+sesiones activas anteriores del mismo usuario/marca. El callback es público y
+siempre responde 302: con `meta_session`/`meta_brand` para que la UI consulte
+el estado, o `meta_error=invalid_state|expired` si el state no existe. El state
+se consume **antes** del intercambio; un fallo de red posterior obliga a
+iniciar el flujo de nuevo. `complete` revalida marca/usuario/TTL, exige
+`READY`, busca la Page en el payload, verifica el token con `debug_token` y
+persiste Facebook (sincronizando Instagram solo si es la misma cuenta ya
+conectada).
+
+**Errores del flujo y qué hacer**
+
+| Código | HTTP | Causa típica | Acción |
+| --- | --- | --- | --- |
+| `META_OAUTH_NOT_CONFIGURED` | 503 | Faltan envs obligatorias | Completar `.env` y reiniciar el API. |
+| `META_OAUTH_INVALID_STATE` | 400 | La sesión no está `READY` o el state no es válido | Reiniciar la conexión desde Facebook. |
+| `META_OAUTH_SESSION_NOT_FOUND` | 404 | Sesión de otra marca/usuario o eliminada | Iniciar el flujo con el usuario correcto. |
+| `META_OAUTH_EXPIRED` | 400 | Pasaron más de 10 minutos o el callback llegó tarde | Volver a conectar. |
+| `META_OAUTH_EXCHANGE_FAILED` | 400 | `code` vencido, redirect URI distinto o app mal configurada | Revisar redirect URI y modo de la app; reintentar. |
+| `META_OAUTH_DENIED` | 400 | El usuario canceló el diálogo | Reintentar y aceptar todos los permisos. |
+| `META_NO_PAGES` | 400 | La cuenta no administra ninguna Page | Crear/pedir acceso a una Page o revisar tareas. |
+| `META_PAGE_NOT_FOUND` | 400 | La Page ya no está en el payload | Reiniciar la conexión. |
+| `META_TOKEN_EXPIRED` | 400 | `debug_token` inválido o Graph 190/102 | Reconectar Facebook. |
+| `META_FACEBOOK_NOT_CONNECTED` | 409 | Se intentó conectar IG sin Facebook | Conectar Facebook primero. |
+| `META_PAGE_MISMATCH` | 409 | Instagram ya está vinculado a otra Page | Desconectar Instagram antes de cambiar de Page. |
+| `META_INSTAGRAM_NOT_LINKED` | 400 | La Page no expone una cuenta IG profesional | Vincularla en Instagram o Meta Business Suite. |
+| `META_GRAPH_ERROR` | 400/502 | Error de Meta o de red | Revisar el estado de Meta y reintentar. |
+
+**Límites y comportamientos conocidos**
+
+- `GET /me/accounts` se pide con `limit=200` y sin paginación: una cuenta con
+  más de 200 Pages no verá las restantes. Si hiciera falta, habría que seguir
+  `paging.next`.
+- Los Page tokens derivados de un user token de larga duración suelen no
+  vencer (`debug_token` devuelve `expires_at: 0` → `expiresAt: null`), pero
+  pueden invalidarse si el usuario cambia la contraseña, revoca la app o
+  pierde el rol. Ante 190/102, Facebook e Instagram quedan `EXPIRED`. No hay
+  refresh token: la renovación es reconectar por OAuth.
+- `appsecret_proof` no está implementado. Si se activa **Require App Secret**
+  en Meta, las llamadas del API y de n8n fallarán; dejarlo desactivado o
+  implementar la firma (HMAC-SHA256 del token con el App Secret) antes de
+  activarlo.
+- `META_GRAPH_VERSION` aplica al cliente OAuth; `HttpAccountVerifier` (token
+  manual) sigue fijado a `v25.0`. Al subir la versión conviene alinear ambos.
+- El flujo solo obtiene y guarda tokens; publicar es responsabilidad de n8n
+  con el Page token del claim.
 
 Capas (`src/modules/connected-accounts/`):
 

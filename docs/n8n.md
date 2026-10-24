@@ -207,6 +207,21 @@ Ejemplo de mapeo del error crudo de Graph en el nodo de reporte:
 El workflow no guarda secretos en el repositorio: la API key y el secreto del
 webhook viven en las credenciales de n8n y en el `.env` local.
 
+**Requisitos de Meta para que el workflow publique**
+
+- El Page token del claim viene del OAuth del dashboard (o de un token manual
+  verificado). Facebook e Instagram comparten el mismo token; si la cuenta
+  está `EXPIRED`, hay que reconectar Facebook antes de reintentar.
+- La Page debe tener tareas `MANAGE`/`CREATE_CONTENT` (o `PROFILE_PLUS_*`) y
+  una cuenta de Instagram profesional vinculada. Si el rol viene de Business
+  Manager, Meta exige además `ads_read` o `ads_management` para IG.
+- PPA (*Page Publishing Authorization*) y 2FA pueden bloquear la publicación
+  aunque el token sea válido.
+- Si en la app de Meta se activa **Require App Secret**, n8n debe enviar
+  `appsecret_proof` (HMAC-SHA256 del token con el App Secret) en cada llamada
+  a Graph. La API no lo implementa; la opción recomendada es dejar esa
+  configuración desactivada. Ver `docs/backend.md` §6.
+
 ## 6. Diagnóstico
 
 - Las ejecuciones del webhook de producción aparecen en **Executions** con

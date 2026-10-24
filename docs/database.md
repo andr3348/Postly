@@ -70,6 +70,12 @@ User  1 ──N Publication (como aprobador)
   (ej. "almaquintaoficial"). Tokens (`accessToken`, `refreshToken`) ahora
   opcionales en `Text`: permiten vincular la cuenta antes de completar OAuth.
   Índice `[brandId, status]`.
+- `MetaOAuthSession` — sesión efímera del OAuth de Meta: `brandId`/`userId`,
+  `stateHash` único (solo SHA-256, nunca el state en claro), `status`
+  (`PENDING` | `READY` | `FAILED` | `COMPLETED`), `encryptedPayload` (Pages con
+  Page tokens, AES-256-GCM), `errorCode`/`errorMessage`, `stateConsumedAt`,
+  `expiresAt` (10 min desde `start`) y `completedAt`. Índices `[brandId,
+  userId]` y `[expiresAt]`; el payload se borra al completar o fallar.
 - `PublicationTarget` — publicación omnicanal: una fila por plataforma
   (`FACEBOOK` | `INSTAGRAM` | `LINKEDIN` | `TIKTOK`), con estado propio
   (`PENDING` | `SUCCESS` | `FAILED`), `format` (`PublicationFormat`: `FEED` |
