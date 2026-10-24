@@ -15,9 +15,10 @@ import type {
 
 const FAL_QUEUE_BASE_URL = 'https://queue.fal.run';
 const DEFAULT_IMAGE_MODEL = 'fal-ai/flux/schnell';
-const DEFAULT_VIDEO_MODEL = 'fal-ai/kling-video/v1.6/standard/text-to-video';
+const DEFAULT_VIDEO_MODEL =
+  'fal-ai/kling-video/v3/turbo/standard/text-to-video';
 const DEFAULT_POLL_INTERVAL_MS = 2_000;
-const DEFAULT_TIMEOUT_MS = 240_000;
+const DEFAULT_TIMEOUT_MS = 600_000;
 const REQUEST_TIMEOUT_MS = 30_000;
 
 type FalFailureKind = 'http' | 'timeout' | 'network';
@@ -66,8 +67,9 @@ export interface FalMediaGeneratorHooks {
  * consulta el estado hasta `COMPLETED` y recién ahí lee el resultado. La cola
  * evita mantener un socket abierto durante minutos con modelos de video.
  *
- * Los payloads son "best effort" para los modelos por defecto (FLUX para
- * imagen, Kling para video); se ajustan al probar con una `FAL_KEY` real.
+ * Los payloads son "best effort" para los modelos por defecto (FLUX schnell
+ * para imagen, Kling 3.0 Turbo para video); se ajustan al probar con una
+ * `FAL_KEY` real. El timeout por defecto (10 min) cubre la cola de video.
  */
 export class FalMediaGenerator implements MediaGenerator {
   private readonly logger = new Logger(FalMediaGenerator.name);
