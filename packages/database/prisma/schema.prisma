@@ -86,10 +86,50 @@ model User {
   createdPublications  Publication[] @relation("CreatedPublications")
   approvedPublications Publication[] @relation("ApprovedPublications")
 
+  // Sesiones de login (multi-dispositivo). El refresh opaco vive hasheado.
+  authSessions AuthSession[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([role])
+}
+
+// Sesión de login por dispositivo/navegador. El access JWT es corto y lleva
+// `sid`; el refresh opaco se guarda hasheado en `RefreshToken`.
+model AuthSession {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  persistent Boolean   @default(false)
+  userAgent  String?   @db.VarChar(512)
+  ip         String?   @db.VarChar(64)
+  expiresAt  DateTime
+  lastUsedAt DateTime  @default(now())
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  refreshTokens RefreshToken[]
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+// Cadena de refresh tokens de una sesión. Solo se persiste el hash; cada
+// refresh consume el token actual y crea el siguiente (rotación).
+model RefreshToken {
+  id                String      @id @default(cuid())
+  sessionId         String
+  session           AuthSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tokenHash         String      @unique
+  expiresAt         DateTime
+  usedAt            DateTime?
+  replacedByTokenId String?     @unique
+  createdAt         DateTime    @default(now())
+
+  @@index([sessionId])
+  @@index([expiresAt])
 }
 
 model Brand {

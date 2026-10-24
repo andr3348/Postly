@@ -15,6 +15,8 @@ export interface AuthenticatedUser {
   readonly userId: string;
   readonly email: string;
   readonly role: string;
+  /** Sesión de login (`sid` del access JWT) validada contra la BD. */
+  readonly sessionId: string;
 }
 
 interface RequestWithUser {

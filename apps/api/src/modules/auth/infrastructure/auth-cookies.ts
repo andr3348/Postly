@@ -2,9 +2,9 @@
  * Transporte de tokens: cookies HttpOnly (nunca JSON).
  * El access token en el cuerpo expondría la sesión a XSS vía JS;
  * HttpOnly lo oculta del `document.cookie` por completo.
- * Nombres centralizados: los usan el controller (escritura) y el guard (lectura).
+ * Nombres centralizados: los usan el controller (escritura/borrado) y el guard (lectura).
  */
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import type { AuthenticatedUser } from '../../../shared/decorators.js';
 
 export const AUTH_COOKIES = {
@@ -22,22 +22,34 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export interface CookieOptions {
-  readonly maxAgeMs: number;
+  /** `undefined` = cookie de sesión (muere al cerrar el navegador). */
+  readonly maxAgeMs?: number;
+}
+
+export interface AuthCookieOptions {
+  readonly httpOnly: true;
+  readonly sameSite: 'lax';
+  readonly secure: boolean;
+  readonly path: string;
+  readonly maxAge?: number;
 }
 
 /** `secure` solo en producción: en local el tráfico es HTTP sin TLS. */
-export function authCookieOptions({ maxAgeMs }: CookieOptions): {
-  httpOnly: true;
-  sameSite: 'lax';
-  secure: boolean;
-  path: string;
-  maxAge: number;
-} {
+export function authCookieOptions({
+  maxAgeMs,
+}: CookieOptions = {}): AuthCookieOptions {
   return {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env['NODE_ENV'] === 'production',
     path: '/',
-    maxAge: maxAgeMs,
+    ...(maxAgeMs !== undefined ? { maxAge: maxAgeMs } : {}),
   };
+}
+
+/** Borra ambas cookies de auth (logout o refresh inválido). */
+export function clearAuthCookies(res: Response): void {
+  const options = authCookieOptions();
+  res.clearCookie(AUTH_COOKIES.access, options);
+  res.clearCookie(AUTH_COOKIES.refresh, options);
 }

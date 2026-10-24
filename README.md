@@ -43,7 +43,7 @@ solo orquesta estas llamadas (sin lógica propia). Leyenda de estados:
 MARKETING                          ADMIN                              n8n (x-api-key)
    |                                 |                                   |
    |-- login: POST /auth/login       |                                   |
-   |   (cookie HttpOnly)             |                                   |
+   |   (cookies HttpOnly)            |                                   |
    |-- crear: POST /publications     |                                   |
    |   --> DRAFT (generado, editable)|                                   |
    |-- canales: POST /:id/targets    |                                   |
@@ -94,9 +94,10 @@ Facebook el formato sí elige el flujo (`/videos` o `video_reels`).
 **Caso extremo ADMIN** (todo lo de MARKETING, más): aprueba/rechaza/publica
 ahora, gestiona marcas (`/brands`) y cuentas (`/brands/:id/accounts`, incluyendo
 desconectar `EXPIRED`), ve todo sin filtro de autor. Límites honestos de esta
-fase: el registro crea solo `MARKETING` (el admin nace del seed), sin
-invalidación de sesiones (stateless), y brands/accounts aún sin restricción
-por rol (endurecimiento pendiente).
+fase: el registro crea solo `MARKETING` (el admin nace del seed), el login es
+tradicional (OAuth queda fuera por ahora) y brands/accounts aún sin restricción
+por rol (endurecimiento pendiente). Las sesiones sí son revocables: multisesión
+por dispositivo con refresh rotatorio y logout en servidor.
 
 ## 4. Stack
 
@@ -134,7 +135,7 @@ pnpm --filter database exec prisma migrate deploy
 pnpm --filter database exec prisma db seed
 
 # Completar secretos reales en apps/api/.env (openssl rand -hex 32):
-#   JWT_ACCESS_SECRET · JWT_REFRESH_SECRET · ENCRYPTION_KEY · N8N_API_KEY
+#   JWT_ACCESS_SECRET · ENCRYPTION_KEY · N8N_API_KEY
 # N8N_DISPATCH_WEBHOOK_URL / INTERNAL_WEBHOOK_SECRET pueden quedar como
 # placeholder en dev: el api arranca y, sin n8n, `publish-now` cae al claim
 # del cron.

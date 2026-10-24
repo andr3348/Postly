@@ -4,7 +4,6 @@ import { JwtTokenIssuer } from '../../../../../src/modules/auth/infrastructure/j
 
 const OPTIONS: AuthJwtOptions = {
   accessSecret: 'test-access-secret-32-chars-min!!',
-  refreshSecret: 'test-refresh-secret-32-chars-min!',
   accessExpiresInSeconds: 900,
   refreshExpiresInSeconds: 604_800,
 };
@@ -13,27 +12,28 @@ describe('JwtTokenIssuer', () => {
   const issuer = new JwtTokenIssuer(new JwtService({}), OPTIONS);
   const user = { id: 'user-1', email: 'a@postly.test', role: 'MARKETING' as const };
 
-  it('issues an access/refresh pair that verifies back', async () => {
-    const tokens = await issuer.issuePair(user);
+  it('issues an access token bound to a session that verifies back', async () => {
+    const token = await issuer.issueAccessToken(user, 'session-1');
 
-    await expect(issuer.verifyAccessToken(tokens.accessToken)).resolves.toMatchObject({
+    await expect(issuer.verifyAccessToken(token)).resolves.toEqual({
       userId: user.id,
       email: user.email,
       role: user.role,
-    });
-    await expect(issuer.verifyRefreshToken(tokens.refreshToken)).resolves.toEqual({
-      userId: user.id,
+      sessionId: 'session-1',
     });
   });
 
-  it('rejects an access token presented as a refresh token', async () => {
-    const tokens = await issuer.issuePair(user);
+  it('rejects a token signed with another secret', async () => {
+    const foreign = new JwtTokenIssuer(new JwtService({}), {
+      ...OPTIONS,
+      accessSecret: 'another-secret-32-chars-minimum!!',
+    });
+    const token = await foreign.issueAccessToken(user, 'session-1');
 
-    await expect(issuer.verifyRefreshToken(tokens.accessToken)).resolves.toBeNull();
+    await expect(issuer.verifyAccessToken(token)).resolves.toBeNull();
   });
 
   it('returns null for garbage tokens', async () => {
     await expect(issuer.verifyAccessToken('not-a-token')).resolves.toBeNull();
-    await expect(issuer.verifyRefreshToken('not-a-token')).resolves.toBeNull();
   });
 });

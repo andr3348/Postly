@@ -4,84 +4,121 @@
 > (`modules/<modulo>/{domain,application,infrastructure,presentation}`),
 > estrenado en `modules/auth` y a replicar en el resto.
 
-## 1. Módulo auth (JWT stateless + argon2id)
+## 1. Módulo auth (JWT + multisesión + argon2id)
 
-Sin revocación ni sesiones en esta fase: access corto + refresh largo, ambos
-stateless (firma + expiración). **No existe tabla de refresh tokens por diseño.**
+Login tradicional email/password (OAuth fuera de alcance por ahora). El
+**access token es un JWT corto** (15 min) que viaja en cookie `HttpOnly`; el
+**refresh token es opaco** (48 bytes aleatorios, no JWT), se guarda **solo
+hasheado (SHA-256)** y se rota en cada refresh. Cada login crea una
+`AuthSession` (una por dispositivo/navegador), lo que habilita multisesión y
+revocación inmediata.
 
 ```text
-POST /auth/register   → Set-Cookie: accessToken, refreshToken + { user }   (201; 409 si el email existe)
-POST /auth/login      → Set-Cookie: accessToken, refreshToken + { user }   (200; 401 credencial inválida)
-POST /auth/refresh    → lee Cookie: refreshToken; rota el par + { user }   (200; 401 refresh inválido/ausente)
-GET  /auth/me         → AccessPayload                                      (protegida; sonda del guard)
+POST   /auth/register              → Set-Cookie access+refresh + { user }        (201; 409 si el email existe)
+POST   /auth/login                 → Set-Cookie access+refresh + { user }        (200; 401 credencial inválida; body: rememberMe?)
+POST   /auth/refresh               → lee Cookie refresh; rota el par + { user }  (200; 401 refresh inválido/reusado/ausente)
+POST   /auth/logout                → revoca la sesión y borra cookies            (204; público e idempotente)
+GET    /auth/me                    → SafeUser                                    (protegida; sonda del guard)
+GET    /auth/sessions              → AuthSessionView[]                           (protegida; marca la actual)
+DELETE /auth/sessions/:sessionId   → revoca una sesión propia                    (204; si es la actual, borra cookies)
+POST   /auth/sessions/revoke-others→ cierra todas menos la actual                (204)
 ```
 
 Capas (`src/modules/auth/`):
 
-- `domain/` — entidad `User` pura (interfaces + `toSafeUser`; sin clases por
-  decisión documentada abajo), errores propios, puertos con `Symbol()`
-  (`USERS_REPOSITORY`, `PASSWORD_HASHER`, `TOKEN_ISSUER`).
-- `application/` — casos de uso `Register` / `Login` / `Refresh`. Puros:
-  dependen solo de puertos. Mensaje único ante email inexistente o password
-  incorrecto.
-- `infrastructure/` — `PrismaUsersRepository` (vía `PrismaService.client`,
-  mapea el rol en el borde), `Argon2PasswordHasher`, `JwtTokenIssuer`
-  (secretos separados + campo `type` anti-confusión), `JwtAuthGuard` global
-  (sin passport, a propósito) con opt-out `@Public()`.
+- `domain/` — entidades puras `User` y `AuthSession` (interfaces +
+  `toSafeUser`; sin clases por decisión documentada abajo), errores propios y
+  puertos con `Symbol()`: `USERS_REPOSITORY`, `PASSWORD_HASHER`,
+  `TOKEN_ISSUER` (access JWT), `REFRESH_TOKEN_SERVICE` (emisión/hash del
+  refresh opaco), `AUTH_SESSIONS_REPOSITORY` y `SESSION_ISSUER`.
+- `application/` — casos de uso puros que dependen solo de puertos:
+  `Register` / `Login` / `Refresh` / `Logout` / `GetMe` /
+  `ListAuthSessions` / `RevokeAuthSession` / `RevokeOtherSessions`, más
+  `AuthSessionIssuer` (crea la sesión y emite el par en login/registro).
+  Mensaje único ante email inexistente o password incorrecto.
+- `infrastructure/` — `PrismaUsersRepository` y
+  `PrismaAuthSessionsRepository` (rotación transaccional, detección de reuso,
+  revocación), `Argon2PasswordHasher`, `JwtTokenIssuer` (firma/verifica el
+  access con `sub`, `email`, `role`, `sid`), `CryptoRefreshTokenService`
+  (random + SHA-256), `JwtAuthGuard` global (sin passport, a propósito) con
+  opt-out `@Public()`.
 - `presentation/` — controller delgado (sin try-catch), schemas Zod
-  (`register` / `login` / `refresh`), `@CurrentUser()`.
+  (`register` / `login` / `refresh`), `@CurrentUser()` y fijado/borrado de
+  cookies.
 
 Traducción dominio→HTTP centralizada en `src/shared/filters.ts`
 (`DomainExceptionFilter`, global vía `APP_FILTER`). Compartidos transversales
 en `src/shared/`: `errors.ts`, `decorators.ts`, `filters.ts`, `env-file-path.ts`.
 Regla de dirección: **`src/shared/` nunca importa de `src/modules/`.**
 
-## 2. Flujo de rotación JWT (stateless, por cookies HttpOnly)
+## 2. Flujo de autenticación (explicación simple)
 
-Decisión de seguridad: los tokens **jamás van en el JSON** (un token en el
-cuerpo queda expuesto a XSS vía JS). Viajan en cookies `HttpOnly` (`Secure`
-solo en producción, `SameSite=Lax`, `Path=/`, `Max-Age` = expiración del JWT),
-fijadas por el controller y leídas por el guard / endpoint de refresh.
-Nombres centralizados en `infrastructure/auth-cookies.ts`.
+**Idea general:** el access JWT es un pase corto que dice “este usuario hizo
+login en esta sesión”. El refresh es una llave larga y opaca que solo sirve
+para pedir un pase nuevo. El servidor guarda la sesión y el hash de la llave,
+así que puede cortar el acceso cuando quiera.
 
 ```text
-1. Registro/login ──→ Set-Cookie: accessToken (15 min) + refreshToken (7 días)
-                      + cuerpo { user } (sin tokens, sin passwordHash)
-2. Navegación ──→ el navegador adjunta Cookie: accessToken solo;
-                  el guard lo verifica y expone request.user
-3. Expira el access ──→ POST /auth/refresh (sin cuerpo: la cookie
-                       refreshToken viaja sola) ──→ verifica firma +
-                       expiración + campo type=refresh ──→ Set-Cookie con
-                       par NUEVO (rotación) + { user }
-4. Refresh inválido/ausente ──→ 401 (mismo error, sin revelar causa)
+1. LOGIN
+   email + password ──→ verifica argon2id
+                     ──→ crea AuthSession (dispositivo, IP, userAgent, expira)
+                     ──→ genera refresh aleatorio y guarda SOLO su SHA-256
+                     ──→ firma access JWT { sub, email, role, sid } (15 min)
+                     ──→ Set-Cookie HttpOnly: accessToken + refreshToken
+                     ──→ responde { user } (los tokens nunca van en el JSON)
+
+2. CADA PETICIÓN
+   navegador ── Cookie accessToken ──→ guard
+                                      ├─ verifica firma y expiración
+                                      ├─ lee `sid`
+                                      └─ comprueba en BD que la sesión siga activa
+   Sesión revocada/vencida ──→ 401 (aunque el JWT aún tenga firma válida)
+
+3. EL ACCESS EXPIRA (15 min)
+   frontend recibe 401 ──→ POST /auth/refresh (cookie refresh viaja sola)
+   servidor:
+     ├─ hashea el refresh recibido y lo busca
+     ├─ valida que no esté usado/vencido y que la sesión siga activa
+     ├─ marca el actual como usado y crea el siguiente (rotación)
+     ├─ actualiza lastUsedAt/expiresAt de la sesión
+     └─ firma un access nuevo ──→ Set-Cookie con el par nuevo
+   El frontend reintenta UNA vez la petición original (single-flight: varias
+   peticiones concurrentes comparten el mismo refresh).
+
+4. REUSO DE REFRESH (posible robo)
+   Llega un refresh ya consumido:
+     ├─ dentro de 15 s → se rechaza sin revocar (pestañas concurrentes)
+     └─ después de 15 s → se asume robo: se revoca la sesión completa
+   Como el guard valida `sid` en cada petición, la revocación es inmediata.
+
+5. LOGOUT
+   POST /auth/logout ──→ hashea el refresh y revoca su sesión en BD
+                     ──→ borra ambas cookies
+   Es público para que funcione aunque el access ya haya expirado.
+
+6. MULTISESIÓN
+   Cada login/dispositivo = una AuthSession independiente.
+   GET /auth/sessions lista las activas (marca la actual con el `sid`).
+   DELETE /auth/sessions/:id revoca una propia.
+   POST /auth/sessions/revoke-others cierra todas menos la actual.
 ```
 
-Límites asumidos de esta fase (sin revocación ni sesiones): no hay logout con
-invalidación en servidor (las cookies mueren por expiración) ni detección de
-reuso. Si la tesis los exige después, el punto de extensión es una tabla de
-sesiones (hash del refresh + `revokedAt`) — hoy explícitamente fuera de alcance.
-Nota CSRF: al autenticar por cookie, los POST quedan expuestos a CSRF
+**Cookies.** Los tokens jamás van en el JSON (un token en el cuerpo queda
+expuesto a XSS vía JS). Viajan en cookies `HttpOnly`, `SameSite=Lax`,
+`Path=/` y `Secure` solo en producción. Con “Mantener sesión activa”
+(`rememberMe: true`) ambas cookies son persistentes (`Max-Age`: access 15 min,
+refresh 7 días por default); sin él son cookies de sesión y mueren al cerrar
+el navegador. El registro crea una sesión no persistente. Nombres y opciones
+centralizados en `infrastructure/auth-cookies.ts`.
+
+**Limpieza.** Las sesiones vencidas del usuario se eliminan de forma
+oportunista en login/registro (`deleteExpiredForUser`); no hay cron en esta
+fase. La ventana de gracia de refresh concurrentes es de 15 s.
+
+**CSRF.** Al autenticar por cookie, los POST quedan expuestos a CSRF
 cross-site; `SameSite=Lax` lo mitiga y los tokens CSRF quedan pendientes si el
-jurado los exige. Frontend (`docs/frontend.md`): `fetch` con
-`credentials: 'include'`.
-
-### Plan futuro — patrón B (access en memoria + refresh opaco con tabla)
-
-Si la tesis exige logout con invalidación, multi-sesión o detección de robo,
-la evolución es el patrón estándar para SPAs (no un híbrido tibio):
-
-1. Modelo `RefreshToken` en Prisma: `userId`, `tokenHash` (SHA-256 del valor;
-   jamás el token en claro), `expiresAt`, `revokedAt?`, `replacedByTokenId?`,
-   `userAgent?`, `ip?`.
-2. Refresh **opaco** (aleatorio, no JWT): con tabla de por medio, la firma
-   stateless no aporta nada; la revocación es un lookup.
-3. Rotación con detección de reuso: cada refresh consume el viejo y emite uno
-   nuevo; reusar un token consumido = robo → revocar la familia entera.
-4. Frontend: access en memoria + Bearer manual, interceptor 401 → refresh
-   silencioso → reintento; refresh silencioso al boot.
-5. Alcance explícito hoy: **fuera** (sin revocación ni sesiones). Este plan solo
-   se activa por decisión de alcance, con su migración y tests correspondientes.
-
+jurado los exige. Frontend (`docs/frontend.md`): axios con
+`withCredentials: true`.
 **Decisión argon2id sobre bcrypt (punto defendible en tesis):** bcrypt es lento
 a propósito pero no es memory-hard (expuesto a GPU/ASIC) y trunca a 72 bytes;
 argon2id es la primera recomendación OWASP para hashing de contraseñas
@@ -98,14 +135,15 @@ ceremonia. Revisitar cuando una entidad necesite métodos
 
 ## 3. Contratos del api
 
-1. **Secretos JWT son propiedad del api** (`JWT_ACCESS_SECRET`,
-   `JWT_REFRESH_SECRET`, opcionales `JWT_ACCESS_EXPIRES_IN_SECONDS=900` y
-   `JWT_REFRESH_EXPIRES_IN_SECONDS=604800`). Viven en `apps/api/.env`, que
-   carga el `ConfigModule` propio de Nest (`isGlobal`, ruta anclada al package
-   root en `src/shared/env-file-path.ts` — independiente del CWD en dev,
-   `dist/` y tests; sin `dotenv` como dependencia directa). `DATABASE_URL`
-   sigue siendo exclusiva de `packages/database`. Variables reales siempre
-   ganan. Validación de forma con Zod en la factoría de opciones.
+1. **Secretos JWT son propiedad del api** (`JWT_ACCESS_SECRET`, opcionales
+   `JWT_ACCESS_EXPIRES_IN_SECONDS=900` y `JWT_REFRESH_EXPIRES_IN_SECONDS=604800`;
+   este último es el TTL del refresh opaco y de la sesión, no de un JWT).
+   Viven en `apps/api/.env`, que carga el `ConfigModule` propio de Nest
+   (`isGlobal`, ruta anclada al package root en `src/shared/env-file-path.ts` —
+   independiente del CWD en dev, `dist/` y tests; sin `dotenv` como dependencia
+   directa). `DATABASE_URL` sigue siendo exclusiva de `packages/database`.
+   Variables reales siempre ganan. Validación de forma con Zod en la factoría
+   de opciones. `JWT_REFRESH_SECRET` ya no existe: el refresh no se firma.
 2. **Validación Zod-first (NestJS v12):** schemas en `@Body({ schema })` +
    `StandardSchemaValidationPipe` como `APP_PIPE` en `AppModule` (aplica igual
    en prod que en tests, que no pasan por `main.ts`).

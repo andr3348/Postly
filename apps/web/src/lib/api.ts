@@ -31,6 +31,13 @@ interface RetriableConfig extends AxiosRequestConfig {
   _retried?: boolean;
 }
 
+/**
+ * Evento de sesión irrecuperable (refresh inválido o revocado desde otro
+ * dispositivo). `features/auth/session` lo escucha para limpiar el usuario
+ * local y volver al login.
+ */
+export const SESSION_EXPIRED_EVENT = 'postly:session-expired';
+
 const client = axios.create({
   baseURL: '/api',
   withCredentials: true,
@@ -38,8 +45,34 @@ const client = axios.create({
 });
 
 /**
+ * Single-flight: si diez peticiones reciben 401 a la vez, todas esperan al
+ * MISMO refresh. Sin esto, cada una rotaría el refresh token y las perdedoras
+ * de la carrera quedarían con un token ya consumido.
+ */
+let refreshInFlight: Promise<void> | null = null;
+
+function refreshSession(): Promise<void> {
+  if (refreshInFlight === null) {
+    refreshInFlight = client
+      .post('/auth/refresh')
+      .then(() => undefined)
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
+}
+
+function notifySessionExpired(): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  }
+}
+
+/**
  * Refresh-on-401: ante 401 intenta `POST /auth/refresh` (la cookie viaja
  * sola) y reintenta UNA vez. Sin bucles: el refresh nunca se reintenta.
+ * Si el refresh falla, la sesión es irrecuperable y se avisa a la app.
  */
 client.interceptors.response.use(
   (response) => response,
@@ -52,8 +85,9 @@ client.interceptors.response.use(
       throw error;
     }
     try {
-      await client.post('/auth/refresh');
+      await refreshSession();
     } catch {
+      notifySessionExpired();
       throw error;
     }
     const retry: RetriableConfig = { ...original, _retried: true };

@@ -29,6 +29,7 @@ Brand 1 ──N Publication 1 ──N PublicationTarget 1 ──N TargetMetric
 Brand 1 ──N ConnectedAccount
 User  1 ──N Publication (como creador)
 User  1 ──N Publication (como aprobador)
+User  1 ──N AuthSession 1 ──N RefreshToken
 ```
 
 **Tablas.**
@@ -45,6 +46,16 @@ User  1 ──N Publication (como aprobador)
   Relaciones renombradas: `createdPublications` (lo que redactó) y
   `approvedPublications` (lo que aprobó); las cuentas conectadas se movieron a
   `Brand`. Índice `[role]`.
+- `AuthSession` — una fila por login/dispositivo (multisesión): `userId`,
+  `persistent` (eligió “Mantener sesión activa”), `userAgent`/`ip` acotados,
+  `expiresAt`, `lastUsedAt`, `revokedAt` (NULL = activa), `createdAt`/`updatedAt`.
+  Índices `[userId, revokedAt]` (listar activas) y `[expiresAt]` (limpieza).
+- `RefreshToken` — cadena de refresh de una sesión: `sessionId`, `tokenHash`
+  **único** (SHA-256; el token en claro nunca se guarda), `expiresAt`,
+  `usedAt` (rotación), `replacedByTokenId` (enlace al siguiente, único) y
+  `createdAt`. Cada refresh consume el actual y crea el siguiente; reusar uno
+  fuera de la ventana de gracia revoca la `AuthSession`. Índices
+  `[sessionId]` y `[expiresAt]`.
 - `Publication` — pieza de contenido **por marca** (`brandId` requerido) +
   trazabilidad de IA. Guarda `originalPrompt`
   (lo que escribió marketing), `systemPrompt` (plantilla de tono por canal,
@@ -95,13 +106,15 @@ User  1 ──N Publication (como aprobador)
   Analytics (ver `docs/frontend.md`).
 
 **Reglas de integridad:** cascadas `Brand → Publication → PublicationTarget →
-TargetMetric`, `Brand → ConnectedAccount` y `User → Publication` (creador)
+TargetMetric`, `Brand → ConnectedAccount`, `User → AuthSession → RefreshToken`
+y `User → Publication` (creador)
 (`onDelete: Cascade`); aprobación con `SET NULL` (borrar un usuario no borra
 lo que aprobó); índice `[userId, status]`
 (bandeja por estado) e índice `[publicationTargetId, capturedAt]` (series
 temporales).
 
-**Cobertura de requisitos:** roles + credenciales para auth ✓, multi-marca con
+**Cobertura de requisitos:** roles + credenciales para auth ✓, multisesión con
+refresh rotatorio y revocación ✓, multi-marca con
 contexto IA por marca ✓, trazabilidad de
 prompts/modelos/tokens ✓, flujo de estados para n8n (con aprobación
 `PENDING_APPROVAL` y `dispatchedAt`) ✓, tokens OAuth por marca y plataforma
@@ -128,6 +141,9 @@ a NOT NULL, SQL manual de 2 líneas; requirió backfill de la fila DRAFT seed y
   los targets existentes quedan `FEED` por el default).
 + `prisma/migrations/20261021112955_add_publication_title/` (`Publication.title`
   opcional, SQL manual de 1 línea; las filas existentes quedan en NULL).
++ `prisma/migrations/20261023120000_auth_sessions/` (`AuthSession` +
+  `RefreshToken`: multisesión, refresh opaco hasheado y rotación; aplicada con
+  `migrate deploy`).
 El seed deja 1 admin (hash argon2id real desde `SEED_ADMIN_*`: único bootstrap
 del rol ADMIN, pues `register` siempre crea MARKETING) + 1 marca + 1 usuario
 marketing (hash real desde `SEED_MARKETING_PASSWORD`) + 1 publicación PUBLISHED

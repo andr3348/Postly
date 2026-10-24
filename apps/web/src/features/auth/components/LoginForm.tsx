@@ -21,7 +21,7 @@ export function LoginForm() {
     e.preventDefault();
     setErrorMsg("");
 
-    const parsed = loginSchema.safeParse({ email, password });
+    const parsed = loginSchema.safeParse({ email, password, rememberMe });
     if (!parsed.success) {
       setErrorMsg(parsed.error.issues[0]?.message ?? "Datos inválidos");
       return;

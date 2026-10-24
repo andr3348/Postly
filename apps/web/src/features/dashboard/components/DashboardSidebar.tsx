@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { logoutAction } from "@/features/auth/actions";
+import { logout } from "@/features/auth/api";
+import { clearAuthCookiesAction } from "@/features/auth/actions";
 import { ROLE_LABEL } from "@/features/auth/role-label";
 import { clearSessionUser, useSessionUser } from "@/features/auth/session";
 import { useTheme } from "@/shared/context/ThemeContext";
@@ -59,14 +60,20 @@ export function DashboardSidebar({
   onCloseMobile,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const user = useSessionUser();
   const [isPending, startTransition] = useTransition();
 
   const handleLogout = () => {
-    clearSessionUser();
-    startTransition(() => {
-      logoutAction();
+    startTransition(async () => {
+      // Revoca la sesión en el backend (refresh incluido) y limpia el estado
+      // local. El server action borra las cookies aunque la API no responda.
+      await logout();
+      await clearAuthCookiesAction();
+      clearSessionUser();
+      router.replace("/login");
+      router.refresh();
     });
   };
 

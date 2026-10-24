@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EmailAlreadyTakenError } from '../../../shared/errors.js';
-import { toSafeUser, type SafeUser } from '../domain/user.entity.js';
+import type { AuthResult } from '../domain/auth-session.entity.js';
 import {
   USERS_REPOSITORY,
   type UsersRepository,
@@ -10,32 +10,28 @@ import {
   type PasswordHasher,
 } from '../domain/ports/password-hasher.port.js';
 import {
-  TOKEN_ISSUER,
-  type AuthTokens,
-  type TokenIssuer,
-} from '../domain/ports/token-issuer.port.js';
+  SESSION_ISSUER,
+  type SessionIssuer,
+} from '../domain/ports/session-issuer.port.js';
 
 export interface RegisterInput {
   readonly email: string;
   readonly name: string;
   readonly password: string;
+  readonly userAgent: string | null;
+  readonly ip: string | null;
 }
 
-export interface RegisterOutput {
-  readonly user: SafeUser;
-  readonly tokens: AuthTokens;
-}
-
-/** Registra un usuario con rol MARKETING y emite su primer par de tokens. */
+/** Registra un usuario MARKETING y crea su primera sesión. */
 @Injectable()
 export class RegisterUseCase {
   constructor(
     @Inject(USERS_REPOSITORY) private readonly users: UsersRepository,
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
-    @Inject(TOKEN_ISSUER) private readonly issuer: TokenIssuer,
+    @Inject(SESSION_ISSUER) private readonly sessions: SessionIssuer,
   ) {}
 
-  async execute(input: RegisterInput): Promise<RegisterOutput> {
+  async execute(input: RegisterInput): Promise<AuthResult> {
     const existing = await this.users.findByEmail(input.email);
     if (existing !== null) throw new EmailAlreadyTakenError(input.email);
 
@@ -45,7 +41,11 @@ export class RegisterUseCase {
       name: input.name,
       passwordHash,
     });
-    const tokens = await this.issuer.issuePair(user);
-    return { user: toSafeUser(user), tokens };
+    return this.sessions.issue(user, {
+      // Sin "Mantener sesión activa" en el registro: cookie de sesión.
+      persistent: false,
+      userAgent: input.userAgent,
+      ip: input.ip,
+    });
   }
 }

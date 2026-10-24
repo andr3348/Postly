@@ -9,6 +9,8 @@ import { z } from 'zod';
 export const loginSchema = z.object({
   email: z.email('Correo inválido').max(254),
   password: z.string().min(1, 'Contraseña requerida').max(128),
+  // Cookie persistente (7 días) vs cookie de sesión (muere al cerrar el navegador).
+  rememberMe: z.boolean().default(false),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

@@ -43,6 +43,61 @@ export async function getMe(): Promise<AuthUser> {
   }
 }
 
+/** Sesión de login de un dispositivo (GET /auth/sessions). */
+export interface AuthSessionView {
+  readonly id: string;
+  readonly current: boolean;
+  readonly persistent: boolean;
+  readonly userAgent: string | null;
+  readonly ip: string | null;
+  readonly createdAt: string;
+  readonly lastUsedAt: string;
+  readonly expiresAt: string;
+}
+
+export async function listAuthSessions(): Promise<AuthSessionView[]> {
+  try {
+    return await apiJson<AuthSessionView[]>('/auth/sessions');
+  } catch (error) {
+    throw toSpanish(error, 'No se pudieron cargar las sesiones');
+  }
+}
+
+/**
+ * Revoca una sesión concreta. Si es la actual, el backend además borra las
+ * cookies: el llamador debe limpiar el estado local y volver al login.
+ */
+export async function revokeAuthSession(sessionId: string): Promise<void> {
+  try {
+    await apiJson<void>(`/auth/sessions/${encodeURIComponent(sessionId)}`, {
+      method: 'DELETE',
+    });
+  } catch (error) {
+    throw toSpanish(error, 'No se pudo cerrar la sesión');
+  }
+}
+
+/** Cierra todas las sesiones del usuario menos la actual. */
+export async function revokeOtherAuthSessions(): Promise<void> {
+  try {
+    await apiJson<void>('/auth/sessions/revoke-others', { method: 'POST' });
+  } catch (error) {
+    throw toSpanish(error, 'No se pudieron cerrar las otras sesiones');
+  }
+}
+
+/**
+ * Logout con revocación en servidor. Es best-effort: aunque la red falle, el
+ * frontend limpia su estado local y el usuario vuelve al login.
+ */
+export async function logout(): Promise<void> {
+  try {
+    await apiJson<void>('/auth/logout', { method: 'POST' });
+  } catch {
+    // La sesión local se limpia igualmente en el llamador.
+  }
+}
+
 function toSpanish(error: unknown, fallback: string): Error {
   if (error instanceof ApiError) {
     if (error.status === 401) return new Error('Credenciales inválidas');

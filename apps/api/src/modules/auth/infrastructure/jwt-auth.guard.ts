@@ -7,6 +7,10 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../../../shared/decorators.js';
+import {
+  AUTH_SESSIONS_REPOSITORY,
+  type AuthSessionsRepository,
+} from '../domain/ports/auth-sessions.repository.js';
 import { TOKEN_ISSUER, type TokenIssuer } from '../domain/ports/token-issuer.port.js';
 import {
   AUTH_COOKIES,
@@ -14,15 +18,18 @@ import {
 } from './auth-cookies.js';
 
 /**
- * Guard de autenticación JWT (sin passport, a propósito: menos
- * dependencias para el alcance simple de esta fase).
- * Lee el access token de su cookie HttpOnly y expone `request.user`.
+ * Guard de autenticación JWT (sin passport).
+ * Lee el access token de su cookie HttpOnly, verifica la firma/expiración y
+ * comprueba que la sesión (`sid`) siga activa. Esa segunda comprobación es
+ * la que permite revocar una sesión desde otro dispositivo de inmediato.
  * Rutas marcadas con `@Public()` se omiten.
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
     @Inject(TOKEN_ISSUER) private readonly issuer: TokenIssuer,
+    @Inject(AUTH_SESSIONS_REPOSITORY)
+    private readonly sessions: AuthSessionsRepository,
     private readonly reflector: Reflector,
   ) {}
 
@@ -42,6 +49,14 @@ export class JwtAuthGuard implements CanActivate {
     const payload = await this.issuer.verifyAccessToken(token);
     if (payload === null) {
       throw new UnauthorizedException('Invalid or expired token');
+    }
+    const active = await this.sessions.isActive(
+      payload.sessionId,
+      payload.userId,
+      new Date(),
+    );
+    if (!active) {
+      throw new UnauthorizedException('Session revoked or expired');
     }
     request.user = payload;
     return true;

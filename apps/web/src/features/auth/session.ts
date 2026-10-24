@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { SESSION_EXPIRED_EVENT } from "@/lib/api";
 import type { AuthUser } from "./schemas";
 import { getMe } from "./api";
 
@@ -63,6 +64,24 @@ export function clearSessionUser(): void {
     }
   }
   notify();
+}
+
+/**
+ * La sesión dejó de ser válida en el servidor (refresh revocado o vencido).
+ * El cliente HTTP lo avisa; aquí se limpia el usuario local y, si estaba en
+ * el dashboard, se vuelve al login. Es un listener de módulo: `session.ts`
+ * se importa en todos los componentes que muestran al usuario.
+ */
+if (typeof window !== "undefined") {
+  window.addEventListener(SESSION_EXPIRED_EVENT, () => {
+    clearSessionUser();
+    if (window.location.pathname.startsWith("/dashboard")) {
+      // URL absoluta a propósito: recarga completa para descartar estado
+      // cliente de una sesión que el servidor ya no acepta.
+      const loginUrl = new URL("/login", window.location.origin).toString();
+      window.location.assign(loginUrl);
+    }
+  });
 }
 
 function parseUser(raw: string | null): AuthUser | null {

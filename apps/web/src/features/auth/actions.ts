@@ -1,14 +1,15 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 
-export async function logoutAction() {
+/**
+ * Fallback del logout: el backend ya revoca la sesión y borra las cookies al
+ * responder `POST /auth/logout`. Si esa llamada falla por red, este server
+ * action elimina igualmente las cookies HttpOnly para que el navegador no
+ * quede con una sesión "fantasma" que el proxy seguiría aceptando.
+ */
+export async function clearAuthCookiesAction(): Promise<void> {
   const cookieStore = await cookies();
-  
-  // Eliminamos las cookies HttpOnly desde el servidor de Next.js
   cookieStore.delete("accessToken");
   cookieStore.delete("refreshToken");
-
-  redirect("/login");
 }
