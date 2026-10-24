@@ -32,7 +32,7 @@ function buildUseCase(variant = VARIANT) {
   );
   const generate = vi.fn().mockResolvedValue({
     url: 'https://fal.test/media.mp4',
-    model: 'fal-ai/kling-video/v1.6/standard/text-to-video',
+    model: 'fal-ai/kling-video/v3/turbo/standard/text-to-video',
     contentType: 'video/mp4',
   });
   const uploadFromUrl = vi
@@ -81,7 +81,7 @@ describe('GenerateAgentUseCase', () => {
       mediaUrl: 'https://cdn.test/publications/media.mp4',
       mediaType: 'VIDEO',
       modelText: 'gemini-3.8-flash',
-      modelMedia: 'fal-ai/kling-video/v1.6/standard/text-to-video',
+      modelMedia: 'fal-ai/kling-video/v3/turbo/standard/text-to-video',
       tokensUsed: 123,
     });
   });

@@ -17,7 +17,7 @@ function json(body: unknown, status = 200): Response {
 const noSleep = async (): Promise<void> => {};
 
 const IMAGE_MODEL = 'fal-ai/flux/schnell';
-const VIDEO_MODEL = 'fal-ai/kling-video/v1.6/standard/text-to-video';
+const VIDEO_MODEL = 'fal-ai/kling-video/v3/turbo/standard/text-to-video';
 const IMAGE_QUEUE = `https://queue.fal.run/${IMAGE_MODEL}`;
 const IMAGE_STATUS = `${IMAGE_QUEUE}/requests/req-1/status`;
 const IMAGE_RESULT = `${IMAGE_QUEUE}/requests/req-1`;
