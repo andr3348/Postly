@@ -537,8 +537,9 @@ Etapas dentro del mismo request:
    `FAL_POLL_INTERVAL_MS` hasta `COMPLETED` y recién ahí lee el resultado. El
    prompt es el `mediaPrompt` de la variante (o el copy si viene vacío);
    `REEL` → video `9:16`, `FEED` → imagen `1:1`. Defaults:
-   `FAL_IMAGE_MODEL=fal-ai/flux/schnell` y `FAL_VIDEO_MODEL` (Kling
-   text-to-video).
+   `FAL_IMAGE_MODEL=fal-ai/flux/schnell` y
+   `FAL_VIDEO_MODEL=fal-ai/kling-video/v3/turbo/standard/text-to-video`
+   (Kling 3.0 Turbo, text-to-video).
 3. **Storage**: `MediaStorage` (`R2MediaStorage`) descarga la URL temporal de
    fal.ai y la sube a R2 con `@aws-sdk/client-s3` bajo
    `publications/{uuid}.{ext}`, devolviendo la URL pública
@@ -555,7 +556,7 @@ generada y cobrada. El frontend navega a la edición del borrador creado.
 Variables de entorno (solo backend, nunca llegan al navegador):
 
 - fal.ai: `FAL_KEY`, `FAL_IMAGE_MODEL`, `FAL_VIDEO_MODEL`,
-  `FAL_POLL_INTERVAL_MS` (2000) y `FAL_TIMEOUT_MS` (240000).
+  `FAL_POLL_INTERVAL_MS` (2000) y `FAL_TIMEOUT_MS` (600000).
 - R2: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
   `R2_BUCKET` y `R2_PUBLIC_BASE_URL` (bucket público de solo lectura).
 
